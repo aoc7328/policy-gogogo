@@ -15,6 +15,7 @@
     "verify:all": "npm run typecheck && npm run verify:html && npm run verify:contract && npm run audit:check"
   },
   "devDependencies": {
+    "jsdom": "^29.0.2",
     "partykit": "latest",
     "typescript": "^5.4.0"
   },
