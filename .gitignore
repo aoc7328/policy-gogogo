@@ -21,6 +21,9 @@ build/
 .DS_Store
 Thumbs.db
 
+# Claude Code local settings (project-shared settings.json is OK to commit)
+.claude/settings.local.json
+
 # Logs
 *.log
 npm-debug.log*
