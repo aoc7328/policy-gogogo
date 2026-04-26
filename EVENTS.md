@@ -532,7 +532,20 @@ Participant events (`player_join`, `buzz_press`, `team_rename`) and presenter ev
 
 ---
 
-## Open Questions / Ambiguities (need user decision before Phase 2)
+## Decisions Locked (2026-04-26)
+
+| # | Decision | Notes |
+|---|---|---|
+| 1 | **Count tiebreak** = "earliest team to reach max count wins" | Server records `ts` for each click; on lock, find the time at which each team first reached its final count, take the min. |
+| 4 | **Purgatory has two trigger paths**, both server-authoritative: (a) BANK draws a `difficulty: 'purgatory'` question naturally; (b) Assistant explicitly arms purgatory before category confirm | Current `S.purgArmed` is client-only — Phase 2 must introduce a server-recognized "arm purgatory" command (likely a new event `arm_purgatory` or a flag inside `category_confirm`). |
+| 11 | **BANK = static JSON files** at `/public/data/insurance-quiz-bank-{easy,medium,hard,hell,purgatory}.json` | Phase 1: all 5 JSONs ship to all clients (assistant + presenter + participant). Server holds a copy too and is authoritative for question selection (`usedIds`, difficulty pool filtering). Server broadcasts only the question `id`; clients resolve from local BANK. **Phase 2-late hardening (optional):** server holds back `model_answer` / sensitive fields until `reveal_answer` fires — clients only get `stem` / `options` / `topic` until then. Phase 1 ships full JSON to keep scope tight. |
+| 12 | **Delete `_mockCountClicksForOtherTeams` / `_mockLightningClicksForOtherTeams` / `_mockAllhandsClicksForOtherTeams`** from assistant.html in Phase 3 | These are demo fallbacks for solo-testing without participants. Once on PartyKit, real participants drive all counts. Removing them avoids a tech-debt branch. |
+
+Other items (★) accepted as proposed: 2, 3, 5, 6, 7, 8, 9, 10, 13.
+
+---
+
+## Open Questions / Ambiguities (resolved above; kept for context)
 
 ### 1. Count mode tiebreak undefined
 - **Issue:** If two or more teams tie at the 5-second mark with identical tap counts, code does not define a tiebreak rule. Currently: index-order (first team in loop wins).
