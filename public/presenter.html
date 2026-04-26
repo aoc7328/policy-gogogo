@@ -1009,10 +1009,14 @@ html, body { background: #080A10; font-family: var(--font-sans); -webkit-font-sm
 <script>
 
 /* ═══════════════════════════════════════════════════════════════
-   房號 / 短網址 (DEMO 階段寫死,實裝時由 PartyKit server 提供)
+   房號 / 短網址 / PartyKit host(三端共用同一組常數命名)
+   - PGG_ROOM_CODE  房間 ID(同時是 PartyKit room name + UI 顯示)
+   - PGG_JOIN_URL   QR Code 中的參賽者邀請連結
+   - PGG_PARTY_HOST PartyKit server host(本機 dev / Phase 5 部署改)
    ═══════════════════════════════════════════════════════════════ */
 const PGG_ROOM_CODE = 'DEMO01';
 const PGG_JOIN_URL = 'https://pgg.app/' + PGG_ROOM_CODE;
+const PGG_PARTY_HOST = 'localhost:1999';
 
 const stage = document.getElementById('stage');
 let currentMode   = null;  // 正式進入的模式
@@ -1372,9 +1376,8 @@ const TYPE_LABELS = {
    - 公開 API:PartyBus.emit(type, payload) / PartyBus.on(type, cb)
    - 主持人端純讀(只 on,不 emit 業務事件)
    ════════════════════════════════════════════════════════════════════ */
-/* PartyKit room name + host(同 assistant.html 設定;Phase 5 部署改 host) */
-const PGG_ROOM_CODE = 'DEMO01';
-const PGG_PARTY_HOST = 'localhost:1999';
+/* PartyKit 連線:roomId / host 來自檔頭的 PGG_ROOM_CODE / PGG_PARTY_HOST,
+   不在此重複宣告(2026-04-27 修:重複 const 會炸 SyntaxError 整段 script 死)。 */
 PartyBus.init({
   role: 'presenter',
   roomId: PGG_ROOM_CODE,

@@ -1188,10 +1188,14 @@ body:has(#stage-login.active) .host-login-btn{display:flex}
 <script>
 
 /* ═══════════════════════════════════════════════════════════════
-   房號 / 短網址 (DEMO 階段寫死,實裝時由 PartyKit server 提供)
+   房號 / 短網址 / PartyKit host(三端共用同一組常數命名)
+   - PGG_ROOM_CODE  房間 ID(同時是 PartyKit room name + UI 顯示)
+   - PGG_JOIN_URL   QR Code 中的參賽者邀請連結
+   - PGG_PARTY_HOST PartyKit server host(本機 dev / Phase 5 部署改)
    ═══════════════════════════════════════════════════════════════ */
 const PGG_ROOM_CODE = 'DEMO01';
 const PGG_JOIN_URL = 'https://pgg.app/' + PGG_ROOM_CODE;
+const PGG_PARTY_HOST = 'localhost:1999';
 
 /* ══ 全域狀態 ══ */
 const G = {
@@ -1373,10 +1377,10 @@ function doLogin() {
   // player_join 命令保險,讓 server 在 query 缺欄位時有備援。
   PartyBus.init({
     role: 'participant',
-    roomId: PGG_ROOM_CODE_P,
+    roomId: PGG_ROOM_CODE,
     name: v,
     team: G.team,
-    host: PGG_PARTY_HOST_P,
+    host: PGG_PARTY_HOST,
   });
   PartyBus.emit('player_join', {
     name: v,
@@ -2253,9 +2257,8 @@ const TYPE_LABELS_P = {
    - 公開 API:PartyBus.emit(type, payload) / PartyBus.on(type, cb)
    - init() 在 doLogin 時呼叫(要等使用者輸入 name + team)
    ════════════════════════════════════════════════════════════════════ */
-/* PartyKit room name + host(同 assistant.html / presenter.html) */
-const PGG_ROOM_CODE_P = 'DEMO01';
-const PGG_PARTY_HOST_P = 'localhost:1999';
+/* PartyKit 連線:roomId / host 來自檔頭的 PGG_ROOM_CODE / PGG_PARTY_HOST,
+   不在此重複宣告(2026-04-27 修:重複 const 會炸 SyntaxError 整段 script 死)。 */
 
 /* 連線狀態 → 既有 .conn-dot 元素(原為純裝飾,Phase 3 接上 WebSocket 狀態)
    - connected:  原綠色脈動(default,清空 inline style)
