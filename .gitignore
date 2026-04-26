@@ -24,6 +24,9 @@ Thumbs.db
 # Claude Code local settings (project-shared settings.json is OK to commit)
 .claude/settings.local.json
 
+# Personal reference files (not part of the build)
+quiz-bank-metadata.json
+
 # Logs
 *.log
 npm-debug.log*

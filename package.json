@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "partykit dev",
     "deploy": "partykit deploy",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "audit:check": "node scripts/audit-check.mjs"
   },
   "devDependencies": {
     "partykit": "latest",
