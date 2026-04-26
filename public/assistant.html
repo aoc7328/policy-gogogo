@@ -665,6 +665,7 @@ input::placeholder{color:var(--ink-3)}
 .cf-btn.danger:hover{background:var(--err-s);border-color:var(--err);color:var(--err)}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script src="lib/partybus.js"></script>
 </head>
 <body>
 <div class="app">
@@ -1070,10 +1071,15 @@ input::placeholder{color:var(--ink-3)}
 <script>
 
 /* ═══════════════════════════════════════════════════════════════
-   房號 / 短網址 (DEMO 階段寫死,實裝時由 PartyKit server 提供)
+   房號 / 短網址 / PartyKit host
+   - PGG_ROOM_CODE  房間 ID(同時是 PartyKit room name + UI 顯示的房號)
+   - PGG_JOIN_URL   QR Code 中的參賽者邀請連結
+   - PGG_PARTY_HOST PartyKit server host(本機 dev 用 localhost:1999;
+                    Phase 5 部署時改成 policy-gogogo.<account>.partykit.dev)
    ═══════════════════════════════════════════════════════════════ */
 const PGG_ROOM_CODE = 'DEMO01';
 const PGG_JOIN_URL = 'https://pgg.app/' + PGG_ROOM_CODE;
+const PGG_PARTY_HOST = 'localhost:1999';
 
 const S={
   mode:null,totalQ:20,spq:5,groups:[],currQ:0,
@@ -1158,79 +1164,47 @@ const BANK_STORAGE_KEY = 'pgg_quiz_bank_v1';
 
 
 /* ════════════════════════════════════════════════════════════════════
-   PartyBus · 跨分頁事件總線(基於 localStorage storage 事件)
-   - 助理(主控)透過 emit() 廣播事件
-   - 主持人/參賽者(讀者)用 on() 訂閱
-   - 同分頁也會觸發(storage 事件不會在自己分頁觸發,所以加 self-dispatch)
-   - 正式版 PartyKit 接好後,把這個換成 party.broadcast 即可
+   PartyBus
+   - 實作位於 client/partybus.ts,bundled 至 /lib/partybus.js,在 <head>
+     被同步載入,於此檔執行前已是 window.PartyBus。
+   - 公開 API 仍是 PartyBus.emit(type, payload) / PartyBus.on(type, cb),
+     業務邏輯呼叫端不需改動。
+   - 額外 API:
+     - PartyBus.init({...})   開啟 WebSocket(本檔在下方呼叫一次)
+     - PartyBus.onStatus(cb)  訂閱 'connecting'|'connected'|'disconnected'
    ════════════════════════════════════════════════════════════════════ */
-/* ════════════════════════════════════════════════════════════════════
-   PartyBus · 跨分頁事件總線
-   主通道:BroadcastChannel(現代瀏覽器,file://也支援良好)
-   後援:localStorage storage 事件(BroadcastChannel 不可用時)
-   兩個機制都會跑,接收端用 ts 去重避免重複觸發
-   正式版 PartyKit 接好後,改成 party.broadcast 即可
-   ════════════════════════════════════════════════════════════════════ */
-const PARTY_BUS_KEY = 'pgg_party_event';
-const PARTY_BUS_CHANNEL = 'pgg_bus';
-const PartyBus = {
-  _listeners: {},
-  _channel: null,
-  _seenTs: new Set(),  // 去重(避免雙通道送達兩次)
-  emit(type, payload) {
-    const event = { type, payload, ts: Date.now() + Math.random() };
-    // 通道 1:BroadcastChannel
-    if (this._channel) {
-      try { this._channel.postMessage(event); } catch (e) {}
+PartyBus.init({
+  role: 'assistant',
+  roomId: PGG_ROOM_CODE,
+  host: PGG_PARTY_HOST,
+});
+
+/* 收到 server 發的私訊 __welcome__ 時,把 controlCode 填到 host-code 顯示位置
+   (覆蓋 initCodes 產生的本地佔位字串)。sessionStorage 已由 adapter 自動處理。 */
+PartyBus.on('__welcome__', payload => {
+  if (payload && typeof payload === 'object' && payload.controlCode) {
+    S.hostCode = payload.controlCode;
+    const el = document.getElementById('host-code');
+    if (el) el.textContent = S.hostCode;
+  }
+});
+
+/* 連線狀態 → 既有 #sts 狀態文字(不新增 DOM 節點)
+   遊戲進行中(已有具體狀態文字)時,只在斷線時覆蓋,避免被連線 OK
+   訊息洗掉真正的遊戲訊息。 */
+function updateConnectionStatus(status) {
+  if (status === 'connecting') {
+    setStatus('連線伺服器中…');
+  } else if (status === 'connected') {
+    const cur = (document.getElementById('sts')?.textContent || '').trim();
+    if (!cur || cur === '等待搶答' || /連線/.test(cur)) {
+      setStatus('已連線伺服器 · 等待搶答');
     }
-    // 通道 2:localStorage(storage 事件 fallback)
-    try { localStorage.setItem(PARTY_BUS_KEY, JSON.stringify(event)); } catch (e) {}
-    // 自己分頁直接 dispatch(這兩個機制都不會在自己分頁觸發)
-    this._seenTs.add(event.ts);
-    this._dispatch(type, payload);
-    if (this._seenTs.size > 100) {
-      // 清舊 ts(保留最新 50 個)
-      this._seenTs = new Set(Array.from(this._seenTs).slice(-50));
-    }
-  },
-  on(type, cb) {
-    if (!this._listeners[type]) this._listeners[type] = [];
-    this._listeners[type].push(cb);
-  },
-  _dispatch(type, payload) {
-    (this._listeners[type] || []).forEach(cb => {
-      try { cb(payload); } catch (e) { console.error(`PartyBus[${type}]`, e); }
-    });
-  },
-  _handleEvent(ev) {
-    if (!ev || !ev.type) return;
-    // 用 ts 去重
-    if (this._seenTs.has(ev.ts)) return;
-    this._seenTs.add(ev.ts);
-    if (this._seenTs.size > 100) {
-      this._seenTs = new Set(Array.from(this._seenTs).slice(-50));
-    }
-    this._dispatch(ev.type, ev.payload);
-  },
-  _init() {
-    // 主通道 BroadcastChannel
-    if (typeof BroadcastChannel !== 'undefined') {
-      try {
-        this._channel = new BroadcastChannel(PARTY_BUS_CHANNEL);
-        this._channel.addEventListener('message', e => this._handleEvent(e.data));
-      } catch (e) {
-        console.warn('BroadcastChannel 不可用,改用 storage fallback');
-      }
-    }
-    // 後援 storage 事件
-    window.addEventListener('storage', e => {
-      if (e.key !== PARTY_BUS_KEY || !e.newValue) return;
-      try { this._handleEvent(JSON.parse(e.newValue)); } catch (err) {}
-    });
-  },
-};
-PartyBus._init();
-window.PartyBus = PartyBus;
+  } else if (status === 'disconnected') {
+    setStatus('⚠ 與伺服器斷線 · 嘗試重新連線中');
+  }
+}
+PartyBus.onStatus(updateConnectionStatus);
 
 /* 診斷工具:在 console 跑 PGG.ping() 測試聯動;另一端會看到 console.log */
 window.PGG = window.PGG || {};
@@ -1315,16 +1289,8 @@ PartyBus.on('team_rename', payload => {
   // 重渲染分組表 + 計分表
   if (typeof renderGroups === 'function') renderGroups();
   if (typeof renderScores === 'function') renderScores();
-
-  // 廣播給其他端(主持人/參賽者各組)同步
-  // 用 score_update 把新組名一起帶過去(若 S.groups 已有)
-  if (S.groups && S.groups.length > 0) {
-    PartyBus.emit('score_update', {
-      scores: S.groups.map((g, i) => ({ idx:i, name:g.name, score:g.score })),
-      changedIdx: null,
-      delta: 0,
-    });
-  }
+  // Phase 3:不再 re-broadcast score_update,server 在收到 team_rename
+  // 後會自己廣播 score_update(payload 帶新組名),所有 client 統一收。
 });
 
 /* 參賽者登入完成 → 助理把該玩家加進對應組的 members + 進退場紀錄 */
@@ -1375,86 +1341,149 @@ PartyBus.on('player_leave', payload => {
   if (typeof renderScores === 'function') renderScores();
 });
 
-/* ── 接收參賽者按下搶答鈕 ────────────────────────────
-   payload: { name, team, ts }
-   依當前 rushSession.mode 處理:
-   - speed:     第一個有效按到的組獲勝
-   - count:     累計該組計數
-   - lightning: 0~3 秒按下淘汰個人;3 秒後第一個有效按到的組獲勝
-   - allhands:  滑動窗口同步集群邏輯
-*/
-PartyBus.on('buzz_press', payload => {
-  const sess = S.rushSession;
-  if (!sess) return;
-  if (sess.winnerLocked) return;
-  if (Date.now() < sess.armedAt) return;  // 還沒 armed,忽略
-  if (!payload?.team) return;
-  // 找出對應的組 idx
-  const teamIdx = (S.groups || []).findIndex(g => g.name === payload.team);
-  if (teamIdx < 0) return;
+/* ════════════════════════════════════════════════════════════════════
+   Server-mirror state listeners
+   ─────────────────────────────────────────────────────────────────────
+   Phase 0 Q-A 紀律:S.rushSession 在 Phase 3 後改為 server 鏡射狀態。
+   - 只能在以下 PartyBus.on(...) listener 內被改寫
+   - 業務邏輯一律 read-only(看 mode/winnerLocked/teamCounts/bestCluster
+     等欄位即可,絕對不要 S.rushSession.xxx = ...)
+   - 助理不再收 buzz_press(那是 participant→server,server 完整仲裁)
+   ════════════════════════════════════════════════════════════════════ */
 
-  if (sess.mode === 'speed') {
-    // 第一個按到的就贏
-    sess.clicks.push({ name: payload.name, team: payload.team, teamIdx, ts: Date.now() });
-    _lockRushWinner(teamIdx);
-  } else if (sess.mode === 'lightning') {
-    // 閃電一按:armedAt 起算,0~3 秒按下淘汰個人;>= 3 秒按下贏
-    const elapsed = Date.now() - sess.armedAt;
-    // 該玩家已經被淘汰過 → 任何後續按下都忽略
-    if (sess.disqualified[teamIdx] && sess.disqualified[teamIdx].has(payload.name)) return;
-    if (elapsed < 3000) {
-      // 0~3 秒淘汰窗口
-      if (!sess.disqualified[teamIdx]) sess.disqualified[teamIdx] = new Set();
-      sess.disqualified[teamIdx].add(payload.name);
-      // 廣播淘汰事件 → 三端 UI 顯示
-      PartyBus.emit('lightning_disqualify', {
-        name: payload.name,
-        team: payload.team,
-        teamIdx,
-        elapsedMs: elapsed,
-      });
+/* server 廣播 start_rush(也包括 random 模式 reveal 結束後的 start_rush) */
+PartyBus.on('start_rush', payload => {
+  S.rushModeActual = payload?.rushMode || S.rushMode;
+  S.rushSession = {
+    mode: S.rushModeActual,
+    armedAt: Date.now() + 3000,    // approximate;authoritative armedAt 在 server
+    winnerLocked: false,
+    clicks: [],
+    teamCounts: {},
+    teamClicks: {},
+    bestCluster: {},
+    lastPressedAt: {},
+    totals: {},
+    disqualified: {},
+  };
+  setPhase('rushing');
+  const label = (typeof RUSH_MODE_LABELS !== 'undefined' && RUSH_MODE_LABELS[S.rushModeActual])
+    || S.rushModeActual;
+  setStatus(`搶答進行中 · ${label} · 主持人倒數中`);
+});
+
+/* server 在 random 模式時先發 rush_reveal,5 秒後才發 start_rush */
+PartyBus.on('rush_reveal', payload => {
+  S.rushModeActual = payload?.rushMode || S.rushModeActual;
+  const label = (typeof RUSH_MODE_LABELS !== 'undefined' && RUSH_MODE_LABELS[S.rushModeActual])
+    || S.rushModeActual;
+  setStatus(`隨機模式揭曉 · ${label} · 5 秒準備時間`);
+});
+
+/* server 每 100ms 廣播 count 模式 tick;鏡射到 S.rushSession 供 UI 取用 */
+PartyBus.on('rush_tick', payload => {
+  if (!S.rushSession || S.rushSession.mode !== 'count') return;
+  if (!Array.isArray(payload?.teamCounts)) return;
+  payload.teamCounts.forEach(t => {
+    S.rushSession.teamCounts[t.idx] = t.count;
+  });
+});
+
+/* server 每 100ms 廣播 allhands 進度;鏡射 bestCluster + currentCluster */
+PartyBus.on('allhands_progress', payload => {
+  if (!S.rushSession || S.rushSession.mode !== 'allhands') return;
+  if (!Array.isArray(payload?.teamProgress)) return;
+  payload.teamProgress.forEach(t => {
+    S.rushSession.bestCluster[t.idx] = {
+      count: t.bestCluster,
+      endTs: null,
+      members: [],
+    };
+    S.rushSession.totals[t.idx] = t.total;
+  });
+});
+
+/* server 廣播淘汰事件;鏡射 disqualified 集合 */
+PartyBus.on('lightning_disqualify', payload => {
+  if (!S.rushSession || S.rushSession.mode !== 'lightning') return;
+  if (!payload || typeof payload.teamIdx !== 'number') return;
+  if (!S.rushSession.disqualified[payload.teamIdx]) {
+    S.rushSession.disqualified[payload.teamIdx] = new Set();
+  }
+  S.rushSession.disqualified[payload.teamIdx].add(payload.name);
+});
+
+/* server 推贏家;鎖定 mirror 並觸發助理 UI */
+PartyBus.on('rush_winner', payload => {
+  if (S.rushSession) S.rushSession.winnerLocked = true;
+  if (!payload || typeof payload.groupIdx !== 'number') return;
+  onRushWinner(payload.groupIdx, payload);
+});
+
+/* server 推 score_update(由 score_adjust / team_rename / game_start 觸發)
+   - 同步 S.groups[i].score 到 server 的權威值
+   - 不重複 flash:本地 adj() 已 optimistic flash 過,這裡只做 reconciliation */
+PartyBus.on('score_update', payload => {
+  if (!payload || !Array.isArray(payload.scores)) return;
+  payload.scores.forEach(s => {
+    const g = S.groups?.[s.idx];
+    if (!g) return;
+    g.score = s.score;
+    if (s.name) g.name = s.name;  // team rename 同步
+  });
+  if (typeof renderScores === 'function') renderScores();
+});
+
+/* server 抽完題後推 question_pick {id, difficulty, framework}
+   - 從本地 BANK 用 id 查到題目內容(content lookup,非抽題)
+   - 更新 currentQuestion / Difficulty / Framework / usedIds
+   - 補完 confirmCategory 留下的 optimistic UI(改 cBtn 文字、cat-hint) */
+PartyBus.on('question_pick', payload => {
+  if (!payload || !payload.id) return;
+  // 本地 BANK lookup(同 presenter.html 的 getQuestionById 邏輯)
+  const dSpec = BANK_SCHEMA.difficulties.find(d => d.prefix === payload.id[0]);
+  const bank = dSpec ? BANK[dSpec.id] : null;
+  const q = (bank?.questions || []).find(x => x.id === payload.id) || null;
+
+  S.currentQuestion = q;
+  S.currentDifficulty = payload.difficulty;
+  S.currentFramework = payload.framework;
+  if (!S.usedIds.has(payload.id)) S.usedIds.add(payload.id);
+  if (!S.askedQuestions.find(x => x.id === payload.id)) {
+    S.askedQuestions.push({
+      ...(q || { id: payload.id }),
+      _difficulty: payload.difficulty,
+      _framework: payload.framework,
+    });
+  }
+
+  const isPurgatory = (payload.difficulty === 'purgatory');
+  const cBtn = document.getElementById('cat-confirm-btn');
+  if (cBtn) {
+    cBtn.textContent = isPurgatory ? '✓ 煉獄降臨' : '✓ 已選定';
+  }
+  const hint = document.getElementById('cat-hint');
+  if (hint) {
+    if (isPurgatory) {
+      hint.innerHTML = `<span class="purg">◆ 命運降臨煉獄 · ${payload.id}</span>`;
     } else {
-      // >= 3 秒,有效按下 → 贏
-      sess.clicks.push({ name: payload.name, team: payload.team, teamIdx, ts: Date.now() });
-      _lockRushWinner(teamIdx);
-    }
-  } else if (sess.mode === 'count') {
-    // 累加該組計數;不 lock,等 5 秒結束才判定
-    sess.teamCounts[teamIdx] = (sess.teamCounts[teamIdx] || 0) + 1;
-  } else if (sess.mode === 'allhands') {
-    // 全組到位(滑動窗口演算法):
-    // 1. 個人冷卻 1 秒檢查
-    // 2. 紀錄這次按下
-    // 3. 用滑動窗口 0.5 秒找出該組此刻最佳同步集群,更新 bestCluster
-    const now = Date.now();
-    if (!sess.lastPressedAt[teamIdx]) sess.lastPressedAt[teamIdx] = {};
-    const lastTs = sess.lastPressedAt[teamIdx][payload.name];
-    if (lastTs != null && (now - lastTs) < 1000) return;  // 冷卻中,忽略
-    sess.lastPressedAt[teamIdx][payload.name] = now;
-    if (!sess.teamClicks[teamIdx]) sess.teamClicks[teamIdx] = [];
-    sess.teamClicks[teamIdx].push({ name: payload.name, ts: now });
-    // 滑動窗口:從 [now-500, now] 找出有按過的不重複玩家(以最後一次按為準)
-    const winStart = now - 500;
-    const seenMembers = new Map();  // name -> ts(該人在窗口內最後一次按下時間)
-    for (const c of sess.teamClicks[teamIdx]) {
-      if (c.ts >= winStart && c.ts <= now) {
-        seenMembers.set(c.name, c.ts);
-      }
-    }
-    const clusterCount = seenMembers.size;
-    const cluster = sess.bestCluster[teamIdx] || { count: 0, endTs: null, members: [] };
-    // 比較:人數多者優先;同人數比 endTs(早者贏)
-    const isBetter =
-      clusterCount > cluster.count ||
-      (clusterCount === cluster.count && (cluster.endTs == null || now < cluster.endTs));
-    if (isBetter) {
-      sess.bestCluster[teamIdx] = {
-        count: clusterCount,
-        endTs: now,
-        members: Array.from(seenMembers.keys()),
-      };
+      const btn = document.querySelector(`.cat-btn[data-fid="${S.currentCat}"]`);
+      const name = btn?.querySelector('.cb-name')?.textContent || S.currentCat || '';
+      hint.innerHTML = `已拍板 · <span class="accent">${S.currentCat || ''} ${name}</span> · ${payload.id}`;
     }
   }
+  setPhase('answering');
+  setStatus(isPurgatory
+    ? `命運降臨 · 抽到煉獄題 · ${payload.id}`
+    : `抽到 ${payload.id}`);
+});
+
+/* server 廣播煉獄降臨/結束特效訊號 — assistant 端跑既有動畫函式 */
+PartyBus.on('purgatory_summon', () => {
+  if (typeof window.summonPurgatory === 'function') window.summonPurgatory();
+});
+PartyBus.on('purgatory_end', () => {
+  if (typeof window.endPurgatory === 'function') window.endPurgatory();
 });
 
 /* 診斷工具:看題庫結構是否健康 */
@@ -1995,12 +2024,8 @@ function startGame(){
     groups: S.groups.map(g => ({ name: g.name })),
     rushMode: S.rushMode,
   });
-  // 初始化分數列(全部 0 分)
-  PartyBus.emit('score_update', {
-    scores: S.groups.map((g, idx) => ({ idx, name: g.name, score: g.score })),
-    changedIdx: null,
-    delta: 0,
-  });
+  // Phase 3:不再本地 emit 初始 score_update;server 收到 game_start
+  // 命令後會自己廣播一次 score_update(全 0 baseline)給三端。
   // 進入 idle 狀態(等助理按開始搶答)
   setPhase('idle');
   setStatus('遊戲已開始 · 按「開始搶答」進入下一輪');
@@ -2048,528 +2073,68 @@ function setPhase(p) {
   if (typeof applyTabLock === 'function') applyTabLock();
 }
 
+/* ════════════════════════════════════════════════════════════════════
+   搶答控制 — Phase 3 後 server 接管所有仲裁
+   ─────────────────────────────────────────────────────────────────────
+   助理只送命令,server 廣播事件回來。仲裁邏輯(armed 倒數、模式判定、
+   100ms tick、平手規則、淘汰窗口、滑動窗口、fallback 隨機贏家)全部
+   位於 party/rush/{speed,count,lightning,allhands}.ts。
+   ════════════════════════════════════════════════════════════════════ */
+
 /* 開始搶答(從 idle 進 rushing) */
 function doStartRush() {
   if (S.phase !== 'idle') return;
-  // 新一輪:題目相關狀態歸零
   S.selectedIdx = null;
   S.pendingIdx = null;
   S.currentQuestion = null;
   S.currentDifficulty = null;
   S.currentFramework = null;
-  // 九宮格回到「全 disabled」(等待搶答完成才開放)
   resetCategoryPicker(/*emit=*/false);
   renderScores();
-  // 決定本輪實際搶答模式:若選 random,隨機抽一個非 random 的模式
-  S.rushModeActual = _resolveRushMode(S.rushMode);
-  // 更新 UI「當前」字樣(若是 random,顯示「隨機 → 實際模式」)
+  // UI 顯示「當前模式」(server 在 random 模式會用 rush_reveal 蓋掉)
   const curEl = document.getElementById('rm-current');
   if (curEl) {
-    if (S.rushMode === 'random') {
-      curEl.textContent = `本輪隨機 · ${RUSH_MODE_LABELS[S.rushModeActual]}`;
-    } else {
-      curEl.textContent = `當前 · ${RUSH_MODE_LABELS[S.rushMode]}`;
-    }
+    curEl.textContent = (S.rushMode === 'random')
+      ? `本輪隨機 · 揭曉中…`
+      : `當前 · ${RUSH_MODE_LABELS[S.rushMode] || S.rushMode}`;
   }
-  setPhase('rushing');
-  // 隨機模式:多 5 秒揭曉階段;否則直接 start_rush
-  if (S.rushMode === 'random') {
-    _runRandomReveal(S.rushModeActual, /*rerush=*/false);
-  } else {
-    setStatus(`搶答進行中 · ${RUSH_MODE_LABELS[S.rushModeActual]} · 主持人倒數中`);
-    PartyBus.emit('start_rush', { rushMode: S.rushModeActual });
-    _startRushSession(S.rushModeActual);
-  }
+  setStatus(`已送出開始搶答指令 · ${RUSH_MODE_LABELS[S.rushMode] || S.rushMode}`);
+  PartyBus.emit('start_rush', { rerush: false });
 }
 
-/* 隨機模式:先廣播 rush_reveal 揭曉 5 秒,然後再進入 start_rush 倒數 */
-function _runRandomReveal(actualMode, rerush) {
-  setStatus(`隨機模式揭曉 · ${RUSH_MODE_LABELS[actualMode]} · 5 秒準備時間`);
-  // 第一階段:揭曉(5 秒)
-  PartyBus.emit('rush_reveal', {
-    rushMode: actualMode,
-    revealMs: 5000,
-    rerush: !!rerush,
-  });
-  // 5 秒後切入第二階段:傳統倒數
-  S._rushRevealTimer = setTimeout(() => {
-    if (S.phase !== 'rushing') return;
-    setStatus(`搶答進行中 · ${RUSH_MODE_LABELS[actualMode]} · 主持人倒數中`);
-    PartyBus.emit('start_rush', { rushMode: actualMode, rerush: !!rerush });
-    _startRushSession(actualMode);
-  }, 5000);
-}
-
-/* 解析實際搶答模式(若 random 則從 4 個固定模式隨機抽一個) */
-function _resolveRushMode(m) {
-  if (m !== 'random') return m;
-  const pool = ['speed', 'count', 'lightning', 'allhands'];
-  return pool[Math.floor(Math.random() * pool.length)];
-}
-
-/* 啟動搶答 session(對 rushMode 分流) */
-function _startRushSession(mode) {
-  // 清除可能殘留的計時器
-  _clearRushTimers();
-  // 建立 session
-  S.rushSession = {
-    mode,
-    armedAt: Date.now() + 3000,  // 倒數 3 秒後 armed
-    winnerLocked: false,
-    clicks: [],                  // [{name, team, teamIdx, ts}, ...]
-    teamCounts: {},              // count 模式:每組點擊數累計
-    // allhands 模式專用:
-    teamClicks: {},              // teamIdx -> [{name, ts}, ...] 該組所有按下紀錄
-    bestCluster: {},             // teamIdx -> {count, endTs, members:[...]}
-    lastPressedAt: {},           // teamIdx -> {name -> ts} 個人冷卻檢查
-    totals: {},                  // teamIdx -> 該組總人數
-    // lightning 模式專用:
-    disqualified: {},            // teamIdx -> Set<name> 在 0~3 秒淘汰窗口按下被淘汰的玩家
-  };
-  // allhands:預先建空容器(無低標,單純記錄滑動窗口集群)
-  if (mode === 'allhands') {
-    S.groups.forEach((g, i) => {
-      const total = (g.members && g.members.length) ? g.members.length : 0;
-      S.rushSession.totals[i] = total;
-      S.rushSession.teamClicks[i] = [];
-      S.rushSession.bestCluster[i] = { count: 0, endTs: null, members: [] };
-      S.rushSession.lastPressedAt[i] = {};
-    });
-  }
-  // lightning:預先建立 disqualified 容器
-  if (mode === 'lightning') {
-    S.groups.forEach((g, i) => {
-      S.rushSession.disqualified[i] = new Set();
-    });
-  }
-  // 倒數 3 秒後 armed,然後啟動模式專屬邏輯
-  S._rushArmTimer = setTimeout(() => {
-    if (S.phase !== 'rushing') return;
-    if (mode === 'speed') {
-      // 等第一個 buzz_press 進來判定;沒人按的話 fallback 模擬
-      _scheduleRushFallback(8000);
-    } else if (mode === 'lightning') {
-      // 閃電一按:0~3 秒是淘汰窗口、3 秒後才能贏;fallback 11 秒(寬限期 + 搶答窗)
-      _scheduleRushFallback(11000);
-      // DEMO mock:讓 1-2 個假玩家在淘汰窗口內手賤,1 個玩家在 3.x 秒按到贏
-      _mockLightningClicksForOtherTeams();
-    } else if (mode === 'count') {
-      _runCountSession();
-    } else if (mode === 'allhands') {
-      _runAllhandsSession();
-    }
-  }, 3000);
-}
-
-/* 清除所有搶答 session 計時器 */
-function _clearRushTimers() {
-  ['_rushArmTimer', '_rushFallbackTimer', '_rushCountTimer', '_rushCountTickTimer',
-   '_rushAllhandsTimer', '_rushRevealTimer'].forEach(k => {
-    if (S[k]) { clearTimeout(S[k]); clearInterval(S[k]); S[k] = null; }
-  });
-}
-
-/* DEMO fallback:若無人按,給一段時間後隨機選贏家 */
-function _scheduleRushFallback(ms) {
-  S._rushFallbackTimer = setTimeout(() => {
-    if (S.phase !== 'rushing') return;
-    if (S.rushSession?.winnerLocked) return;
-    // 沒人按 → mock 一個搶贏的組
-    const winnerIdx = Math.floor(Math.random() * S.groups.length);
-    _lockRushWinner(winnerIdx);
-  }, ms);
-}
-
-/* 鎖定搶答結果(speed/lightning/allhands 共用) */
-function _lockRushWinner(idx) {
-  if (!S.rushSession || S.rushSession.winnerLocked) return;
-  S.rushSession.winnerLocked = true;
-  _clearRushTimers();
-  onRushWinner(idx);
-}
-
-/* 狂點奪魁 session:5 秒倒數 + 即時 tick 廣播每組點擊數 + 結束後選最多者 */
-function _runCountSession() {
-  const sess = S.rushSession;
-  // 初始化每組計數
-  S.groups.forEach((g, i) => { sess.teamCounts[i] = 0; });
-  // 廣播一次初始狀態(讓主持人/參賽者準備好計數面板)
-  PartyBus.emit('rush_tick', {
-    mode: 'count',
-    teamCounts: S.groups.map((g, i) => ({ idx: i, name: g.name, count: 0 })),
-    remainingMs: 5000,
-  });
-  // DEMO mock:其他組由模擬玩家在 5 秒內隨機點(讓只有一個參賽者也能看到效果)
-  _mockCountClicksForOtherTeams();
-  // 每 100ms 廣播當前各組計數 + 剩餘時間
-  const startedAt = Date.now();
-  const totalMs = 5000;
-  S._rushCountTickTimer = setInterval(() => {
-    if (S.phase !== 'rushing' || !sess) { clearInterval(S._rushCountTickTimer); return; }
-    const elapsed = Date.now() - startedAt;
-    const remainingMs = Math.max(0, totalMs - elapsed);
-    PartyBus.emit('rush_tick', {
-      mode: 'count',
-      teamCounts: S.groups.map((g, i) => ({ idx: i, name: g.name, count: sess.teamCounts[i] || 0 })),
-      remainingMs,
-    });
-    if (remainingMs <= 0) {
-      clearInterval(S._rushCountTickTimer);
-    }
-  }, 100);
-  // 5 秒後判定:最多點擊組獲勝(平手取最先到達峰值的)
-  S._rushCountTimer = setTimeout(() => {
-    if (S.phase !== 'rushing' || !sess || sess.winnerLocked) return;
-    let maxCount = -1, winnerIdx = 0;
-    S.groups.forEach((g, i) => {
-      const c = sess.teamCounts[i] || 0;
-      if (c > maxCount) { maxCount = c; winnerIdx = i; }
-    });
-    _lockRushWinner(winnerIdx);
-  }, totalMs + 50);  // 多 50ms 緩衝讓最後一波 tick 廣播完
-}
-
-/* DEMO:其他組假玩家在 5 秒內隨機按(模擬多組同時搶) */
-function _mockCountClicksForOtherTeams() {
-  const sess = S.rushSession;
-  if (!sess) return;
-  S.groups.forEach((g, i) => {
-    // 每組分配一個「亂點頻率」(每 50~250ms 點一次,持續 5 秒)
-    const interval = 50 + Math.random() * 200;
-    const stopAt = Date.now() + 5000;
-    const tick = () => {
-      if (S.phase !== 'rushing' || !sess || sess.winnerLocked) return;
-      if (Date.now() >= stopAt) return;
-      sess.teamCounts[i] = (sess.teamCounts[i] || 0) + 1;
-      setTimeout(tick, interval + (Math.random() - 0.5) * 60);
-    };
-    setTimeout(tick, Math.random() * 200);  // 起始隨機延遲
-  });
-}
-
-/* 全組到位 session(滑動窗口演算法)
-   - 8 秒視窗
-   - 每組各自比拼「0.5 秒內最多人同時按下」的最佳集群
-   - 個人冷卻 1 秒(在 buzz_press handler 處理)
-   - 結束時最佳集群人數最多者贏;平手比 endTs 早者
-*/
-function _runAllhandsSession() {
-  const sess = S.rushSession;
-  if (!sess) return;
-  const totalMs = 8000;
-  // 廣播一次初始狀態(讓三端準備好進度面板)
-  _emitAllhandsProgress(totalMs);
-  // DEMO mock:其他組假玩家在 8 秒內按 2-3 輪「3、2、1、按」(各有微差)
-  _mockAllhandsClicksForOtherTeams();
-  // 每 100ms 廣播當前進度
-  const startedAt = Date.now();
-  S._rushCountTickTimer = setInterval(() => {
-    if (S.phase !== 'rushing' || !sess) { clearInterval(S._rushCountTickTimer); return; }
-    if (sess.winnerLocked) { clearInterval(S._rushCountTickTimer); return; }
-    const elapsed = Date.now() - startedAt;
-    const remainingMs = Math.max(0, totalMs - elapsed);
-    _emitAllhandsProgress(remainingMs);
-    if (remainingMs <= 0) clearInterval(S._rushCountTickTimer);
-  }, 100);
-  // 8 秒後判定:取每組 bestCluster.count 最多者;平手比 endTs(早者贏)
-  S._rushAllhandsTimer = setTimeout(() => {
-    if (S.phase !== 'rushing' || !sess || sess.winnerLocked) return;
-    let winnerIdx = 0;
-    let bestCount = -1;
-    let bestEndTs = Infinity;
-    S.groups.forEach((g, i) => {
-      const cluster = sess.bestCluster[i] || { count: 0, endTs: null };
-      const cnt = cluster.count;
-      const endTs = cluster.endTs == null ? Infinity : cluster.endTs;
-      if (cnt > bestCount || (cnt === bestCount && endTs < bestEndTs)) {
-        bestCount = cnt;
-        bestEndTs = endTs;
-        winnerIdx = i;
-      }
-    });
-    _lockRushWinner(winnerIdx);
-  }, totalMs + 50);
-}
-
-/* 廣播 allhands_progress 事件
-   teamProgress 每組:
-   - currentCluster: 0.5 秒內 *當下* 同步集群人數(視覺即時跳動)
-   - bestCluster: 該組目前為止最佳同步集群人數+endTs+members
-   - total: 該組總人數
-*/
-function _emitAllhandsProgress(remainingMs) {
-  const sess = S.rushSession;
-  if (!sess) return;
-  const now = Date.now();
-  PartyBus.emit('allhands_progress', {
-    teamProgress: S.groups.map((g, i) => {
-      // 計算「當下」的滑動窗口集群人數(以 now 為終點往前 0.5 秒)
-      let currentCluster = 0;
-      const winStart = now - 500;
-      const seen = new Set();
-      const clicks = sess.teamClicks[i] || [];
-      for (const c of clicks) {
-        if (c.ts >= winStart && c.ts <= now) seen.add(c.name);
-      }
-      currentCluster = seen.size;
-      const best = sess.bestCluster[i] || { count: 0, endTs: null };
-      return {
-        idx: i,
-        name: g.name,
-        currentCluster,
-        bestCluster: best.count,
-        total: sess.totals[i] || 0,
-      };
-    }),
-    remainingMs,
-  });
-}
-
-/* DEMO:其他組假玩家在 8 秒內按 2-3 輪「3、2、1、按」
-   每輪所有人在很接近的時點按下(±150ms 內 → 在 0.5 秒同步窗口內)
-   個人冷卻 1 秒由 buzz_press handler 自然處理 */
-function _mockAllhandsClicksForOtherTeams() {
-  const sess = S.rushSession;
-  if (!sess) return;
-  S.groups.forEach((g, i) => {
-    let members = (g.members || []).slice();
-    if (members.length === 0) {
-      // 沒組員的組(demo 沒人加入時) → mock 6 人讓視覺看得到
-      members = ['冠瑋','雅婷','建志','珮瑜','凱傑','子涵'];
-      sess.totals[i] = members.length;
-    }
-    // 為每組分配 2 ~ 3 輪同步按下
-    const numRounds = 2 + Math.floor(Math.random() * 2);  // 2 或 3 輪
-    // 每輪的「中心時刻」:平均散布在 0.6 ~ 7.5 秒之間,確保至少 1.1 秒間距(避開冷卻)
-    const roundCenters = [];
-    for (let r = 0; r < numRounds; r++) {
-      const t = 700 + r * (6500 / numRounds) + (Math.random() * 600 - 300);
-      roundCenters.push(t);
-    }
-    // 每輪內每個成員在中心時刻 ±150ms 內按下,但有些人「漏按」(模擬參與度)
-    roundCenters.forEach((center, r) => {
-      members.forEach(name => {
-        // 該人本輪參與機率(80%~95%)
-        if (Math.random() > (0.8 + r * 0.05)) return;
-        const jitter = (Math.random() - 0.5) * 300;  // ±150ms
-        const delay = center + jitter;
-        setTimeout(() => {
-          if (S.phase !== 'rushing' || !sess || sess.winnerLocked) return;
-          // 模擬走 buzz_press handler 的邏輯(冷卻 + 滑動窗口)
-          if (!sess.lastPressedAt[i]) sess.lastPressedAt[i] = {};
-          const lastTs = sess.lastPressedAt[i][name];
-          const now = Date.now();
-          if (lastTs != null && (now - lastTs) < 1000) return;
-          sess.lastPressedAt[i][name] = now;
-          if (!sess.teamClicks[i]) sess.teamClicks[i] = [];
-          sess.teamClicks[i].push({ name, ts: now });
-          // 算當下滑動窗口集群、更新 bestCluster
-          const winStart = now - 500;
-          const seen = new Set();
-          for (const c of sess.teamClicks[i]) {
-            if (c.ts >= winStart && c.ts <= now) seen.add(c.name);
-          }
-          const cnt = seen.size;
-          const cluster = sess.bestCluster[i] || { count: 0, endTs: null, members: [] };
-          if (cnt > cluster.count || (cnt === cluster.count && (cluster.endTs == null || now < cluster.endTs))) {
-            sess.bestCluster[i] = { count: cnt, endTs: now, members: Array.from(seen) };
-          }
-        }, delay);
-      });
-    });
-  });
-}
-
-/* DEMO:閃電一按其他組假玩家 — 模擬人性
-   - 60% 該組「老實派」:在 3.0~3.8 秒內按到(贏家候選)
-   - 40% 該組「手賤派」:在 0.5~2.5 秒內就先按了(被淘汰)
-   只 mock 非真實參賽者所在的組,讓真實玩家的決策有意義 */
-function _mockLightningClicksForOtherTeams() {
-  const sess = S.rushSession;
-  if (!sess || sess.mode !== 'lightning') return;
-  S.groups.forEach((g, i) => {
-    let members = (g.members || []).slice();
-    if (members.length === 0) {
-      members = ['冠瑋','雅婷','建志','珮瑜','凱傑','子涵'];
-    }
-    // 該組第一個老實派的人(60% 機率組存在這種人)
-    const hasObedient = Math.random() < 0.6;
-    if (hasObedient) {
-      const obedient = members[Math.floor(Math.random() * members.length)];
-      const delay = 3000 + Math.random() * 800;  // 3.0~3.8 秒按到
-      setTimeout(() => {
-        if (S.phase !== 'rushing' || !sess || sess.winnerLocked) return;
-        // 模擬走 buzz_press 邏輯
-        const elapsed = Date.now() - sess.armedAt;
-        if (elapsed < 3000) {
-          // 還沒到時候,但本來就排程在 3 秒後...理論上不會走到這
-          return;
-        }
-        sess.clicks.push({ name: obedient, team: g.name, teamIdx: i, ts: Date.now() });
-        _lockRushWinner(i);
-      }, delay);
-    }
-    // 1-2 個「手賤派」,在 0.5~2.5 秒內按下被淘汰
-    const numImpatient = 1 + Math.floor(Math.random() * 2);
-    const impatientPicks = [...members].sort(() => 0.5 - Math.random()).slice(0, numImpatient);
-    impatientPicks.forEach(name => {
-      const delay = 500 + Math.random() * 2000;  // 0.5~2.5 秒
-      setTimeout(() => {
-        if (S.phase !== 'rushing' || !sess || sess.winnerLocked) return;
-        if (!sess.disqualified[i]) sess.disqualified[i] = new Set();
-        if (sess.disqualified[i].has(name)) return;
-        sess.disqualified[i].add(name);
-        PartyBus.emit('lightning_disqualify', {
-          name, team: g.name, teamIdx: i,
-          elapsedMs: Date.now() - sess.armedAt,
-        });
-      }, delay);
-    });
-  });
-}
-
-/* 重新搶答(回到 rushing,清掉勝者) */
+/* 重新搶答 */
 function doReRush() {
   if (S.phase !== 'rushing' && S.phase !== 'won' && S.phase !== 'picking') return;
-  // 清掉舊 session 的 timer + 狀態
-  _clearRushTimers();
-  S.rushSession = null;
+  _clearLocalRushUITimers();
   S.selectedIdx = null;
   S.pendingIdx = null;
   resetCategoryPicker(false);
   renderScores();
-  // 重新搶答時也重新解析 random(讓重抽一輪可能跑出不同模式)
-  S.rushModeActual = _resolveRushMode(S.rushMode);
-  setPhase('rushing');
-  // 隨機模式:多 5 秒揭曉階段
-  if (S.rushMode === 'random') {
-    _runRandomReveal(S.rushModeActual, /*rerush=*/true);
-  } else {
-    setStatus(`重新搶答 · ${RUSH_MODE_LABELS[S.rushModeActual]} · 主持人倒數中`);
-    PartyBus.emit('start_rush', { rerush: true, rushMode: S.rushModeActual });
-    _startRushSession(S.rushModeActual);
-  }
+  setStatus(`已送出重新搶答指令 · ${RUSH_MODE_LABELS[S.rushMode] || S.rushMode}`);
+  PartyBus.emit('start_rush', { rerush: true });
 }
 
-/* 搶答結果回呼(系統判定 / DEMO 模擬產生) */
-function onRushWinner(idx) {
+/* 清前端 UI 計時器(原 _clearRushTimers,Phase 3 改名:server 接手仲裁
+   timer 後,本機只剩 winner 卡片動畫的 setTimeout 需要清掉)。 */
+function _clearLocalRushUITimers() {
+  ['_winnerCardTimer'].forEach(k => {
+    if (S[k]) { clearTimeout(S[k]); S[k] = null; }
+  });
+}
+
+/* server 推 rush_winner 後的助理 UI 更新 — 由 PartyBus.on('rush_winner')
+   觸發,payload 是 server 給的完整詳細資料(不再從本地 sess 推算)。 */
+function onRushWinner(idx, _serverPayload) {
   S.selectedIdx = idx;
   setPhase('won');
   renderScores();
   const g = S.groups[idx];
   setStatus(`${g?.name || ''} 搶答成功 · 點九宮格選分類`);
-  // 收集模式特定的詳細資料
-  const details = _buildRushWinnerDetails(idx);
-  // 廣播給主持人/參賽者:winner 頁顯示
-  console.log('[PGG] rush_winner emitted at', Date.now(), 'mode:', details.rushMode);
-  PartyBus.emit('rush_winner', {
-    groupIdx: idx,
-    groupName: g?.name,
-    ...details,
-  });
-  // 給觀眾足夠時間看 winner 頁(3.5 秒),然後進九宮格
-  setTimeout(() => {
+  // 給觀眾足夠時間看 winner 頁(3.5 秒),然後通知 server 進九宮格階段
+  S._winnerCardTimer = setTimeout(() => {
     if (S.phase !== 'won') return;
-    console.log('[PGG] enter_category emitted at', Date.now());
     PartyBus.emit('enter_category', {});
   }, 3500);
-}
-
-/* 依當前 rushSession.mode 蒐集 winner 詳細資料(rushMode/personName/elapsedMs/clickCount/runners-up) */
-function _buildRushWinnerDetails(winnerIdx) {
-  const sess = S.rushSession;
-  const mode = sess?.mode || S.rushModeActual || 'speed';
-  const winnerGroup = S.groups[winnerIdx];
-  const teamMembers = (winnerGroup?.members || []).slice();
-
-  // 從 sess.clicks 找出該組第一個按下的人(speed/lightning 的 MVP)
-  const findFirstPresser = () => {
-    if (!sess?.clicks) return null;
-    const c = sess.clicks.find(x => x.teamIdx === winnerIdx);
-    return c?.name || null;
-  };
-  // 取得該組的「代表人物」(隨機從 members 抓,沒組員就回 mock)
-  const mockMember = () => {
-    if (teamMembers.length > 0) {
-      return teamMembers[Math.floor(Math.random() * teamMembers.length)];
-    }
-    // DEMO ONLY: 沒人加入時的 placeholder(實裝時不會走到)
-    return '玩家A';
-  };
-
-  if (mode === 'speed') {
-    const firstName = findFirstPresser();
-    const personName = firstName || mockMember();
-    // DEMO ONLY: 計算「按下耗時」(armedAt → first click ts)
-    let elapsedMs = null;
-    const c = sess?.clicks?.find(x => x.teamIdx === winnerIdx);
-    if (c && sess.armedAt) {
-      elapsedMs = Math.max(0, c.ts - sess.armedAt);
-    } else {
-      // 沒真實資料,demo 用合理隨機值
-      elapsedMs = 300 + Math.random() * 1500;
-    }
-    return { rushMode: 'speed', personName, elapsedMs };
-  }
-
-  if (mode === 'lightning') {
-    const firstName = findFirstPresser();
-    const personName = firstName || mockMember();
-    // 閃電一按:從「開始搶答倒數結束(armedAt)」算起
-    let pressedAtSec = null;
-    const c = sess?.clicks?.find(x => x.teamIdx === winnerIdx);
-    if (c && sess.armedAt) {
-      pressedAtSec = (c.ts - sess.armedAt) / 1000;
-    } else {
-      // DEMO ONLY: 隨機 3.0 ~ 4.5 秒(有效區間)
-      pressedAtSec = 3.0 + Math.random() * 1.5;
-    }
-    return { rushMode: 'lightning', personName, pressedAtSec };
-  }
-
-  if (mode === 'count') {
-    // 找該組 MVP(個人最多點擊)
-    // DEMO ONLY: sess 目前只有 teamCounts 沒記 personCounts;
-    // 實裝時 server 要紀錄 perPersonCounts,這裡先 mock 一個合理值
-    const winnerCount = sess?.teamCounts?.[winnerIdx] || 0;
-    const memberCount = Math.max(1, teamMembers.length || 6);
-    // mock MVP 點擊數 = 該組總數 / 人數 × 1.4(MVP 比平均高一些)
-    const mvpClicks = Math.round(winnerCount / memberCount * 1.4);
-    const mvpName = mockMember();
-    // 第二名組(runner-up)
-    const ranking = S.groups.map((grp, i) => ({
-      idx: i,
-      name: grp.name,
-      count: sess?.teamCounts?.[i] || 0,
-    })).sort((a, b) => b.count - a.count);
-    const runnerUp = ranking.find(r => r.idx !== winnerIdx) || null;
-    return {
-      rushMode: 'count',
-      personName: mvpName,
-      teamTotalClicks: winnerCount,
-      mvpClicks,
-      runnerUp: runnerUp ? { name: runnerUp.name, count: runnerUp.count } : null,
-    };
-  }
-
-  if (mode === 'allhands') {
-    // 全組到位(滑動窗口版):取該組 bestCluster 的人數+完成時間
-    const cluster = sess?.bestCluster?.[winnerIdx] || { count: 0, endTs: null, members: [] };
-    const total = sess?.totals?.[winnerIdx] || teamMembers.length || 8;
-    let endAtSec = 0;
-    if (cluster.endTs != null && sess?.armedAt) {
-      endAtSec = (cluster.endTs - sess.armedAt) / 1000;
-    }
-    return {
-      rushMode: 'allhands',
-      clusterCount: cluster.count,        // 同步集群人數(達成的最高紀錄)
-      totalCount: total,                  // 該組總人數
-      endAtSec,                           // 達成該集群的時間(從 armed 起)
-    };
-  }
-
-  // 兜底:當 unknown mode 或 fallback,只給組
-  return { rushMode: mode, personName: mockMember(), elapsedMs: 600 };
 }
 
 function doReveal(){
@@ -2607,7 +2172,7 @@ function afterScore(){
 function doNext(){
   if (S.phase !== 'revealed') return;
   // 清掉殘留的搶答 session
-  if (typeof _clearRushTimers === 'function') _clearRushTimers();
+  if (typeof _clearLocalRushUITimers === 'function') _clearLocalRushUITimers();
   S.rushSession = null;
   S.currQ++;
   document.getElementById('curr-q').textContent=S.currQ;
@@ -2631,7 +2196,7 @@ function doNext(){
 function doSkip(){
   if (!['won','picking','answering'].includes(S.phase)) return;
   // 清掉殘留的搶答 session
-  if (typeof _clearRushTimers === 'function') _clearRushTimers();
+  if (typeof _clearLocalRushUITimers === 'function') _clearLocalRushUITimers();
   S.rushSession = null;
   document.getElementById('rev-acts').classList.remove('show');
   S.pendingIdx=null;
@@ -2647,28 +2212,10 @@ function doSkip(){
 }
 
 function doRedraw(){
-  if (S.phase !== 'answering') return;
-  // 把當前題目從 usedIds 拉出來(算重抽不消耗)
-  if (S.currentQuestion) S.usedIds.delete(S.currentQuestion.id);
-  S.currentQuestion=null;
-  // 重新從同 framework 抽
-  const fwId = S.currentFramework;
-  const r = pickQuestion({ framework: fwId });
-  if (!r.ok) {
-    setStatus(`重抽失敗:${r.error}`);
-    return;
-  }
-  S.usedIds.add(r.question.id);
-  if (!S.askedQuestions.find(x => x.id === r.question.id)) S.askedQuestions.push({ ...r.question, _difficulty:r.difficulty, _framework:r.framework });
-  S.currentQuestion = r.question;
-  S.currentDifficulty = r.difficulty;
-  S.currentFramework = r.framework;
-  PartyBus.emit('question_pick', {
-    id: r.question.id,
-    difficulty: r.difficulty,
-    framework: r.framework,
-  });
-  setStatus(`已重抽 · 新題目 ${r.question.id}`);
+  // Phase 3:重抽功能暫停(server 還沒實作 redraw_question 命令)。
+  // Phase 5 部署前會新增 server-side 命令(從 usedIds 移除當前題 + 重新抽
+  // 同 framework),屆時這個函式會改成 PartyBus.emit('redraw_question', {})。
+  setStatus('Phase 3 暫未支援重抽 · 請按「下一題」或「跳過」');
 }
 
 /* ══ 分類九宮格(兩階段:預覽 → 拍板) ══
@@ -2776,15 +2323,12 @@ function renderScores(){
 }
 
 function adj(i,d){
-  S.groups[i].score=Math.max(0,S.groups[i].score+d);
+  // Optimistic local update — UI 立即反應(<200ms 手感要求,避免等 server 來回)
+  S.groups[i].score = Math.max(0, S.groups[i].score + d);
   renderScores();
-  flash(i,d>0?'gold':'red',d);
-  // 廣播全組分數給參賽者(讓戰況長條即時更新)
-  PartyBus.emit('score_update', {
-    scores: S.groups.map((g, idx) => ({ idx, name: g.name, score: g.score })),
-    changedIdx: i,
-    delta: d,
-  });
+  flash(i, d > 0 ? 'gold' : 'red', d);
+  // 送 score_adjust 命令給 server;server 會回 score_update 全組廣播
+  PartyBus.emit('score_adjust', { teamIdx: i, delta: d });
 }
 
 function flash(i,cls,d){
@@ -2854,58 +2398,13 @@ function pickCategory(fid) {
 
 function confirmCategory() {
   if (!S.catPreview || S.catLocked) return;
-
-  // ── 武裝態:無視所選分類,改觸發煉獄降臨 ──
-  if (S.purgArmed) {
-    const r = pickQuestion({ forcePurgatory: true });
-    if (!r.ok) {
-      setStatus(`抽題失敗:${r.error}`);
-      return;
-    }
-    S.catLocked = true;
-    S.usedIds.add(r.question.id);
-    if (!S.askedQuestions.find(x => x.id === r.question.id)) S.askedQuestions.push({ ...r.question, _difficulty:r.difficulty, _framework:r.framework });
-    S.currentQuestion = r.question;
-    S.currentDifficulty = r.difficulty;
-    S.currentFramework = r.framework;
-    const cBtn = document.getElementById('cat-confirm-btn');
-    cBtn.textContent = '✓ 煉獄降臨';
-    cBtn.classList.add('locked');
-    cBtn.disabled = true;
-    document.getElementById('cat-grid').classList.add('locked');
-    document.getElementById('cat-hint').innerHTML = `<span class="purg">◆ 煉獄降臨 · 命運已定 · ${r.question.id}</span>`;
-    setStatus(`煉獄降臨 · ${r.question.id} · 主持人端正在播放降臨特效`);
-    // 廣播煉獄(三端跑特效)+ 廣播題目 ID(三端讀題)
-    PartyBus.emit('purgatory_summon', {});
-    PartyBus.emit('question_pick', {
-      id: r.question.id,
-      difficulty: r.difficulty,
-      framework: r.framework,
-    });
-    if (typeof window.summonPurgatory === 'function') window.summonPurgatory();
-    setPhase('answering');
-    return;
-  }
-
-  // ── 正常路徑:依當前 framework 抽題 ──
-  const fwId = _fwIdByShortId(S.catPreview);
-  const r = pickQuestion({ framework: fwId });
-  if (!r.ok) {
-    setStatus(`抽題失敗:${r.error}`);
-    return;
-  }
-
-  // 抽到煉獄(難度池含 purgatory 且抽中):pickQuestion 內部已遞迴轉成 forcePurgatory,
-  // 所以 r.difficulty === 'purgatory' 表示需要降臨特效
-  const isPurgatory = (r.difficulty === 'purgatory');
-
+  // Phase 3:server 接管抽題。助理只送 category_confirm 命令,
+  // server 會用 purgArmed 旗標(由 togglePurgArm 透過 arm_purgatory 同步)
+  // + 所選 framework 抽題,然後廣播 question_pick / purgatory_summon。
+  // UI 更新由下方 PartyBus.on('question_pick') listener 負責。
   S.catLocked = true;
-  S.usedIds.add(r.question.id);
-  if (!S.askedQuestions.find(x => x.id === r.question.id)) S.askedQuestions.push({ ...r.question, _difficulty:r.difficulty, _framework:r.framework });
-  S.currentQuestion = r.question;
-  S.currentDifficulty = r.difficulty;
-  S.currentFramework = r.framework;
   S.currentCat = S.catPreview;
+  // Optimistic UI 鎖定(視覺立即反應,server 結果用 listener 更新文字)
   const btn = document.querySelector(`.cat-btn[data-fid="${S.catPreview}"]`);
   if (btn) {
     btn.classList.remove('preview');
@@ -2913,38 +2412,24 @@ function confirmCategory() {
   }
   document.getElementById('cat-grid').classList.add('locked');
   const cBtn = document.getElementById('cat-confirm-btn');
-  cBtn.textContent = isPurgatory ? '✓ 煉獄降臨' : '✓ 已選定';
+  cBtn.textContent = '⏳ 等待抽題…';
   cBtn.classList.add('locked');
   cBtn.disabled = true;
-  const name = btn?.querySelector('.cb-name')?.textContent || S.catPreview;
-  if (isPurgatory) {
-    document.getElementById('cat-hint').innerHTML = `<span class="purg">◆ 命運降臨煉獄 · ${r.question.id}</span>`;
-    setStatus(`命運降臨 · 從 ${S.currentCat} 抽到煉獄題 · ${r.question.id}`);
-  } else {
-    document.getElementById('cat-hint').innerHTML = `已拍板 · <span class="accent">${S.currentCat} ${name}</span> · ${r.question.id}`;
-    setStatus(`已切到 ${S.currentCat} · ${name} · 抽到 ${r.question.id}`);
-  }
-  // 廣播
+  setStatus('已送出抽題指令 · 等待 server 回題');
   PartyBus.emit('category_confirm', { fid: S.currentCat });
-  if (isPurgatory) {
-    PartyBus.emit('purgatory_summon', {});
-    if (typeof window.summonPurgatory === 'function') window.summonPurgatory();
-  }
-  PartyBus.emit('question_pick', {
-    id: r.question.id,
-    difficulty: r.difficulty,
-    framework: r.framework,
-  });
-  setPhase('answering');
 }
 
 /* 「確定煉獄」武裝/解除(秘技;只有助理本機可見,主持人投影完全無感) */
 function togglePurgArm() {
   if (S.catLocked) return;  // 已拍板就不能再武裝
+  // Phase 0 Q-B:本地立即翻 flag(UI 立即反應、< 200ms 手感),
+  // 同時送 arm_purgatory 給 server(fire-and-forget;Phase 5 可加
+  // ack/timeout/retry 三狀態指示)。server purgArmed 為權威,下次
+  // category_confirm 會用 server 端的 flag 判斷是否強制煉獄。
   S.purgArmed = !S.purgArmed;
   const btn = document.getElementById('cat-purg-btn');
   btn.classList.toggle('armed', S.purgArmed);
-  // 助理本機狀態列提示(只有助理看到)
+  PartyBus.emit('arm_purgatory', { armed: S.purgArmed });
   if (S.purgArmed) {
     setStatus('煉獄已武裝 · 按下確定後將觸發煉獄(無視所選分類)');
   } else {

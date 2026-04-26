@@ -913,6 +913,7 @@ body:has(#stage-login.active) .host-login-btn{display:flex}
 }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script src="lib/partybus.js"></script>
 </head>
 <body>
 
@@ -1366,13 +1367,21 @@ function doLogin() {
   // 進入遊戲 = 立刻開放組名編輯(直到助理按開始遊戲後 5 秒鎖死)
   G.canRenameTeam = true;
   setTeamNameEditable(true);
-  // 廣播加入事件給助理(讓分組表/進退場紀錄即時更新)
-  if (window.PartyBus) {
-    PartyBus.emit('player_join', {
-      name: v,
-      team: G.team,
-    });
-  }
+  // Phase 3:登入時才開 WebSocket(adapter 內部 buffer 會等 open 才送)
+  // host/room/name/team 透過 query string 帶給 server;server 收到連線就
+  // 自動 register participant + broadcast player_join。再額外送一次明確
+  // player_join 命令保險,讓 server 在 query 缺欄位時有備援。
+  PartyBus.init({
+    role: 'participant',
+    roomId: PGG_ROOM_CODE_P,
+    name: v,
+    team: G.team,
+    host: PGG_PARTY_HOST_P,
+  });
+  PartyBus.emit('player_join', {
+    name: v,
+    team: G.team,
+  });
   // 若助理已經按開始遊戲,直接補跑進 game 流程(套主題色 + 開組名編輯倒數)
   if (G._gameStarted) {
     enterGameStage();
@@ -2228,53 +2237,35 @@ const TYPE_LABELS_P = {
 };
 
 /* ════════════════════════════════════════════════════════════════════
-   PartyBus · 跨分頁事件總線(BroadcastChannel + storage 雙保險)
+   PartyBus
+   - 實作位於 client/partybus.ts → /lib/partybus.js,在 <head> 載入,
+     於此檔執行前已是 window.PartyBus。
+   - 公開 API:PartyBus.emit(type, payload) / PartyBus.on(type, cb)
+   - init() 在 doLogin 時呼叫(要等使用者輸入 name + team)
    ════════════════════════════════════════════════════════════════════ */
-const PARTY_BUS_KEY_P = 'pgg_party_event';
-const PARTY_BUS_CHANNEL_P = 'pgg_bus';
-const PartyBus = {
-  _listeners: {},
-  _channel: null,
-  _seenTs: new Set(),
-  emit(type, payload) {
-    const event = { type, payload, ts: Date.now() + Math.random() };
-    if (this._channel) { try { this._channel.postMessage(event); } catch (e) {} }
-    try { localStorage.setItem(PARTY_BUS_KEY_P, JSON.stringify(event)); } catch (e) {}
-    this._seenTs.add(event.ts);
-    this._dispatch(type, payload);
-    if (this._seenTs.size > 100) this._seenTs = new Set(Array.from(this._seenTs).slice(-50));
-  },
-  on(type, cb) {
-    if (!this._listeners[type]) this._listeners[type] = [];
-    this._listeners[type].push(cb);
-  },
-  _dispatch(type, payload) {
-    (this._listeners[type] || []).forEach(cb => {
-      try { cb(payload); } catch (e) { console.error(`PartyBus[${type}]`, e); }
-    });
-  },
-  _handleEvent(ev) {
-    if (!ev || !ev.type) return;
-    if (this._seenTs.has(ev.ts)) return;
-    this._seenTs.add(ev.ts);
-    if (this._seenTs.size > 100) this._seenTs = new Set(Array.from(this._seenTs).slice(-50));
-    this._dispatch(ev.type, ev.payload);
-  },
-  _init() {
-    if (typeof BroadcastChannel !== 'undefined') {
-      try {
-        this._channel = new BroadcastChannel(PARTY_BUS_CHANNEL_P);
-        this._channel.addEventListener('message', e => this._handleEvent(e.data));
-      } catch (e) {}
-    }
-    window.addEventListener('storage', e => {
-      if (e.key !== PARTY_BUS_KEY_P || !e.newValue) return;
-      try { this._handleEvent(JSON.parse(e.newValue)); } catch (err) {}
-    });
-  },
-};
-PartyBus._init();
-window.PartyBus = PartyBus;
+/* PartyKit room name + host(同 assistant.html / presenter.html) */
+const PGG_ROOM_CODE_P = 'DEMO01';
+const PGG_PARTY_HOST_P = 'localhost:1999';
+
+/* 連線狀態 → 既有 .conn-dot 元素(原為純裝飾,Phase 3 接上 WebSocket 狀態)
+   - connected:  原綠色脈動(default,清空 inline style)
+   - connecting: 黃 #E6A23C
+   - disconnected: 紅 #E55353
+   不新增 DOM、不新增 CSS rule,只改 inline style。 */
+PartyBus.onStatus(status => {
+  const dot = document.querySelector('.conn-dot');
+  if (!dot) return;
+  if (status === 'disconnected') {
+    dot.style.background = '#E55353';
+    dot.style.boxShadow = '0 0 6px #E55353';
+  } else if (status === 'connecting') {
+    dot.style.background = '#E6A23C';
+    dot.style.boxShadow = '0 0 6px #E6A23C';
+  } else {
+    dot.style.background = '';
+    dot.style.boxShadow = '';
+  }
+});
 
 /* 診斷工具 */
 window.PGG = window.PGG || {};

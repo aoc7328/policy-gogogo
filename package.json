@@ -8,6 +8,7 @@
     "dev": "partykit dev",
     "deploy": "partykit deploy",
     "typecheck": "tsc --noEmit",
+    "build:client": "node scripts/build-client.mjs",
     "audit:check": "node scripts/audit-check.mjs"
   },
   "devDependencies": {

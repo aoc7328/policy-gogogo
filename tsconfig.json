@@ -11,5 +11,5 @@
     "resolveJsonModule": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"]
   },
-  "include": ["party/**/*.ts"]
+  "include": ["party/**/*.ts", "client/**/*.ts"]
 }

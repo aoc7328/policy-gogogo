@@ -610,6 +610,7 @@ html, body { background: #080A10; font-family: var(--font-sans); -webkit-font-sm
 
 </style>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script src="lib/partybus.js"></script>
 </head>
 <body>
 
@@ -1354,61 +1355,34 @@ const TYPE_LABELS = {
 };
 
 /* ════════════════════════════════════════════════════════════════════
-   PartyBus · 跨分頁事件總線
+   PartyBus
+   - 實作位於 client/partybus.ts → /lib/partybus.js,在 <head> 載入,
+     於此檔執行前已是 window.PartyBus。
+   - 公開 API:PartyBus.emit(type, payload) / PartyBus.on(type, cb)
+   - 主持人端純讀(只 on,不 emit 業務事件)
    ════════════════════════════════════════════════════════════════════ */
-const PARTY_BUS_KEY = 'pgg_party_event';
-const PARTY_BUS_CHANNEL = 'pgg_bus';
-const PartyBus = {
-  _listeners: {},
-  _channel: null,
-  _seenTs: new Set(),
-  emit(type, payload) {
-    const event = { type, payload, ts: Date.now() + Math.random() };
-    if (this._channel) {
-      try { this._channel.postMessage(event); } catch (e) {}
-    }
-    try { localStorage.setItem(PARTY_BUS_KEY, JSON.stringify(event)); } catch (e) {}
-    this._seenTs.add(event.ts);
-    this._dispatch(type, payload);
-    if (this._seenTs.size > 100) {
-      this._seenTs = new Set(Array.from(this._seenTs).slice(-50));
-    }
-  },
-  on(type, cb) {
-    if (!this._listeners[type]) this._listeners[type] = [];
-    this._listeners[type].push(cb);
-  },
-  _dispatch(type, payload) {
-    (this._listeners[type] || []).forEach(cb => {
-      try { cb(payload); } catch (e) { console.error(`PartyBus[${type}]`, e); }
-    });
-  },
-  _handleEvent(ev) {
-    if (!ev || !ev.type) return;
-    if (this._seenTs.has(ev.ts)) return;
-    this._seenTs.add(ev.ts);
-    if (this._seenTs.size > 100) {
-      this._seenTs = new Set(Array.from(this._seenTs).slice(-50));
-    }
-    this._dispatch(ev.type, ev.payload);
-  },
-  _init() {
-    if (typeof BroadcastChannel !== 'undefined') {
-      try {
-        this._channel = new BroadcastChannel(PARTY_BUS_CHANNEL);
-        this._channel.addEventListener('message', e => this._handleEvent(e.data));
-      } catch (e) {
-        console.warn('BroadcastChannel 不可用,改用 storage fallback');
-      }
-    }
-    window.addEventListener('storage', e => {
-      if (e.key !== PARTY_BUS_KEY || !e.newValue) return;
-      try { this._handleEvent(JSON.parse(e.newValue)); } catch (err) {}
-    });
-  },
-};
-PartyBus._init();
-window.PartyBus = PartyBus;
+/* PartyKit room name + host(同 assistant.html 設定;Phase 5 部署改 host) */
+const PGG_ROOM_CODE = 'DEMO01';
+const PGG_PARTY_HOST = 'localhost:1999';
+PartyBus.init({
+  role: 'presenter',
+  roomId: PGG_ROOM_CODE,
+  host: PGG_PARTY_HOST,
+});
+
+/* 連線狀態 → document.title(zero-DOM 指示;斷線時 tab title 立刻變,
+   audience 看不到但 operator 看得到。Phase 5 若要視覺化於 .crown-sub
+   再加 CSS state hook) */
+const PRESENTER_TITLE = document.title;
+PartyBus.onStatus(status => {
+  if (status === 'disconnected') {
+    document.title = '⚠ 斷線 · ' + PRESENTER_TITLE;
+  } else if (status === 'connecting') {
+    document.title = '… 連線中 · ' + PRESENTER_TITLE;
+  } else {
+    document.title = PRESENTER_TITLE;
+  }
+});
 
 /* 診斷工具:在 console 跑 PGG.ping() 測試聯動 */
 window.PGG = window.PGG || {};
