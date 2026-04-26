@@ -9,7 +9,10 @@
     "deploy": "partykit deploy",
     "typecheck": "tsc --noEmit",
     "build:client": "node scripts/build-client.mjs",
-    "audit:check": "node scripts/audit-check.mjs"
+    "audit:check": "node scripts/audit-check.mjs",
+    "verify:html": "node scripts/verify-html-syntax.mjs",
+    "verify:contract": "node scripts/verify-event-contract.mjs",
+    "verify:all": "npm run typecheck && npm run verify:html && npm run verify:contract && npm run audit:check"
   },
   "devDependencies": {
     "partykit": "latest",

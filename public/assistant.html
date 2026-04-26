@@ -1209,10 +1209,10 @@ PartyBus.onStatus(updateConnectionStatus);
 /* 診斷工具:在 console 跑 PGG.ping() 測試聯動;另一端會看到 console.log */
 window.PGG = window.PGG || {};
 window.PGG.ping = function(msg) {
-  PartyBus.emit('__ping__', { from: 'assistant', msg: msg || 'hello', t: new Date().toLocaleTimeString() });
+  PartyBus.emit('ping', { from: 'assistant', msg: msg || 'hello', t: new Date().toLocaleTimeString() });
   console.log('[PGG] ping sent from assistant');
 };
-PartyBus.on('__ping__', p => {
+PartyBus.on('ping', p => {
   console.log(`[PGG] PING from ${p.from} @ ${p.t}: ${p.msg}`);
 });
 
@@ -2248,8 +2248,8 @@ function doSkip(){
 
 function doRedraw(){
   // Phase 3:重抽功能暫停(server 還沒實作 redraw_question 命令)。
-  // Phase 5 部署前會新增 server-side 命令(從 usedIds 移除當前題 + 重新抽
-  // 同 framework),屆時這個函式會改成 PartyBus.emit('redraw_question', {})。
+  // Phase 5 部署前會新增 server-side 命令:從 usedIds 移除當前題、
+  // 重新從同 framework 抽,屆時本函式只送一個 redraw_question 命令給 server。
   setStatus('Phase 3 暫未支援重抽 · 請按「下一題」或「跳過」');
 }
 
