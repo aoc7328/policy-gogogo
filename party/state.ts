@@ -252,12 +252,23 @@ export function renameTeam(
   const trimmed = newName.trim();
   if (!trimmed) return { ok: false, reason: 'empty' };
   if (trimmed.length > 8) return { ok: false, reason: 'too_long' };
+
+  // state.groups is only populated after game_start. Pre-game-start
+  // (lobby phase, participant just logged in) the team registry doesn't
+  // exist yet — but the participants Map already has each player's
+  // claimed team name, so we can still rename by updating those.
   const team = state.groups.find((g) => g.name === oldName);
-  if (!team) return { ok: false, reason: 'not_found' };
-  team.name = trimmed;
-  // Update participants whose team field referenced the old name.
-  for (const p of state.participants.values()) {
-    if (p.team === oldName) p.team = trimmed;
+  const affectedParticipants = [...state.participants.values()].filter(
+    (p) => p.team === oldName
+  );
+
+  if (!team && affectedParticipants.length === 0) {
+    return { ok: false, reason: 'not_found' };
+  }
+
+  if (team) team.name = trimmed;
+  for (const p of affectedParticipants) {
+    p.team = trimmed;
   }
   return { ok: true };
 }
