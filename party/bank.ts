@@ -1,0 +1,204 @@
+/**
+ * bank.ts — load the 5 BANK JSON files at build time, normalize into a
+ * flat lookup, and provide the question picker used by the server.
+ *
+ * Build-time inlining: PartyKit's esbuild bundler inlines these imports
+ * into the worker bundle. No runtime fetch from R2 / Pages needed.
+ *
+ * Single source of truth: clients fetch the same JSON files from
+ * /public/data/ at runtime, so server `id` + client BANK content stay
+ * aligned automatically.
+ */
+
+import easyJson from '../public/data/insurance-quiz-bank-easy.json';
+import mediumJson from '../public/data/insurance-quiz-bank-medium.json';
+import hardJson from '../public/data/insurance-quiz-bank-hard.json';
+import hellJson from '../public/data/insurance-quiz-bank-hell.json';
+import purgatoryJson from '../public/data/insurance-quiz-bank-purgatory.json';
+
+import type { Difficulty, GameMode } from './protocol';
+
+export interface NormalizedQuestion {
+  id: string;
+  difficulty: Difficulty;
+  framework: string;     // full framework id, e.g. 'f1_insurance_basics' or 'l2_customer'
+  type: string;          // 'short_answer' | 'multiple_choice' | ...
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Framework / mode static tables (mirror BANK_SCHEMA in assistant.html)
+// ──────────────────────────────────────────────────────────────────────
+
+export const FRAMEWORK_BY_SHORT_ID: Record<string, string> = {
+  F1: 'f1_insurance_basics',
+  F2: 'f2_contract_terms',
+  F3: 'f3_underwriting',
+  F4: 'f4_claims',
+  F5: 'f5_product_planning',
+  F6: 'f6_actuarial',
+  F7: 'f7_wealth_tax',
+  F8: 'f8_ethics_compliance',
+  F9: 'f9_premium_calc',
+  L1: 'l1_cross_dept',
+  L2: 'l2_customer',
+  L3: 'l3_ethics',
+  L4: 'l4_time_scale',
+};
+
+export const MODE_TIER_POOL: Record<Exclude<GameMode, 'custom'>, Difficulty[]> = {
+  ordinary: ['easy', 'medium', 'hard'],
+  hell: ['hard', 'hell', 'purgatory'],
+  paradise: ['easy', 'medium', 'hard', 'hell', 'purgatory'],
+};
+
+// ──────────────────────────────────────────────────────────────────────
+// Normalization — flatten both file structures into a single list
+// ──────────────────────────────────────────────────────────────────────
+
+interface SystemAFile {
+  questions: Record<string, Record<string, RawQuestion[]>>;
+}
+interface SystemBFile {
+  questions: RawQuestion[];
+}
+interface RawQuestion {
+  id: string;
+  topic: string;
+  type?: string;
+  // type-specific fields ignored here — picker only cares about id/topic/type
+  [k: string]: unknown;
+}
+
+function flattenSystemA(diff: Difficulty, file: unknown): NormalizedQuestion[] {
+  const f = file as SystemAFile;
+  const byType = f.questions?.[diff];
+  if (!byType || typeof byType !== 'object') {
+    throw new Error(`bank.ts: ${diff} JSON missing nested questions.${diff}.<type>`);
+  }
+  const out: NormalizedQuestion[] = [];
+  for (const [type, arr] of Object.entries(byType)) {
+    if (!Array.isArray(arr)) continue;
+    for (const raw of arr) {
+      out.push({
+        id: raw.id,
+        difficulty: diff,
+        framework: raw.topic,
+        type,
+      });
+    }
+  }
+  return out;
+}
+
+function flattenSystemB(file: unknown): NormalizedQuestion[] {
+  const f = file as SystemBFile;
+  if (!Array.isArray(f.questions)) {
+    throw new Error('bank.ts: purgatory JSON must have flat `questions: []` array');
+  }
+  return f.questions.map((raw) => ({
+    id: raw.id,
+    difficulty: 'purgatory' as const,
+    framework: raw.topic,
+    type: raw.type ?? 'unknown',
+  }));
+}
+
+const ALL_QUESTIONS: NormalizedQuestion[] = [
+  ...flattenSystemA('easy', easyJson),
+  ...flattenSystemA('medium', mediumJson),
+  ...flattenSystemA('hard', hardJson),
+  ...flattenSystemA('hell', hellJson),
+  ...flattenSystemB(purgatoryJson),
+];
+
+// Sanity index — guard against duplicate IDs across the whole bank.
+{
+  const seen = new Set<string>();
+  for (const q of ALL_QUESTIONS) {
+    if (seen.has(q.id)) {
+      throw new Error(`bank.ts: duplicate question id "${q.id}"`);
+    }
+    seen.add(q.id);
+  }
+}
+
+export function bankSize(): number {
+  return ALL_QUESTIONS.length;
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Picker
+// ──────────────────────────────────────────────────────────────────────
+
+export interface PickInput {
+  /** Resolved difficulty pool: from MODE_TIER_POOL or custom config. */
+  tierPool: Difficulty[];
+  /** Framework full id (e.g. 'f5_product_planning'). Pass null to allow any. */
+  framework: string | null;
+  /** Allowed types (filters by `type` field). null = any type. */
+  typeWhitelist: string[] | null;
+  /** Already-asked question ids; picker skips these. */
+  usedIds: ReadonlySet<string>;
+  /**
+   * Phase 0 Q4 path (b): assistant pre-armed purgatory. When true, the
+   * picker forces a draw from the purgatory tier regardless of framework
+   * (the assistant secret is "ignore the previewed F-cell, give me a
+   * purgatory question instead"). Caller should clear the flag after.
+   */
+  purgArmed: boolean;
+}
+
+export interface PickError {
+  ok: false;
+  reason: 'pool_empty' | 'no_purgatory_left';
+}
+export interface PickOk {
+  ok: true;
+  question: NormalizedQuestion;
+  /** True if the picked question is purgatory tier (either path a or b). */
+  triggersPurgatory: boolean;
+}
+
+export function pickQuestion(input: PickInput): PickOk | PickError {
+  let candidates: NormalizedQuestion[];
+
+  if (input.purgArmed) {
+    // Path (b): assistant explicitly armed purgatory — force purgatory tier.
+    candidates = ALL_QUESTIONS.filter(
+      (q) => q.difficulty === 'purgatory' && !input.usedIds.has(q.id)
+    );
+    if (input.typeWhitelist) {
+      candidates = candidates.filter((q) => input.typeWhitelist!.includes(q.type));
+    }
+    if (candidates.length === 0) {
+      return { ok: false, reason: 'no_purgatory_left' };
+    }
+  } else {
+    // Normal path. Filter by tier, framework, type, used.
+    candidates = ALL_QUESTIONS.filter((q) => input.tierPool.includes(q.difficulty));
+    if (input.framework) {
+      candidates = candidates.filter((q) => q.framework === input.framework);
+    }
+    if (input.typeWhitelist) {
+      candidates = candidates.filter((q) => input.typeWhitelist!.includes(q.type));
+    }
+    candidates = candidates.filter((q) => !input.usedIds.has(q.id));
+    if (candidates.length === 0) {
+      return { ok: false, reason: 'pool_empty' };
+    }
+  }
+
+  const idx = Math.floor(Math.random() * candidates.length);
+  const picked = candidates[idx]!;
+  return {
+    ok: true,
+    question: picked,
+    triggersPurgatory: picked.difficulty === 'purgatory',
+  };
+}
+
+/** Resolve a game mode to its difficulty tier pool. For 'custom', caller passes own pool. */
+export function tiersForMode(mode: GameMode, customTiers: Difficulty[]): Difficulty[] {
+  if (mode === 'custom') return customTiers;
+  return MODE_TIER_POOL[mode];
+}

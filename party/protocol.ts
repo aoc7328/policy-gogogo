@@ -1,0 +1,494 @@
+/**
+ * protocol.ts — wire-format types for the PartyBus event contract.
+ *
+ * Mirrors EVENTS.md verbatim. Two surfaces:
+ *   - ClientCommand: messages the client sends to the server
+ *   - ServerEvent:   messages the server broadcasts (or privately sends) to clients
+ *
+ * Privileged ClientCommand variants carry a `controlCode` string. The server
+ * verifies it against the room's stored controlCode (see auth.ts) before
+ * mutating state.
+ */
+
+// ──────────────────────────────────────────────────────────────────────
+// Domain primitives
+// ──────────────────────────────────────────────────────────────────────
+
+export type Difficulty = 'easy' | 'medium' | 'hard' | 'hell' | 'purgatory';
+export type GameMode = 'ordinary' | 'hell' | 'paradise' | 'custom';
+export type RushMode = 'speed' | 'count' | 'lightning' | 'allhands' | 'random';
+export type ActualRushMode = Exclude<RushMode, 'random'>;
+export type ConnectionRole = 'assistant' | 'presenter' | 'participant';
+
+export type Phase =
+  | 'lobby'      // before game_start
+  | 'idle'      // game running, waiting for next rush
+  | 'rushing'   // rush session armed/active
+  | 'won'       // winner card displayed (3.5s)
+  | 'picking'   // category grid open
+  | 'answering' // question on screen, waiting for reveal
+  | 'revealed'  // answer + explanation shown
+  | 'ended';    // game over
+
+export interface GameConfig {
+  mode: GameMode;
+  customTiers: Difficulty[];
+  customTypes: string[];
+  totalQ: number;
+  spq: number;                        // score per question
+  groups: { name: string }[];
+  rushMode: RushMode;
+}
+
+export interface TeamScore {
+  idx: number;
+  name: string;
+  score: number;
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// ClientCommand variants (client → server)
+// ──────────────────────────────────────────────────────────────────────
+
+export interface PrivilegedHeader {
+  controlCode: string;
+}
+
+// Diagnostic
+export type PingCommand = {
+  type: 'ping';
+  payload: { from: ConnectionRole; msg?: string };
+};
+
+// Assistant — privileged ones
+export type GameStartCommand = {
+  type: 'game_start';
+  payload: GameConfig;
+} & PrivilegedHeader;
+
+export type ScoreAdjustCommand = {
+  type: 'score_adjust';
+  payload: { teamIdx: number; delta: number };
+} & PrivilegedHeader;
+
+export type StartRushCommand = {
+  type: 'start_rush';
+  payload?: { rerush?: boolean };
+} & PrivilegedHeader;
+
+export type EnterCategoryCommand = {
+  type: 'enter_category';
+} & PrivilegedHeader;
+
+export type CategoryPreviewCommand = {
+  type: 'category_preview';
+  payload: { fid: string };
+} & PrivilegedHeader;
+
+export type CategoryConfirmCommand = {
+  type: 'category_confirm';
+  payload: { fid: string };
+} & PrivilegedHeader;
+
+export type CategoryResetCommand = {
+  type: 'category_reset';
+} & PrivilegedHeader;
+
+export type RevealAnswerCommand = {
+  type: 'reveal_answer';
+} & PrivilegedHeader;
+
+export type NextQuestionCommand = {
+  type: 'next_question';
+} & PrivilegedHeader;
+
+export type SkipQuestionCommand = {
+  type: 'skip_question';
+} & PrivilegedHeader;
+
+export type GameRestartCommand = {
+  type: 'game_restart';
+} & PrivilegedHeader;
+
+// Phase 0 Q4: assistant arms purgatory; consumed at next category_confirm.
+export type ArmPurgatoryCommand = {
+  type: 'arm_purgatory';
+  payload: { armed: boolean };
+} & PrivilegedHeader;
+
+export type ModePreviewCommand = {
+  type: 'mode_preview';
+  payload: {
+    mode: GameMode;
+    customTiers?: Difficulty[];
+    customTypes?: string[];
+  };
+} & PrivilegedHeader;
+
+export type CustomTiersChangedCommand = {
+  type: 'custom_tiers_changed';
+  payload: { customTiers: Difficulty[]; customTypes: string[] };
+} & PrivilegedHeader;
+
+export type RushModeChangedCommand = {
+  type: 'rush_mode_changed';
+  payload: { mode: RushMode; label: string };
+} & PrivilegedHeader;
+
+export type PresenterShowQrCommand = {
+  type: 'presenter_show_qr';
+  payload: { durationMs: number };
+} & PrivilegedHeader;
+
+export type ExportResultCommand = {
+  type: 'export_result';
+} & PrivilegedHeader;
+
+// Participant — unprivileged
+export type PlayerJoinCommand = {
+  type: 'player_join';
+  payload: { name: string; team: string };
+};
+
+export type BuzzPressCommand = {
+  type: 'buzz_press';
+  payload: { name: string; team: string; ts: number };
+};
+
+export type TeamRenameCommand = {
+  type: 'team_rename';
+  payload: { oldName: string; newName: string; by: string };
+  controlCode?: string;
+};
+
+export type ClientCommand =
+  | PingCommand
+  | GameStartCommand
+  | ScoreAdjustCommand
+  | StartRushCommand
+  | EnterCategoryCommand
+  | CategoryPreviewCommand
+  | CategoryConfirmCommand
+  | CategoryResetCommand
+  | RevealAnswerCommand
+  | NextQuestionCommand
+  | SkipQuestionCommand
+  | GameRestartCommand
+  | ArmPurgatoryCommand
+  | ModePreviewCommand
+  | CustomTiersChangedCommand
+  | RushModeChangedCommand
+  | PresenterShowQrCommand
+  | ExportResultCommand
+  | PlayerJoinCommand
+  | BuzzPressCommand
+  | TeamRenameCommand;
+
+// ──────────────────────────────────────────────────────────────────────
+// ServerEvent variants (server → client)
+// ──────────────────────────────────────────────────────────────────────
+
+// Three "private" frames sent to a single connection (not broadcast).
+// Their `type` strings start with `__` to mark them as transport-layer,
+// not part of the original PartyBus contract.
+
+export type WelcomeEvent = {
+  type: '__welcome__';
+  payload: {
+    role: ConnectionRole;
+    roomId: string;
+    controlCode?: string;       // present only when sent to assistant
+    serverTime: number;
+  };
+};
+
+export interface RoomStateSnapshot {
+  phase: Phase;
+  game: GameConfig | null;
+  groups: TeamScore[];
+  currQ: number;                 // current question number (1-based; 0 before any pick)
+  totalQ: number;
+  rushMode: RushMode;
+  rushModeActual: ActualRushMode | null;
+  currentQuestion: {
+    id: string;
+    difficulty: Difficulty;
+    framework: string;
+  } | null;
+  currentCat: string | null;
+  catLocked: boolean;
+  purgArmed: boolean;
+  participants: { name: string; team: string }[];
+  askedIds: string[];
+}
+
+export type RoomStateEvent = {
+  type: '__room_state__';
+  payload: RoomStateSnapshot;
+};
+
+export type ErrorEvent = {
+  type: '__error__';
+  payload: { code: string; message: string; cause?: string };
+};
+
+// Public broadcasts (match EVENTS.md verb-for-verb).
+
+export type GameStartEvent = {
+  type: 'game_start';
+  payload: GameConfig;
+};
+
+export type ModePreviewEvent = {
+  type: 'mode_preview';
+  payload: ModePreviewCommand['payload'];
+};
+
+export type CustomTiersChangedEvent = {
+  type: 'custom_tiers_changed';
+  payload: CustomTiersChangedCommand['payload'];
+};
+
+export type RushModeChangedEvent = {
+  type: 'rush_mode_changed';
+  payload: RushModeChangedCommand['payload'];
+};
+
+export type ScoreUpdateEvent = {
+  type: 'score_update';
+  payload: { scores: TeamScore[]; changedIdx: number; delta: number };
+};
+
+export type StartRushEvent = {
+  type: 'start_rush';
+  payload: { rushMode: ActualRushMode; rerush?: boolean };
+};
+
+export type RushRevealEvent = {
+  type: 'rush_reveal';
+  payload: { rushMode: ActualRushMode; revealMs: number; rerush?: boolean };
+};
+
+export type RushTickEvent = {
+  type: 'rush_tick';
+  payload: {
+    mode: 'count';
+    teamCounts: { idx: number; name: string; count: number }[];
+    remainingMs: number;
+  };
+};
+
+export type RushWinnerSpeed = {
+  groupIdx: number;
+  groupName: string;
+  rushMode: 'speed';
+  personName: string;
+  elapsedMs: number;
+};
+
+export type RushWinnerLightning = {
+  groupIdx: number;
+  groupName: string;
+  rushMode: 'lightning';
+  personName: string;
+  pressedAtSec: number;
+};
+
+export type RushWinnerCount = {
+  groupIdx: number;
+  groupName: string;
+  rushMode: 'count';
+  personName: string;
+  teamTotalClicks: number;
+  mvpClicks: number;
+  runnerUp?: { name: string; count: number };
+};
+
+export type RushWinnerAllhands = {
+  groupIdx: number;
+  groupName: string;
+  rushMode: 'allhands';
+  clusterCount: number;
+  totalCount: number;
+  endAtSec: number;
+};
+
+export type RushWinnerEvent = {
+  type: 'rush_winner';
+  payload:
+    | RushWinnerSpeed
+    | RushWinnerLightning
+    | RushWinnerCount
+    | RushWinnerAllhands;
+};
+
+export type LightningDisqualifyEvent = {
+  type: 'lightning_disqualify';
+  payload: { name: string; team: string; teamIdx: number; elapsedMs: number };
+};
+
+export type AllhandsProgressEvent = {
+  type: 'allhands_progress';
+  payload: {
+    teamProgress: {
+      idx: number;
+      name: string;
+      currentCluster: number;
+      bestCluster: number;
+      total: number;
+    }[];
+    remainingMs: number;
+  };
+};
+
+export type EnterCategoryEvent = {
+  type: 'enter_category';
+  payload: Record<string, never>;
+};
+
+export type CategoryPreviewEvent = {
+  type: 'category_preview';
+  payload: { fid: string };
+};
+
+export type CategoryConfirmEvent = {
+  type: 'category_confirm';
+  payload: { fid: string };
+};
+
+export type CategoryResetEvent = {
+  type: 'category_reset';
+  payload: Record<string, never>;
+};
+
+export type QuestionPickEvent = {
+  type: 'question_pick';
+  payload: { id: string; difficulty: Difficulty; framework: string };
+};
+
+export type PurgatorySummonEvent = {
+  type: 'purgatory_summon';
+  payload: Record<string, never>;
+};
+
+export type PurgatoryEndEvent = {
+  type: 'purgatory_end';
+  payload: Record<string, never>;
+};
+
+export type RevealAnswerEvent = {
+  type: 'reveal_answer';
+  payload: Record<string, never>;
+};
+
+export type NextQuestionEvent = {
+  type: 'next_question';
+  payload: Record<string, never>;
+};
+
+export type SkipQuestionEvent = {
+  type: 'skip_question';
+  payload: Record<string, never>;
+};
+
+export type GameRestartEvent = {
+  type: 'game_restart';
+  payload: Record<string, never>;
+};
+
+export type ExportResultEvent = {
+  type: 'export_result';
+  payload: {
+    mode: GameMode;
+    modeLabel: string;
+    totalQ: number;
+    spq: number;
+    actualQ: number;
+    groups: { name: string; score: number; members: string[] }[];
+    sortedGroups: { name: string; score: number }[];
+    askedQuestions: { id: string; difficulty: Difficulty; framework: string }[];
+    exportTime: string;
+  };
+};
+
+export type TeamRenameEvent = {
+  type: 'team_rename';
+  payload: { oldName: string; newName: string; by?: string };
+};
+
+export type PresenterShowQrEvent = {
+  type: 'presenter_show_qr';
+  payload: { durationMs: number };
+};
+
+export type PlayerJoinEvent = {
+  type: 'player_join';
+  payload: { name: string; team: string };
+};
+
+export type PlayerLeaveEvent = {
+  type: 'player_leave';
+  payload: { name: string; team: string };
+};
+
+export type ServerEvent =
+  | WelcomeEvent
+  | RoomStateEvent
+  | ErrorEvent
+  | GameStartEvent
+  | ModePreviewEvent
+  | CustomTiersChangedEvent
+  | RushModeChangedEvent
+  | ScoreUpdateEvent
+  | StartRushEvent
+  | RushRevealEvent
+  | RushTickEvent
+  | RushWinnerEvent
+  | LightningDisqualifyEvent
+  | AllhandsProgressEvent
+  | EnterCategoryEvent
+  | CategoryPreviewEvent
+  | CategoryConfirmEvent
+  | CategoryResetEvent
+  | QuestionPickEvent
+  | PurgatorySummonEvent
+  | PurgatoryEndEvent
+  | RevealAnswerEvent
+  | NextQuestionEvent
+  | SkipQuestionEvent
+  | GameRestartEvent
+  | ExportResultEvent
+  | TeamRenameEvent
+  | PresenterShowQrEvent
+  | PlayerJoinEvent
+  | PlayerLeaveEvent;
+
+// ──────────────────────────────────────────────────────────────────────
+// Privileged command type guard
+// ──────────────────────────────────────────────────────────────────────
+
+export const PRIVILEGED_COMMAND_TYPES = new Set<string>([
+  'game_start',
+  'score_adjust',
+  'start_rush',
+  'enter_category',
+  'category_preview',
+  'category_confirm',
+  'category_reset',
+  'reveal_answer',
+  'next_question',
+  'skip_question',
+  'game_restart',
+  'arm_purgatory',
+  'mode_preview',
+  'custom_tiers_changed',
+  'rush_mode_changed',
+  'presenter_show_qr',
+  'export_result',
+]);
+
+export function isPrivilegedCommand(
+  cmd: ClientCommand
+): cmd is ClientCommand & PrivilegedHeader {
+  return PRIVILEGED_COMMAND_TYPES.has(cmd.type);
+}
