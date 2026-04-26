@@ -1,0 +1,3466 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>保險知識星攻略 · 助理端</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=Noto+Serif+TC:wght@700;900&family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-void:#050912;--bg-deep:#0B1020;--bg-surface:#141B2E;--bg-raised:#1C2540;
+  --ink-1:#F2EDE1;--ink-2:#9BA3B5;--ink-3:#5C6480;--ink-4:#3A4160;
+  --accent:#D4A34B;--accent-b:#EDC266;--accent-s:rgba(212,163,75,.12);--accent-l:rgba(212,163,75,.35);
+  --line:rgba(155,163,181,.14);--line-s:rgba(155,163,181,.28);
+  --ok:#6EC47A;--err:#D8344A;--err-s:rgba(216,52,74,.1);
+  --font-sans:"Noto Sans TC",system-ui,sans-serif;
+  --font-serif:"Noto Serif TC",serif;
+  --font-mono:"JetBrains Mono",monospace;
+}
+/* 各模式 accent 切換 — 選中模式後整個 app 的金色變數跟著變 */
+.app[data-mode="ordinary"]{--accent:#D4A34B;--accent-b:#EDC266;--accent-s:rgba(212,163,75,.12);--accent-l:rgba(212,163,75,.35)}
+.app[data-mode="hell"]{--accent:#D8344A;--accent-b:#EC5068;--accent-s:rgba(216,52,74,.12);--accent-l:rgba(216,52,74,.35)}
+.app[data-mode="paradise"]{--accent:#D4A34B;--accent-b:#F0C060;--accent-s:rgba(212,163,75,.12);--accent-l:rgba(212,163,75,.35)}
+.app[data-mode="custom"]{--accent:#C49A5A;--accent-b:#D9B477;--accent-s:rgba(196,154,90,.12);--accent-l:rgba(196,154,90,.35)}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg-void);color:var(--ink-1);font-family:var(--font-sans);min-height:100vh;-webkit-font-smoothing:antialiased;letter-spacing:.01em}
+button{cursor:pointer;font-family:inherit}
+input{font-family:var(--font-mono);background:var(--bg-raised);border:1px solid var(--line-s);color:var(--ink-1);padding:9px 12px;font-size:14px;outline:none;width:100%;transition:border-color 180ms;letter-spacing:.04em}
+input:focus{border-color:var(--accent)}
+input::placeholder{color:var(--ink-3)}
+.app{max-width:880px;margin:0 auto;padding:24px 24px 60px;min-height:100vh}
+
+/* header */
+.app-hd{display:flex;justify-content:space-between;align-items:center;padding-bottom:14px;border-bottom:1px solid var(--line);margin-bottom:20px;flex-wrap:wrap;gap:10px}
+.brand{display:flex;align-items:baseline;gap:12px}
+.brand-role{font-family:var(--font-mono);font-size:11px;letter-spacing:.3em;color:var(--ink-3);text-transform:uppercase}
+.brand-sep{color:var(--ink-4)}
+.brand-mode{font-family:var(--font-mono);font-size:11px;letter-spacing:.2em;color:var(--accent)}
+.hd-meta{display:flex;gap:18px;flex-wrap:wrap;align-items:center}
+
+/* ═══════════════════════════════════════════════
+   煉獄狀態徽章 (.app.purg-on 觸發顯示)
+   位置:跟 hd-meta 並列,固定在 brand bar 右側
+   觸發:setPurg(true) / setPurg(false),由主持人端透過 PartyKit 廣播
+   ═══════════════════════════════════════════════ */
+.purg-mark{
+  display:none;align-items:center;gap:7px;
+  padding:5px 11px 5px 9px;
+  background:linear-gradient(135deg,rgba(255,122,26,.18) 0%,rgba(196,16,43,.22) 100%);
+  border:1px solid rgba(255,122,26,.45);
+  font-family:var(--font-mono);font-size:10px;letter-spacing:.22em;
+  text-transform:uppercase;font-weight:700;color:#FFD480;
+  box-shadow:0 0 12px rgba(255,107,26,.25),inset 0 0 8px rgba(255,107,26,.08);
+}
+.app.purg-on .purg-mark{display:inline-flex;animation:purgIn 360ms cubic-bezier(.2,.7,.2,1)}
+.purg-mark .flame{position:relative;width:10px;height:13px;flex-shrink:0}
+.purg-mark .flame::before,.purg-mark .flame::after{content:'';position:absolute;border-radius:50% 0 50% 50%;transform:rotate(-45deg)}
+.purg-mark .flame::before{
+  inset:0;
+  background:radial-gradient(ellipse at 30% 70%,#FFB347 0%,#FF6B1A 55%,#C4102B 100%);
+  box-shadow:0 0 6px rgba(255,107,26,.6);
+  animation:flameOuter 1.4s ease-in-out infinite;
+}
+.purg-mark .flame::after{
+  inset:3px 3px 1px 1px;
+  background:radial-gradient(ellipse at 30% 70%,#FFF4A0 0%,#FFB347 60%,transparent 100%);
+  animation:flameInner 1.4s ease-in-out infinite .15s;
+}
+.purg-mark .label{animation:purgLabel 2.4s ease-in-out infinite}
+@keyframes flameOuter{0%,100%{transform:rotate(-45deg) scale(1) translateY(0)}50%{transform:rotate(-45deg) scale(1.08) translateY(-1px)}}
+@keyframes flameInner{0%,100%{transform:rotate(-45deg) scale(.95);opacity:.85}50%{transform:rotate(-45deg) scale(1.05);opacity:1}}
+@keyframes purgLabel{0%,100%{opacity:.85}50%{opacity:1}}
+@keyframes purgIn{from{opacity:0;transform:translateX(8px) scale(.9)}to{opacity:1;transform:translateX(0) scale(1)}}
+.meta-chip{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;color:var(--ink-3)}
+.meta-chip .v{color:var(--ink-1);margin-left:5px}
+
+/* tabs */
+.tab-bar{display:flex;gap:2px;background:var(--bg-surface);border:1px solid var(--line);padding:3px;width:fit-content;margin-bottom:22px}
+.tab-btn{background:transparent;border:none;color:var(--ink-3);font-family:var(--font-mono);font-size:11px;letter-spacing:.18em;padding:8px 18px;transition:all 200ms;text-transform:uppercase}
+.tab-btn.active{background:var(--accent);color:var(--bg-void);font-weight:700}
+.tab-btn:not(.active):not(.disabled):hover{color:var(--ink-2);background:var(--bg-raised)}
+.tab-btn.disabled{opacity:.3;cursor:not-allowed}
+.page{display:none}.page.active{display:block}
+.sec-label{font-family:var(--font-mono);font-size:10px;letter-spacing:.28em;color:var(--accent);text-transform:uppercase;margin-bottom:12px}
+
+/* ===== ROOM ===== */
+.room-block{background:var(--bg-surface);border:1px solid var(--line);padding:18px 20px;margin-bottom:14px}
+
+/* 參賽者邀請 QR 區塊 */
+.invite-row{display:flex;gap:20px;align-items:flex-start;margin-top:8px}
+.invite-qr{width:200px;height:200px;background:#fff;padding:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.invite-qr canvas, .invite-qr img{display:block;max-width:100%;height:auto}
+.invite-info{flex:1;display:flex;flex-direction:column;gap:6px}
+.invite-label{font-family:var(--font-mono);font-size:10px;letter-spacing:.2em;color:var(--ink-3);text-transform:uppercase;margin-top:6px}
+.invite-label:first-child{margin-top:0}
+.invite-room-code{font-family:var(--font-mono);font-size:32px;color:var(--ink-1);letter-spacing:.16em;font-weight:600}
+.invite-show-btn{margin-top:14px;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:var(--font-mono);font-size:11px;font-weight:500;padding:8px 14px;cursor:pointer;letter-spacing:.06em;transition:all 180ms;text-align:left;width:fit-content}
+.invite-show-btn:hover{background:var(--accent-s);color:var(--ink-1)}
+.invite-show-btn:disabled{opacity:.4;cursor:not-allowed;border-color:var(--line);color:var(--ink-3)}
+.invite-url-row{display:flex;align-items:center;gap:8px}
+.invite-url{font-family:var(--font-mono);font-size:14px;color:var(--accent);letter-spacing:.04em;flex:1;word-break:break-all}
+.code-row{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap}
+.code-fld{flex:1;min-width:220px;display:flex;flex-direction:column;gap:6px}
+.code-display{display:flex;align-items:center;gap:12px;padding:14px 18px;background:var(--bg-raised);border:1px solid var(--line-s)}
+.code-value{font-family:var(--font-mono);font-size:28px;font-weight:500;letter-spacing:.2em;color:var(--accent);flex:1;line-height:1}
+.copy-btn{background:transparent;border:1px solid var(--line-s);color:var(--ink-2);font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;padding:6px 12px;text-transform:uppercase;transition:all 180ms;flex-shrink:0}
+.copy-btn:hover{border-color:var(--accent);color:var(--accent)}
+.copy-btn.copied{border-color:var(--ok);color:var(--ok)}
+.regen-btn{background:transparent;border:1px solid var(--line-s);color:var(--ink-2);font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;padding:13px 16px;text-transform:uppercase;transition:all 180ms;white-space:nowrap}
+.regen-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-s)}
+.regen-btn.warn:hover{border-color:rgba(216,52,74,.5);color:var(--err);background:var(--err-s)}
+.hint{font-family:var(--font-mono);font-size:11px;color:var(--ink-3);letter-spacing:.04em;margin-top:12px;line-height:1.6}
+.hint.warn{color:#90303A}
+
+.log-list{max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;scrollbar-width:thin;scrollbar-color:var(--line-s) transparent}
+.log-list::-webkit-scrollbar{width:5px}
+.log-list::-webkit-scrollbar-track{background:transparent}
+.log-list::-webkit-scrollbar-thumb{background:var(--line-s);border-radius:3px}
+.log-list::-webkit-scrollbar-thumb:hover{background:var(--accent)}
+.log-row{display:grid;grid-template-columns:80px 70px 1fr auto;gap:12px;align-items:center;padding:9px 12px;font-family:var(--font-mono);font-size:12px;border-left:2px solid transparent;transition:background 180ms}
+.log-row:hover{background:var(--bg-raised)}
+.log-row.join{border-left-color:var(--ok)}
+.log-row.leave{border-left-color:var(--ink-3)}
+.log-row.reconn{border-left-color:#D9B477}
+.log-row.system{border-left-color:var(--err)}
+.log-row.rename{border-left-color:#B48DD8}
+.log-time{color:var(--ink-3);letter-spacing:.04em}
+.log-action{font-size:10px;letter-spacing:.14em;text-transform:uppercase}
+.log-row.join .log-action{color:var(--ok)}
+.log-row.leave .log-action{color:var(--ink-3)}
+.log-row.reconn .log-action{color:#D9B477}
+.log-row.system .log-action{color:var(--err)}
+.log-row.rename .log-action{color:#B48DD8}
+.log-name{color:var(--ink-1);font-family:var(--font-sans);font-size:13px}
+.log-group{color:var(--ink-3);font-size:11px;font-family:var(--font-sans)}
+.log-empty{text-align:center;padding:32px 0;font-family:var(--font-serif);font-style:italic;font-size:13px;color:var(--ink-3);opacity:.5}
+
+/* ===== SETUP ===== */
+.setup-layout{display:flex;flex-direction:column;gap:24px}
+.mode-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.mode-card{background:var(--bg-surface);border:1.5px solid var(--line);padding:16px 14px 14px;cursor:pointer;transition:all 280ms;position:relative;overflow:hidden;isolation:isolate;display:flex;flex-direction:column;min-height:170px}
+.mode-card::before{content:'';position:absolute;inset:0;opacity:0;transition:opacity 300ms;pointer-events:none;z-index:-1}
+.mode-card[data-mode="ordinary"]::before{background:radial-gradient(ellipse at bottom,rgba(212,163,75,.25) 0%,transparent 70%)}
+.mode-card[data-mode="hell"]::before{background:radial-gradient(ellipse at bottom,rgba(216,52,74,.28) 0%,transparent 70%)}
+.mode-card[data-mode="paradise"]::before{background:radial-gradient(ellipse at bottom,rgba(180,141,216,.28) 0%,transparent 70%)}
+.mode-card[data-mode="custom"]::before{background:radial-gradient(ellipse at bottom,rgba(196,154,90,.22) 0%,transparent 70%)}
+.mode-card:hover::before,.mode-card.sel::before{opacity:1}
+.mode-card.sel[data-mode="ordinary"]{border-color:#D4A34B;box-shadow:0 0 24px rgba(212,163,75,.18)}
+.mode-card.sel[data-mode="hell"]{border-color:#D8344A;box-shadow:0 0 24px rgba(216,52,74,.18)}
+.mode-card.sel[data-mode="paradise"]{border-color:#B48DD8;box-shadow:0 0 24px rgba(180,141,216,.18)}
+.mode-card.sel[data-mode="custom"]{border-color:#C49A5A;box-shadow:0 0 24px rgba(196,154,90,.18)}
+.mc-idx{font-family:var(--font-mono);font-size:9px;letter-spacing:.22em;color:var(--ink-3);margin-bottom:8px;text-transform:uppercase}
+.mc-name{font-family:var(--font-serif);font-weight:900;font-size:30px;line-height:1;letter-spacing:.06em;margin-bottom:4px}
+.mode-card[data-mode="ordinary"] .mc-name{color:#D4A34B;text-shadow:0 0 16px rgba(212,163,75,.45)}
+.mode-card[data-mode="hell"] .mc-name{color:#D8344A;text-shadow:0 0 16px rgba(216,52,74,.45)}
+.mode-card[data-mode="paradise"] .mc-name{background:linear-gradient(135deg,#F0C060 0%,#B48DD8 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 0 8px rgba(180,141,216,.3))}
+.mode-card[data-mode="custom"] .mc-name{color:#C49A5A;text-shadow:0 0 12px rgba(196,154,90,.3)}
+.mc-western{font-family:var(--font-mono);font-size:9px;letter-spacing:.3em;color:var(--ink-3);text-transform:uppercase;margin-bottom:10px;opacity:.7}
+.mc-poem{font-family:var(--font-serif);font-style:italic;font-size:11px;line-height:1.65;color:var(--ink-3);flex:1;margin-bottom:10px}
+.mc-chips{display:flex;gap:4px;flex-wrap:wrap;padding-top:10px;border-top:1px solid var(--line)}
+.mc-chip{font-family:var(--font-mono);font-size:9px;letter-spacing:.1em;padding:2px 6px;color:var(--ink-3);border:1px solid var(--line);text-transform:uppercase}
+
+.setup-block{background:var(--bg-surface);border:1px solid var(--line);padding:20px 22px;display:flex;flex-direction:column;gap:14px}
+
+/* ═══════════════════════════════════════════════
+   自由模式次選項(只在 S.mode === 'custom' 時顯示)
+   ═══════════════════════════════════════════════ */
+.custom-block{
+  background:var(--bg-surface);
+  border:1px solid var(--line);
+  border-left:3px solid #C49A5A;
+  padding:18px 22px;display:none;flex-direction:column;gap:14px;
+  animation:cbIn 280ms cubic-bezier(.2,.7,.2,1);
+}
+.custom-block.show{display:flex}
+@keyframes cbIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+.custom-block .sec-label{color:#C49A5A}
+.custom-block .cb-desc{font-family:var(--font-sans);font-size:12px;line-height:1.7;color:var(--ink-3);margin-top:-6px}
+.custom-row{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.custom-row > .cust-group{display:flex;flex-direction:column;gap:8px}
+.cust-group-head{display:flex;justify-content:space-between;align-items:baseline}
+.cust-group-title{font-family:var(--font-mono);font-size:11px;letter-spacing:.18em;color:var(--ink-1);text-transform:uppercase}
+.cust-group-hint{font-family:var(--font-mono);font-size:9px;letter-spacing:.14em;color:var(--ink-3);text-transform:uppercase}
+.cust-chips{display:flex;flex-wrap:wrap;gap:6px}
+.cust-chip{
+  font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;
+  padding:6px 11px;color:var(--ink-3);
+  border:1px solid var(--line-s);background:transparent;
+  cursor:pointer;transition:all 160ms;user-select:none;
+}
+.cust-chip:hover{color:var(--ink-1);border-color:#C49A5A}
+.cust-chip.active{
+  color:#1A1410;background:#C49A5A;border-color:#C49A5A;
+  font-weight:700;
+}
+.cust-chip.purg{
+  border-color:rgba(255,107,26,.45);color:#FF8A3D;
+}
+.cust-chip.purg:hover{color:#FFB347;border-color:#FFB347}
+.cust-chip.purg.active{
+  background:linear-gradient(135deg,#FF7A1A,#C4102B);color:#FFF4E0;
+  border-color:transparent;box-shadow:0 0 12px rgba(255,107,26,.35);
+}
+.cust-pool{
+  display:flex;align-items:baseline;gap:8px;
+  padding:10px 14px;background:var(--bg-deep);border:1px solid var(--line);
+}
+.cust-pool .pl{font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;color:var(--ink-3);text-transform:uppercase;flex:1}
+.cust-pool .pv{font-family:var(--font-mono);font-size:18px;font-weight:700;color:#C49A5A;letter-spacing:.06em;font-variant-numeric:tabular-nums}
+.cust-pool .pu{font-family:var(--font-mono);font-size:10px;color:var(--ink-3);letter-spacing:.14em}
+.setup-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;align-items:end}
+.setup-row2{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center}
+.fld{display:flex;flex-direction:column;gap:6px}
+.flbl{font-family:var(--font-mono);font-size:10px;letter-spacing:.2em;color:var(--ink-2);text-transform:uppercase}
+.total-pill{font-family:var(--font-mono);font-size:14px;color:var(--accent);padding:9px 12px;background:var(--accent-s);border:1px solid var(--accent-l);letter-spacing:.1em}
+.group-names{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
+.gn-row{display:flex;align-items:center;gap:10px}
+.gn-badge{font-family:var(--font-mono);font-size:11px;color:var(--ink-2);letter-spacing:.06em;width:96px;flex-shrink:0}
+.gn-err{font-family:var(--font-mono);font-size:10px;color:var(--err);letter-spacing:.06em;opacity:0;transition:opacity 200ms;flex-shrink:0;min-width:0}
+.gn-err.show{opacity:1}
+
+.start-btn{width:100%;padding:14px;background:var(--accent);border:none;color:var(--bg-void);font-family:var(--font-mono);font-size:13px;letter-spacing:.22em;font-weight:700;text-transform:uppercase;transition:all 200ms}
+.start-btn:hover:not(:disabled){background:var(--accent-b);box-shadow:0 0 24px var(--accent-s)}
+.start-btn:disabled{background:var(--bg-raised);color:var(--ink-3);cursor:not-allowed}
+
+/* ===== GROUPS ===== */
+.group-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.gc{background:var(--bg-surface);border:1px solid var(--line);padding:18px 20px}
+.gc-hd{display:flex;justify-content:space-between;align-items:baseline;padding-bottom:10px;border-bottom:1px solid var(--line);margin-bottom:12px}
+.gc-id{font-family:var(--font-mono);font-size:10px;letter-spacing:.2em;color:var(--ink-3);text-transform:uppercase}
+.gc-name{font-family:var(--font-serif);font-weight:700;font-size:18px}
+.gc-note{font-size:13px;color:var(--ink-3);line-height:1.6}
+
+/* ===== SCORES ===== */
+.score-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px}
+.score-prog{font-family:var(--font-mono);font-size:13px;letter-spacing:.1em;color:var(--ink-2)}
+.score-prog .cn{color:var(--ink-1);font-size:24px;font-weight:300}
+.export-btn{background:transparent;border:1px solid var(--line-s);color:var(--ink-2);font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;padding:7px 13px;text-transform:uppercase;transition:all 180ms}
+.export-btn:hover{border-color:var(--accent);color:var(--accent)}
+
+.score-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+.sc{background:var(--bg-surface);border:1px solid var(--line);padding:10px 12px;position:relative;overflow:hidden;transition:border-color 400ms,background 400ms;isolation:isolate}
+.sc.lead{border-color:var(--accent);background:var(--bg-raised)}
+.sc.lead::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at top right,var(--accent-s) 0%,transparent 65%);pointer-events:none;z-index:-1}
+.sc.picking{border-color:#8BAAD8;box-shadow:0 0 0 1px rgba(139,170,216,.45);cursor:pointer}
+.sc.picking .sc-name{color:#8BAAD8}
+.sc-pick-badge{position:absolute;top:10px;right:12px;font-family:var(--font-mono);font-size:9px;letter-spacing:.18em;color:#8BAAD8;text-transform:uppercase}
+.sc:not(.picking):not(.lead){cursor:pointer}
+.sc:not(.picking):not(.lead):hover{border-color:var(--line-s);background:var(--bg-raised)}
+.rank-bdg{position:absolute;top:10px;right:12px;font-family:var(--font-mono);font-size:9px;color:var(--accent);letter-spacing:.2em}
+.sc-id{font-family:var(--font-mono);font-size:10px;color:var(--ink-3);letter-spacing:.2em;text-transform:uppercase}
+.sc-name{font-family:var(--font-serif);font-weight:700;font-size:14px;color:var(--ink-2);margin:2px 0 6px}
+.sc-val{font-family:var(--font-mono);font-size:32px;font-weight:300;line-height:1;color:var(--ink-1);transition:color 400ms;margin-bottom:8px}
+.sc.lead .sc-val{color:var(--accent)}
+.sc-btns{display:flex;gap:6px}
+.sc-btn{flex:1;background:transparent;border:1px solid var(--line);color:var(--ink-2);font-family:var(--font-mono);font-size:12px;font-weight:500;padding:7px 0;text-align:center;transition:all 180ms;letter-spacing:.04em}
+.sc-btn.add:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-s)}
+.sc-btn.sub:hover{border-color:rgba(216,52,74,.4);color:var(--err);background:var(--err-s)}
+.sf{position:absolute;inset:0;opacity:0;transition:opacity 80ms;pointer-events:none;z-index:5}
+.sf.gold{background:rgba(212,163,75,.22)}.sf.red{background:rgba(216,52,74,.16)}
+.dp{position:absolute;right:14px;top:56px;font-family:var(--font-mono);font-size:18px;font-weight:500;pointer-events:none;opacity:0;z-index:6}
+
+/* 控制區 */
+.ctrl-zone{background:var(--bg-surface);border:1px solid var(--line);padding:18px 20px;display:flex;flex-direction:column;gap:11px}
+
+/* ═══════════════════════════════════════════════
+   分類九宮格(計分表頁,3x3 遙控器)
+   點任一格 → 廣播給主持人端切到該分類並抽題
+   ═══════════════════════════════════════════════ */
+.cat-zone{
+  background:var(--bg-surface);border:1px solid var(--line);
+  padding:14px 16px;display:flex;flex-direction:column;gap:10px;
+}
+.cat-zone-head{
+  display:flex;justify-content:space-between;align-items:baseline;
+  font-family:var(--font-mono);font-size:10px;letter-spacing:.22em;
+  color:var(--ink-3);text-transform:uppercase;
+}
+.cat-zone-head .hint{font-size:9px;letter-spacing:.14em;opacity:.7}
+.cat-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:5px;
+}
+.cat-btn{
+  background:var(--bg-deep);border:1px solid var(--line);
+  padding:8px 6px;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:2px;min-height:54px;
+  transition:all 160ms;text-align:center;
+  font-family:var(--font-sans);
+}
+.cat-btn:hover{border-color:var(--accent);background:var(--bg-raised);transform:translateY(-1px)}
+.cat-btn:active{transform:translateY(0)}
+.cat-btn .cb-id{
+  font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;
+  color:var(--accent);font-weight:700;
+}
+.cat-btn .cb-name{
+  font-size:10.5px;line-height:1.25;color:var(--ink-1);
+  font-weight:500;letter-spacing:.02em;
+}
+.cat-btn .cb-count{
+  font-family:var(--font-mono);font-size:8px;letter-spacing:.1em;
+  color:var(--ink-3);margin-top:1px;
+}
+/* 預覽中(已點但未拍板):金色框 + 微脈動 */
+.cat-btn.preview{
+  border-color:var(--accent);
+  background:var(--accent-s);
+  box-shadow:0 0 12px var(--accent-s);
+  animation:catPreview 1.6s ease-in-out infinite;
+}
+@keyframes catPreview{
+  0%,100%{box-shadow:0 0 12px var(--accent-s)}
+  50%{box-shadow:0 0 18px var(--accent-l)}
+}
+/* 拍板鎖定:紅金高亮、不再閃 */
+.cat-btn.locked{
+  border-color:var(--accent-b);
+  background:var(--accent-l);
+  box-shadow:0 0 24px var(--accent-l), inset 0 0 0 1px rgba(255,255,255,.3);
+  animation:none;cursor:default;
+}
+.cat-btn.locked .cb-id{color:var(--bg-void)}
+.cat-btn.locked .cb-name{color:var(--bg-void);font-weight:700}
+.cat-btn.locked .cb-count{color:rgba(0,0,0,.55)}
+/* 拍板後其他格灰掉 */
+.cat-grid.locked .cat-btn:not(.locked){opacity:.3;pointer-events:none;filter:grayscale(.6)}
+/* 流程鎖:在非搶答勝出 / 選題階段時,整個九宮格都不能點 */
+.cat-grid.phase-locked .cat-btn{opacity:.22;pointer-events:none;filter:grayscale(.7);cursor:not-allowed}
+.cat-grid.phase-locked .cat-btn .cb-id,
+.cat-grid.phase-locked .cat-btn .cb-name,
+.cat-grid.phase-locked .cat-btn .cb-count{color:var(--ink-4)}
+.cat-btn:disabled{opacity:.3;cursor:not-allowed;transform:none}
+.cat-btn:disabled:hover{border-color:var(--line);background:var(--bg-deep);transform:none}
+/* 該模式下無題目的格子(灰色,完全不能點) */
+.cat-btn.empty{
+  opacity:.22;cursor:not-allowed;pointer-events:none;
+  filter:grayscale(.7);
+  background:var(--bg-deep);
+}
+.cat-btn.empty .cb-id,
+.cat-btn.empty .cb-name,
+.cat-btn.empty .cb-count{color:var(--ink-4)}
+
+/* 確定鈕區 */
+.cat-confirm-row{display:flex;gap:8px;align-items:center;margin-top:2px}
+.cat-confirm-hint{
+  flex:1;font-family:var(--font-mono);font-size:10px;
+  letter-spacing:.12em;color:var(--ink-3);text-transform:uppercase;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.cat-confirm-hint .accent{color:var(--accent);font-weight:700}
+.cat-confirm-hint .purg{color:#FF8A3D;font-weight:700}
+/* 「確定煉獄」秘技按鈕(預設安全態,點一下武裝) */
+.cat-purg-btn{
+  background:transparent;border:1px solid rgba(255,107,26,.35);
+  color:rgba(255,138,61,.7);
+  font-family:var(--font-mono);font-size:10px;letter-spacing:.16em;
+  padding:9px 14px;text-transform:uppercase;font-weight:700;
+  transition:all 200ms;flex-shrink:0;
+  display:flex;align-items:center;gap:6px;
+  margin-right:6px;  /* 跟「確定」之間留小縫 */
+  cursor:pointer;
+}
+.cat-purg-btn .pf{
+  display:inline-block;width:7px;height:9px;
+  border-radius:50% 0 50% 50%;transform:rotate(-45deg);
+  background:radial-gradient(ellipse at 30% 70%,#FFB347 0%,#FF6B1A 60%,#C4102B 100%);
+  opacity:.5;transition:opacity 200ms;
+}
+.cat-purg-btn:hover{border-color:#FF8A3D;color:#FFB347}
+.cat-purg-btn:hover .pf{opacity:.8}
+/* 武裝態:紅金漸層底 + 火焰跳動 */
+.cat-purg-btn.armed{
+  background:linear-gradient(135deg,#FF7A1A,#C4102B);
+  border-color:transparent;color:#FFF4E0;
+  box-shadow:0 0 16px rgba(255,107,26,.5),inset 0 0 8px rgba(255,180,100,.3);
+  animation:catPurgArmed 1.4s ease-in-out infinite;
+}
+.cat-purg-btn.armed .pf{
+  opacity:1;
+  background:radial-gradient(ellipse at 30% 70%,#FFF4A0 0%,#FFB347 60%,transparent 100%);
+  box-shadow:0 0 6px #FFB347;
+  animation:catPurgFlame 1.4s ease-in-out infinite;
+}
+@keyframes catPurgArmed{
+  0%,100%{box-shadow:0 0 16px rgba(255,107,26,.5),inset 0 0 8px rgba(255,180,100,.3)}
+  50%{box-shadow:0 0 28px rgba(255,107,26,.85),inset 0 0 12px rgba(255,200,140,.5)}
+}
+@keyframes catPurgFlame{
+  0%,100%{transform:rotate(-45deg) scale(1)}
+  50%{transform:rotate(-45deg) scale(1.15)}
+}
+.cat-confirm-btn{
+  background:var(--accent);border:1px solid var(--accent);color:var(--bg-void);
+  font-family:var(--font-mono);font-size:11px;letter-spacing:.18em;
+  padding:9px 22px;text-transform:uppercase;font-weight:700;
+  transition:all 200ms;flex-shrink:0;
+  box-shadow:0 0 16px var(--accent-s);
+}
+.cat-confirm-btn:hover:not(:disabled){background:var(--accent-b);border-color:var(--accent-b);box-shadow:0 0 24px var(--accent-l)}
+.cat-confirm-btn:disabled{
+  background:transparent;color:var(--ink-4);border-color:var(--line-s);
+  box-shadow:none;cursor:not-allowed;
+}
+.cat-confirm-btn.locked{
+  background:transparent;color:var(--ok);border-color:var(--ok);
+  box-shadow:none;cursor:default;
+}
+.ctrl-status{display:flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:11px;letter-spacing:.16em;color:var(--ink-3);padding:8px 12px;background:var(--bg-raised);border-left:2px solid var(--accent)}
+.ctrl-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0;animation:blink 2s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:.4}50%{opacity:1}}
+.ctrl-row{display:flex;gap:8px;flex-wrap:wrap}
+.cb{flex:1;background:transparent;border:1px solid var(--line-s);color:var(--ink-2);font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;padding:10px 12px;text-transform:uppercase;transition:all 180ms;min-width:90px}
+.cb:hover:not(:disabled){border-color:var(--line-s);color:var(--ink-1);background:var(--bg-raised)}
+.cb:disabled{opacity:.35;cursor:not-allowed}
+.cb.primary{background:var(--accent);border-color:var(--accent);color:var(--bg-void);font-weight:700;font-size:12px;box-shadow:0 0 12px var(--accent-s)}
+.cb.primary:hover:not(:disabled){background:var(--accent-b);border-color:var(--accent-b);box-shadow:0 0 24px var(--accent-s)}
+/* 開始搶答主鈕(綠色,醒目;只在 phase=idle 啟用) */
+.cb.rush{background:#3DAA5C;border-color:#3DAA5C;color:#fff;font-weight:700;font-size:12px;box-shadow:0 0 12px rgba(61,170,92,.35)}
+.cb.rush:hover:not(:disabled){background:#48C66A;border-color:#48C66A;box-shadow:0 0 24px rgba(61,170,92,.5)}
+.cb.rush:disabled{background:transparent;color:rgba(61,170,92,.35);border-color:rgba(61,170,92,.25);box-shadow:none}
+/* 重新搶答(橙色,提示性;搶答中或已搶到時可用) */
+.cb.warn{border-color:rgba(255,138,61,.45);color:#FF8A3D}
+.cb.warn:hover:not(:disabled){border-color:#FF8A3D;color:#FFB347;background:rgba(255,138,61,.08)}
+.cb.danger{border-color:rgba(216,52,74,.28);color:#90303A}
+.cb.danger:hover:not(:disabled){border-color:rgba(216,52,74,.6);color:var(--err);background:var(--err-s)}
+
+/* ═══════════════════════════════════════════════
+   題庫分頁 (五個難度上傳區 + 統計)
+   ═══════════════════════════════════════════════ */
+.bank-page{display:flex;flex-direction:column;gap:18px}
+.bank-summary{
+  background:var(--bg-surface);border:1px solid var(--line);
+  padding:16px 20px;display:flex;justify-content:space-between;align-items:center;
+  flex-wrap:wrap;gap:14px;
+}
+.bank-sm-l{display:flex;flex-direction:column;gap:4px}
+.bank-sm-title{font-family:var(--font-mono);font-size:11px;letter-spacing:.22em;color:var(--ink-3);text-transform:uppercase}
+.bank-sm-stat{font-family:var(--font-mono);font-size:24px;font-weight:300;color:var(--ink-1);letter-spacing:.04em}
+.bank-sm-stat .acc{color:var(--accent);font-weight:500}
+.bank-sm-stat .sep{color:var(--ink-4);margin:0 8px}
+.bank-sm-r{display:flex;gap:8px;align-items:center}
+.bank-clear-btn{
+  background:transparent;border:1px solid rgba(216,52,74,.28);
+  color:#90303A;font-family:var(--font-mono);font-size:10px;
+  letter-spacing:.14em;padding:7px 13px;text-transform:uppercase;transition:all 180ms;
+}
+.bank-clear-btn:hover{border-color:var(--err);color:var(--err);background:var(--err-s)}
+.bank-status-badge{
+  font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;
+  padding:4px 10px;text-transform:uppercase;font-weight:700;
+}
+.bank-status-badge.empty{color:var(--ink-3);border:1px solid var(--line-s);background:transparent}
+.bank-status-badge.partial{color:#D9B477;border:1px solid rgba(217,180,119,.4);background:rgba(217,180,119,.08)}
+.bank-status-badge.ready{color:var(--ok);border:1px solid rgba(110,196,122,.4);background:rgba(110,196,122,.1)}
+
+/* 五張難度上傳卡 */
+.bank-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.bank-card{
+  background:var(--bg-surface);border:1px solid var(--line);
+  padding:14px 12px;display:flex;flex-direction:column;gap:8px;
+  position:relative;overflow:hidden;
+  transition:all 220ms;
+  cursor:pointer;
+}
+.bank-card:hover{border-color:var(--accent-l);background:var(--bg-raised)}
+.bank-card::before{
+  content:'';position:absolute;inset:0;opacity:0;
+  background:radial-gradient(ellipse at bottom, var(--accent-s) 0%, transparent 70%);
+  transition:opacity 280ms ease-out;pointer-events:none;
+}
+.bank-card.dragover{border-color:var(--accent);background:var(--bg-raised)}
+.bank-card.dragover::before{opacity:1}
+/* 已上傳:綠色右上角勾 */
+.bank-card.loaded{border-color:rgba(110,196,122,.5)}
+.bank-card.loaded::after{
+  content:'✓';position:absolute;top:6px;right:8px;
+  width:18px;height:18px;display:flex;align-items:center;justify-content:center;
+  background:var(--ok);color:var(--bg-void);font-size:11px;font-weight:700;
+  border-radius:50%;
+}
+/* 錯誤態:紅邊框 */
+.bank-card.error{border-color:rgba(216,52,74,.5)}
+.bank-card.error::after{
+  content:'!';position:absolute;top:6px;right:8px;
+  width:18px;height:18px;display:flex;align-items:center;justify-content:center;
+  background:var(--err);color:#fff;font-size:11px;font-weight:700;
+  border-radius:50%;
+}
+.bk-head{display:flex;justify-content:space-between;align-items:baseline;gap:6px}
+.bk-prefix{
+  font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;
+  color:var(--ink-3);text-transform:uppercase;font-weight:700;
+}
+.bk-name{
+  font-family:"Noto Serif TC",serif;font-weight:700;font-size:18px;
+  color:var(--ink-1);letter-spacing:.06em;
+}
+.bk-count{
+  font-family:var(--font-mono);font-size:11px;color:var(--ink-2);
+  letter-spacing:.06em;font-variant-numeric:tabular-nums;
+  display:flex;align-items:baseline;gap:5px;
+}
+.bk-count .v{font-size:22px;color:var(--accent);font-weight:500}
+.bk-count .u{font-size:9px;color:var(--ink-3);letter-spacing:.18em;text-transform:uppercase}
+.bank-card.loaded .bk-count .v{color:var(--ok)}
+.bk-types{
+  display:flex;flex-wrap:wrap;gap:3px;
+  font-family:var(--font-mono);font-size:9px;letter-spacing:.06em;
+  color:var(--ink-3);
+}
+.bk-type-chip{padding:1px 5px;border:1px solid var(--line);border-radius:0}
+.bk-type-chip.has{color:var(--ink-2);border-color:var(--line-s)}
+.bank-card.loaded .bk-type-chip.has{color:var(--ok);border-color:rgba(110,196,122,.3)}
+.bk-action{
+  margin-top:auto;padding-top:6px;
+  font-family:var(--font-mono);font-size:9px;letter-spacing:.18em;
+  color:var(--ink-3);text-transform:uppercase;text-align:center;
+  border-top:1px dashed var(--line);
+}
+.bank-card:hover .bk-action{color:var(--accent)}
+.bank-card.loaded .bk-action{color:var(--ok)}
+.bk-error{
+  font-family:var(--font-mono);font-size:9px;color:#E66;
+  letter-spacing:.04em;line-height:1.4;
+  padding:6px 8px;background:var(--err-s);border:1px dashed rgba(216,52,74,.3);
+  white-space:normal;
+}
+.bk-meta{
+  font-family:var(--font-mono);font-size:9px;color:var(--ink-3);
+  letter-spacing:.04em;line-height:1.4;
+}
+.bk-meta .ts{color:var(--ink-2)}
+
+/* 隱藏的 file input */
+.bank-file-input{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:2}
+
+/* 框架統計區(展開後顯示各分類分布) */
+.bank-frameworks{
+  background:var(--bg-surface);border:1px solid var(--line);padding:16px 20px;
+  display:none;flex-direction:column;gap:10px;
+}
+.bank-frameworks.show{display:flex}
+.bank-fw-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:5px 0;border-bottom:1px dashed var(--line)}
+.bank-fw-row:last-child{border-bottom:none}
+.bank-fw-name{font-family:var(--font-sans);font-size:13px;color:var(--ink-1)}
+.bank-fw-name .id{font-family:var(--font-mono);font-size:10px;color:var(--accent);letter-spacing:.14em;margin-right:8px}
+.bank-fw-bars{flex:1;display:flex;gap:1px;height:6px;background:rgba(0,0,0,.18);max-width:280px}
+.bank-fw-bar{height:100%;transition:width 400ms ease-out}
+.bank-fw-bar.easy{background:#7DBA92}
+.bank-fw-bar.medium{background:#7DABD8}
+.bank-fw-bar.hard{background:#E8C46A}
+.bank-fw-bar.hell{background:#D8746A}
+.bank-fw-bar.purgatory{background:#FF8A3D}
+.bank-fw-total{font-family:var(--font-mono);font-size:12px;color:var(--ink-2);font-weight:700;font-variant-numeric:tabular-nums;min-width:36px;text-align:right}
+
+/* RWD */
+@media(max-width:760px){
+  .bank-grid{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:480px){
+  .bank-grid{grid-template-columns:1fr}
+}
+
+/* 揭曉後加分選項 */
+.rev-acts{display:none;gap:8px}
+.rev-acts.show{display:flex}
+.rev-btn{flex:1;border:none;font-family:var(--font-mono);font-size:12px;font-weight:700;padding:12px 0;letter-spacing:.12em;text-transform:uppercase;transition:all 200ms}
+.rev-btn.ok{background:var(--ok);color:var(--bg-void)}.rev-btn.ok:hover{filter:brightness(1.12)}
+.rev-btn.pass{background:var(--bg-raised);border:1px solid var(--line-s);color:var(--ink-3)}.rev-btn.pass:hover{color:var(--ink-2)}
+
+/* 長條圖排行 */
+.ranking{margin-top:12px;padding:18px 20px;background:var(--bg-surface);border:1px solid var(--line)}
+
+/* ── 搶答模式區塊(計分表中,即時排行上方) ─────────── */
+.rush-mode-zone{margin-top:12px;padding:18px 20px;background:var(--bg-surface);border:1px solid var(--line)}
+.rush-mode-hd{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px}
+.rush-mode-lbl{font-family:var(--font-mono);font-size:10px;letter-spacing:.28em;color:var(--accent);text-transform:uppercase}
+.rush-mode-cur{font-family:var(--font-mono);font-size:10px;letter-spacing:.16em;color:var(--ink-3)}
+.rush-mode-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.rm-card{
+  position:relative;padding:12px 10px 11px;
+  background:var(--bg-deep);border:1px solid var(--line);
+  cursor:pointer;transition:all 200ms;text-align:center;
+}
+.rm-card:hover:not(.disabled){border-color:var(--accent-l);background:var(--accent-s)}
+.rm-card.sel{border-color:var(--accent);background:var(--accent-s);box-shadow:0 0 0 1px var(--accent)}
+.rm-card.disabled{opacity:.4;cursor:not-allowed}
+.rm-card .rm-name{
+  font-family:var(--font-serif);font-weight:700;font-size:14px;
+  color:var(--ink-1);margin-bottom:2px;letter-spacing:.04em;
+}
+.rm-card.sel .rm-name{color:var(--accent)}
+.rm-card .rm-code{font-family:var(--font-mono);font-size:9px;letter-spacing:.18em;color:var(--ink-3);margin-bottom:6px}
+.rm-card .rm-desc{font-size:11px;line-height:1.5;color:var(--ink-3)}
+.rm-card.sel .rm-desc{color:var(--ink-2)}
+.rush-mode-foot{
+  margin-top:11px;padding-top:11px;border-top:1px solid var(--line);
+  font-size:12px;line-height:1.6;color:var(--ink-3);
+}
+.rush-mode-foot .accent{color:var(--accent);font-weight:500}
+@media(max-width:600px){
+  .rush-mode-grid{grid-template-columns:repeat(2,1fr)}
+}
+.rank-hd{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px}
+.rank-lbl{font-family:var(--font-mono);font-size:10px;letter-spacing:.28em;color:var(--accent);text-transform:uppercase}
+.rank-max-hint{font-family:var(--font-mono);font-size:10px;color:var(--ink-3);letter-spacing:.1em}
+.bar-list{display:flex;flex-direction:column;gap:8px}
+.bar-row{display:grid;grid-template-columns:72px 1fr 52px;align-items:center;gap:10px}
+.bar-name{font-size:13px;font-weight:500;color:var(--ink-2);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar-track{background:var(--bg-raised);height:22px;position:relative;overflow:hidden}
+.bar-fill{position:absolute;left:0;top:0;bottom:0;background:var(--ink-4);transition:width 500ms cubic-bezier(.2,.7,.2,1)}
+.bar-fill.first{background:var(--accent)}
+.bar-score{font-family:var(--font-mono);font-size:13px;color:var(--ink-2);text-align:right;white-space:nowrap}
+.bar-row.first .bar-name{color:var(--accent)}
+.bar-row.first .bar-score{color:var(--accent)}
+
+@media(max-width:760px){
+  .mode-grid{grid-template-columns:1fr 1fr}
+}
+@media(max-width:900px){
+  .score-grid{grid-template-columns:repeat(3,1fr)}
+}
+@media(max-width:600px){
+  .app{padding:14px 14px 40px}
+  .setup-row,.mode-grid,.group-names,.group-grid{grid-template-columns:1fr}
+  .score-grid{grid-template-columns:repeat(2,1fr)}
+  .sc-val{font-size:28px}
+}
+
+/* ── 助理確認 modal(用於重新開始 / 結束本場) ──────────── */
+.cf-modal{position:fixed;inset:0;z-index:3000;display:none;align-items:center;justify-content:center;padding:20px}
+.cf-modal.show{display:flex}
+.cf-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(8px);animation:cfFade 200ms ease-out}
+@keyframes cfFade{from{opacity:0}to{opacity:1}}
+.cf-card{
+  position:relative;width:min(92vw,400px);
+  background:var(--bg-surface);border:1px solid var(--line-s);
+  padding:28px 28px 22px;text-align:center;
+  animation:cfIn 260ms cubic-bezier(.2,.7,.2,1);
+}
+@keyframes cfIn{from{opacity:0;transform:translateY(8px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+.cf-eyebrow{font-family:var(--font-mono);font-size:10px;letter-spacing:.3em;color:var(--ink-3);text-transform:uppercase;margin-bottom:8px}
+.cf-title{font-family:var(--font-serif);font-weight:700;font-size:18px;color:var(--ink-1);letter-spacing:.04em;margin-bottom:8px;line-height:1.5}
+.cf-sub{font-size:13px;color:var(--ink-3);margin-bottom:20px;line-height:1.6}
+.cf-actions{display:flex;gap:10px}
+.cf-btn{
+  flex:1;padding:11px 18px;
+  background:transparent;border:1px solid var(--line-s);
+  color:var(--ink-2);font-family:var(--font-mono);font-size:11px;
+  letter-spacing:.16em;text-transform:uppercase;
+  cursor:pointer;transition:all 180ms;
+}
+.cf-btn:hover{border-color:var(--ink-2);color:var(--ink-1)}
+.cf-btn.primary{
+  background:var(--accent);border-color:var(--accent);
+  color:var(--bg-void);font-weight:700;
+}
+.cf-btn.primary:hover{background:var(--accent-b);border-color:var(--accent-b)}
+.cf-btn.danger{
+  border-color:rgba(216,52,74,.45);color:#D33848;
+}
+.cf-btn.danger:hover{background:var(--err-s);border-color:var(--err);color:var(--err)}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+<div class="app">
+
+  <div class="app-hd">
+    <div class="brand">
+      <span class="brand-role">Assistant</span>
+      <span class="brand-sep">/</span>
+      <span class="brand-mode" id="brand-mode">尚未選擇模式</span>
+    </div>
+    <div class="hd-meta">
+      <span class="meta-chip">ROUND <span class="v" id="m-round">—</span></span>
+      <span class="meta-chip">題目 <span class="v" id="m-q">—</span></span>
+      <span class="meta-chip">滿分 <span class="v" id="m-max">—</span></span>
+      <span class="purg-mark" id="purg-mark">
+        <span class="flame"></span>
+        <span class="label">煉獄</span>
+      </span>
+    </div>
+  </div>
+
+  <div class="tab-bar" id="tab-bar">
+    <button class="tab-btn active" id="tb-room" onclick="sw('room')">房間</button>
+    <button class="tab-btn" id="tb-setup" onclick="sw('setup')">設定</button>
+    <button class="tab-btn" id="tb-group" onclick="sw('group')">分組表</button>
+    <button class="tab-btn disabled" id="tb-score" onclick="sw('score')">計分表</button>
+    <button class="tab-btn" id="tb-bank" onclick="sw('bank')">題庫</button>
+  </div>
+
+  <!-- ===== ROOM ===== -->
+  <div class="page active" id="pg-room">
+    <div class="room-block">
+      <div class="sec-label">房間資訊</div>
+      <div class="code-row">
+        <div class="code-fld">
+          <span class="flbl">房號</span>
+          <div class="code-display">
+            <span class="code-value" id="room-code">—</span>
+            <button class="copy-btn" id="btn-copy-room" onclick="copyCode('room')">複製</button>
+          </div>
+        </div>
+        <button class="regen-btn warn" onclick="regenRoom()">重新生成 ⚠</button>
+      </div>
+      <p class="hint warn">⚠ 重新生成房號會踢掉所有已加入的玩家</p>
+    </div>
+
+    <div class="room-block">
+      <div class="sec-label">主持人控制碼</div>
+      <div class="code-row">
+        <div class="code-fld">
+          <span class="flbl">控制碼</span>
+          <div class="code-display">
+            <span class="code-value" id="host-code">—</span>
+            <button class="copy-btn" id="btn-copy-host" onclick="copyCode('host')">複製</button>
+          </div>
+        </div>
+        <button class="regen-btn" onclick="regenHost()">重新生成</button>
+      </div>
+      <p class="hint">參賽者點選右上角「主持人登錄」並輸入此控制碼,介面即轉為主持人介面。重新生成不影響已在場的主持人。</p>
+    </div>
+
+    <div class="room-block">
+      <div class="sec-label">參賽者邀請</div>
+      <div class="invite-row">
+        <div class="invite-qr" id="invite-qr-host"></div>
+        <div class="invite-info">
+          <div class="invite-label">短網址</div>
+          <div class="invite-url-row">
+            <span class="invite-url" id="invite-url">—</span>
+            <button class="copy-btn" id="btn-copy-url" onclick="copyInviteUrl()">複製</button>
+          </div>
+          <button class="invite-show-btn" id="btn-show-presenter-qr" onclick="showPresenterQR()">在主持人介面顯示 QR Code</button>
+        </div>
+      </div>
+      <p class="hint">將此 QR Code 或短網址提供給參賽者掃描加入。主持人介面的 QR 會在 1 分鐘後自動消失,可隨時按上方按鈕讓它重新出現。遊戲開始後 QR 永久消失。</p>
+    </div>
+
+    <div class="room-block">
+      <div class="sec-label">進退場紀錄</div>
+      <div class="log-list" id="log-list">
+        <div class="log-empty">尚無進退場紀錄</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SETUP ===== -->
+  <div class="page" id="pg-setup">
+    <div class="setup-layout">
+
+      <div>
+        <div class="sec-label">選擇遊戲模式</div>
+        <div class="mode-grid">
+          <div class="mode-card" data-mode="ordinary" onclick="pickMode('ordinary')">
+            <div class="mc-idx">MODE · 01</div>
+            <div class="mc-name">普通</div>
+            <div class="mc-western">Ordinary</div>
+            <div class="mc-poem">學海初渡 · 鞏固基礎</div>
+            <div class="mc-chips"><span class="mc-chip">簡單</span><span class="mc-chip">中等</span><span class="mc-chip">困難</span></div>
+          </div>
+          <div class="mode-card" data-mode="hell" onclick="pickMode('hell')">
+            <div class="mc-idx">MODE · 02</div>
+            <div class="mc-name">地獄</div>
+            <div class="mc-western">Hell</div>
+            <div class="mc-poem">試煉場 · 唯強者生還</div>
+            <div class="mc-chips"><span class="mc-chip">困難</span><span class="mc-chip">地獄</span><span class="mc-chip">煉獄</span></div>
+          </div>
+          <div class="mode-card" data-mode="paradise" onclick="pickMode('paradise')">
+            <div class="mc-idx">MODE · 03</div>
+            <div class="mc-name">極樂</div>
+            <div class="mc-western">Paradise</div>
+            <div class="mc-poem">命運擲骰 · 順逆皆緣</div>
+            <div class="mc-chips"><span class="mc-chip">全部五級</span></div>
+          </div>
+          <div class="mode-card" data-mode="custom" onclick="pickMode('custom')">
+            <div class="mc-idx">MODE · 04</div>
+            <div class="mc-name">自由</div>
+            <div class="mc-western">Custom</div>
+            <div class="mc-poem">執卷自選 · 由心而定</div>
+            <div class="mc-chips"><span class="mc-chip">自訂難度</span><span class="mc-chip">自訂題型</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 自由模式次選項(僅在 S.mode === 'custom' 時顯示) -->
+      <div class="custom-block" id="custom-block">
+        <div class="sec-label">自由模式 · 次選項</div>
+        <div class="cb-desc">
+          選擇本場戰役要納入的題庫難度與題型。煉獄題在自由模式中為一般題庫的一個分類、按比例自然分佈、不另外觸發降臨特效。
+        </div>
+        <div class="custom-row">
+          <div class="cust-group">
+            <div class="cust-group-head">
+              <span class="cust-group-title">題庫難度</span>
+              <span class="cust-group-hint">至少勾一個</span>
+            </div>
+            <div class="cust-chips" id="cb-tier-chips">
+              <button class="cust-chip active" data-grp="tier" data-val="easy"      onclick="toggleCustChip(this)">簡單</button>
+              <button class="cust-chip"        data-grp="tier" data-val="medium"    onclick="toggleCustChip(this)">中等</button>
+              <button class="cust-chip"        data-grp="tier" data-val="hard"      onclick="toggleCustChip(this)">困難</button>
+              <button class="cust-chip"        data-grp="tier" data-val="hell"      onclick="toggleCustChip(this)">地獄</button>
+              <button class="cust-chip purg"   data-grp="tier" data-val="purgatory" onclick="toggleCustChip(this)">煉獄</button>
+            </div>
+          </div>
+          <div class="cust-group">
+            <div class="cust-group-head">
+              <span class="cust-group-title">題型</span>
+              <span class="cust-group-hint">至少勾一個</span>
+            </div>
+            <div class="cust-chips" id="cb-type-chips">
+              <button class="cust-chip active" data-grp="type" data-val="multiple_choice" onclick="toggleCustChip(this)">選擇題</button>
+              <button class="cust-chip"        data-grp="type" data-val="short_answer"   onclick="toggleCustChip(this)">簡答</button>
+              <button class="cust-chip"        data-grp="type" data-val="essay"          onclick="toggleCustChip(this)">申論</button>
+              <button class="cust-chip"        data-grp="type" data-val="calculation"    onclick="toggleCustChip(this)">計算</button>
+              <button class="cust-chip"        data-grp="type" data-val="word_game"      onclick="toggleCustChip(this)">一字千金</button>
+            </div>
+          </div>
+        </div>
+        <div class="cust-pool">
+          <span class="pl">本場題池</span>
+          <span class="pv" id="cb-pool-num">—</span>
+          <span class="pu">題</span>
+        </div>
+      </div>
+
+      <div class="setup-block">
+        <div class="sec-label">遊戲設定</div>
+        <div class="setup-row">
+          <div class="fld">
+            <span class="flbl">總題數</span>
+            <input type="number" id="i-q" value="20" min="1" max="437" oninput="recalc()">
+          </div>
+          <div class="fld">
+            <span class="flbl">每題配分</span>
+            <input type="number" id="i-s" value="5" min="1" max="100" oninput="recalc()">
+          </div>
+          <div class="fld">
+            <span class="flbl">滿分</span>
+            <div class="total-pill" id="total-pill">100 分</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="setup-block">
+        <div class="sec-label">分組設定</div>
+        <div class="setup-row" style="grid-template-columns:1fr 1fr;margin-bottom:6px">
+          <div class="fld">
+            <span class="flbl">總人數</span>
+            <input type="number" id="i-total" value="35" min="2" max="200" oninput="rebuildNames()">
+          </div>
+          <div class="fld">
+            <span class="flbl">分幾組</span>
+            <input type="number" id="i-n" value="4" min="2" max="10" oninput="rebuildNames()">
+          </div>
+        </div>
+        <div class="group-names" id="group-names"></div>
+      </div>
+
+      <button class="start-btn" id="start-btn" onclick="startGame()" disabled>確定、開始遊戲 →</button>
+
+    </div>
+  </div>
+
+  <!-- ===== GROUPS ===== -->
+  <div class="page" id="pg-group">
+    <div class="sec-label">分組名單</div>
+    <div class="group-grid" id="group-grid"></div>
+  </div>
+
+  <!-- ===== SCORES ===== -->
+  <div class="page" id="pg-score">
+    <div class="score-hd">
+      <div class="score-prog">
+        <span class="cn" id="curr-q">0</span>
+        <span> / <span id="tot-q">20</span> 題</span>
+      </div>
+      <button class="export-btn" onclick="doExport()">匯出結果</button>
+    </div>
+
+    <div class="score-grid" id="score-grid"></div>
+
+    <!-- 分類九宮格 (3x3 遙控器,點任一格廣播給主持人切到該分類) -->
+    <div class="cat-zone">
+      <div class="cat-zone-head">
+        <span>題目分類</span>
+        <span class="hint">點任一格切換分類</span>
+      </div>
+      <div class="cat-grid" id="cat-grid">
+        <button class="cat-btn" data-fid="F1" onclick="pickCategory('F1')">
+          <span class="cb-id">F1</span>
+          <span class="cb-name">保險基礎與法規</span>
+          <span class="cb-count">22 題</span>
+        </button>
+        <button class="cat-btn" data-fid="F2" onclick="pickCategory('F2')">
+          <span class="cb-id">F2</span>
+          <span class="cb-name">契約條款與效力</span>
+          <span class="cb-count">26 題</span>
+        </button>
+        <button class="cat-btn" data-fid="F3" onclick="pickCategory('F3')">
+          <span class="cb-id">F3</span>
+          <span class="cb-name">核保與健康告知</span>
+          <span class="cb-count">18 題</span>
+        </button>
+        <button class="cat-btn" data-fid="F4" onclick="pickCategory('F4')">
+          <span class="cb-id">F4</span>
+          <span class="cb-name">理賠實務與爭議</span>
+          <span class="cb-count">30 題</span>
+        </button>
+        <button class="cat-btn" data-fid="F5" onclick="pickCategory('F5')">
+          <span class="cb-id">F5</span>
+          <span class="cb-name">險種規劃與商品</span>
+          <span class="cb-count">97 題</span>
+        </button>
+        <button class="cat-btn" data-fid="F6" onclick="pickCategory('F6')">
+          <span class="cb-id">F6</span>
+          <span class="cb-name">精算財務監理</span>
+          <span class="cb-count">53 題</span>
+        </button>
+        <button class="cat-btn" data-fid="F7" onclick="pickCategory('F7')">
+          <span class="cb-id">F7</span>
+          <span class="cb-name">高資產與稅務</span>
+          <span class="cb-count">31 題</span>
+        </button>
+        <button class="cat-btn" data-fid="F8" onclick="pickCategory('F8')">
+          <span class="cb-id">F8</span>
+          <span class="cb-name">業務倫理合規</span>
+          <span class="cb-count">21 題</span>
+        </button>
+        <button class="cat-btn" data-fid="F9" onclick="pickCategory('F9')">
+          <span class="cb-id">F9</span>
+          <span class="cb-name">保費保單運用</span>
+          <span class="cb-count">46 題</span>
+        </button>
+      </div>
+      <div class="cat-confirm-row">
+        <span class="cat-confirm-hint" id="cat-hint">尚未選擇分類</span>
+        <button class="cat-purg-btn" id="cat-purg-btn" onclick="togglePurgArm()" title="武裝後按下確定鍵將直接觸發煉獄(無視所選分類)">
+          <span class="pf"></span>
+          <span>確定煉獄</span>
+        </button>
+        <button class="cat-confirm-btn" id="cat-confirm-btn" onclick="confirmCategory()" disabled>確定</button>
+      </div>
+    </div>
+
+    <div class="ctrl-zone">
+      <div class="ctrl-status">
+        <span class="ctrl-dot"></span>
+        <span id="sts">等待搶答</span>
+      </div>
+
+      <div class="rev-acts" id="rev-acts">
+        <button class="rev-btn ok" id="rev-ok" onclick="scoreOk()">答對 · 加分</button>
+        <button class="rev-btn pass" onclick="scorePass()">不計分</button>
+      </div>
+
+      <div class="ctrl-row">
+        <button class="cb rush"     id="btn-rush"   onclick="doStartRush()" disabled>開始搶答</button>
+        <button class="cb warn"     id="btn-rerush" onclick="doReRush()"    disabled>重新搶答</button>
+        <button class="cb"          id="btn-skip"   onclick="doSkip()"      disabled>跳題</button>
+        <button class="cb"          id="btn-redraw" onclick="doRedraw()"    disabled>重抽</button>
+        <button class="cb primary"  id="btn-reveal" onclick="doReveal()"    disabled>公佈答案</button>
+        <button class="cb"          id="btn-next"   onclick="doNext()"      disabled>下一題</button>
+      </div>
+      <div class="ctrl-row">
+        <button class="cb"        id="btn-restart" onclick="doRestart()">重新開始</button>
+        <button class="cb danger" onclick="doEnd()">結束本場</button>
+      </div>
+    </div>
+
+    <!-- 搶答模式選擇區塊 -->
+    <div class="rush-mode-zone">
+      <div class="rush-mode-hd">
+        <span class="rush-mode-lbl">搶答模式</span>
+        <span class="rush-mode-cur" id="rm-current">當前 · 電光石火</span>
+      </div>
+      <div class="rush-mode-grid" id="rm-grid">
+        <div class="rm-card sel" data-rm="speed" onclick="pickRushMode('speed')">
+          <div class="rm-name">電光石火</div>
+          <div class="rm-code">SPEED</div>
+          <div class="rm-desc">321 GO 之後<br>誰最快按誰贏</div>
+        </div>
+        <div class="rm-card" data-rm="count" onclick="pickRushMode('count')">
+          <div class="rm-name">狂點奪魁</div>
+          <div class="rm-code">COUNT</div>
+          <div class="rm-desc">5 秒內猛點<br>按最多次的組贏</div>
+        </div>
+        <div class="rm-card" data-rm="lightning" onclick="pickRushMode('lightning')">
+          <div class="rm-name">閃電一按</div>
+          <div class="rm-code">MODE A</div>
+          <div class="rm-desc">第 3 秒起最快搶到<br>3 秒前按下直接淘汰</div>
+        </div>
+        <div class="rm-card" data-rm="allhands" onclick="pickRushMode('allhands')">
+          <div class="rm-name">全組到位</div>
+          <div class="rm-code">MODE B</div>
+          <div class="rm-desc">8 秒內全組同步動員<br>同時按到的人越多越前</div>
+        </div>
+        <div class="rm-card" data-rm="random" onclick="pickRushMode('random')">
+          <div class="rm-name">隨機</div>
+          <div class="rm-code">RANDOM</div>
+          <div class="rm-desc">每題系統決定<br>四種模式輪播</div>
+        </div>
+      </div>
+      <div class="rush-mode-foot" id="rm-foot">
+        改了之後<span class="accent"> 下一題立刻生效</span>;搶答進行中無法切換。
+      </div>
+    </div>
+
+    <div class="ranking" id="ranking"></div>
+  </div>
+
+  <!-- ===== BANK (題庫) ===== -->
+  <div class="page" id="pg-bank">
+    <div class="bank-page">
+
+      <!-- 總體狀態 -->
+      <div class="bank-summary">
+        <div class="bank-sm-l">
+          <div class="bank-sm-title">題庫總覽</div>
+          <div class="bank-sm-stat">
+            <span class="acc" id="bs-loaded">0</span>
+            <span class="sep">/</span>
+            <span>5 難度</span>
+            <span class="sep">·</span>
+            <span class="acc" id="bs-total">0</span>
+            <span style="font-size:13px;color:var(--ink-3);margin-left:6px">題</span>
+          </div>
+        </div>
+        <div class="bank-sm-r">
+          <span class="bank-status-badge empty" id="bs-badge">尚未掛載</span>
+          <button class="bank-clear-btn" id="bs-clear" onclick="clearAllBank()" style="display:none">全部清除</button>
+        </div>
+      </div>
+
+      <!-- 五張難度上傳卡 -->
+      <div class="bank-grid" id="bank-grid">
+        <!-- 由 JS 動態產生 -->
+      </div>
+
+      <!-- 框架統計(各難度的分類分布) -->
+      <div class="bank-frameworks" id="bank-frameworks">
+        <div class="sec-label">分類框架統計</div>
+        <div id="bank-fw-list"></div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════ 助理確認 modal:重新開始 / 結束本場 ═══════ -->
+<div class="cf-modal" id="cf-modal">
+  <div class="cf-backdrop" onclick="cfCancel()"></div>
+  <div class="cf-card">
+    <div class="cf-eyebrow" id="cf-eyebrow">CONFIRM</div>
+    <div class="cf-title" id="cf-title">確認?</div>
+    <div class="cf-sub" id="cf-sub"></div>
+    <div class="cf-actions">
+      <button class="cf-btn" onclick="cfCancel()">取消</button>
+      <button class="cf-btn primary" id="cf-ok-btn" onclick="cfConfirm()">確定</button>
+    </div>
+  </div>
+</div>
+
+<script>
+
+/* ═══════════════════════════════════════════════════════════════
+   房號 / 短網址 (DEMO 階段寫死,實裝時由 PartyKit server 提供)
+   ═══════════════════════════════════════════════════════════════ */
+const PGG_ROOM_CODE = 'DEMO01';
+const PGG_JOIN_URL = 'https://pgg.app/' + PGG_ROOM_CODE;
+
+const S={
+  mode:null,totalQ:20,spq:5,groups:[],currQ:0,
+  pendingIdx:null,selectedIdx:null,
+  roomCode:null,hostCode:null,log:[],
+  // 自由模式次選項(預設只勾簡單 + 選擇題)
+  customTiers:['easy'],
+  customTypes:['multiple_choice'],
+  // 當前題目分類(F1~F9,助理九宮格選擇)
+  currentCat:null,
+  // 九宮格兩階段選擇狀態
+  catPreview:null,    // 預覽中的分類(尚未拍板)
+  catLocked:false,    // 已拍板鎖定
+  purgArmed:false,    // 「確定煉獄」武裝態(秘技;按確定時無視分類直接觸發煉獄)
+  // 抽題狀態
+  usedIds: new Set(), // 本場已抽過的題目 ID(嚴格不重複)
+  askedQuestions: [], // 本場已抽過的完整題目物件(依抽題順序),供匯出使用
+  currentQuestion: null,    // 當前題目物件
+  currentDifficulty: null,  // 當前難度
+  currentFramework: null,   // 當前框架 id
+  // 流程狀態機 phase: idle | rushing | won | picking | answering | revealed | ended
+  phase: 'idle',
+  // 搶答模式: speed | count | lightning | allhands | hunt | random
+  // (預設比速度;random = 每題從前 5 種隨機抽一個)
+  rushMode: 'speed',
+  // 隨機模式時記錄當前回合實際使用的模式(讓 UI 顯示)
+  rushModeActual: 'speed',
+  gameStarted: false,  // 是否已按過「開始遊戲」(影響分頁鎖定)
+};
+
+/* ════════════════════════════════════════════════════════════════════
+   題庫 Schema(基於 quiz-bank-metadata.json,常駐於主程式作為驗證依據)
+   ════════════════════════════════════════════════════════════════════ */
+const BANK_SCHEMA = {
+  difficulties: [
+    { id:'easy',      label:'簡單', prefix:'E', expectedCount:60,  expectedTypes:['short_answer','multiple_choice','essay','calculation'],            framework:'A' },
+    { id:'medium',    label:'中等', prefix:'M', expectedCount:96,  expectedTypes:['short_answer','multiple_choice','essay','calculation','word_game'], framework:'A' },
+    { id:'hard',      label:'困難', prefix:'H', expectedCount:105, expectedTypes:['short_answer','multiple_choice','essay','calculation','word_game'], framework:'A' },
+    { id:'hell',      label:'地獄', prefix:'X', expectedCount:96,  expectedTypes:['short_answer','multiple_choice','essay','calculation','word_game'], framework:'A' },
+    { id:'purgatory', label:'煉獄', prefix:'P', expectedCount:80,  expectedTypes:['multiple_choice','essay'],                                          framework:'B' },
+  ],
+  // 模式 → 涵蓋的難度池
+  modePool: {
+    ordinary: ['easy', 'medium', 'hard'],
+    hell:     ['hard', 'hell', 'purgatory'],
+    paradise: ['easy', 'medium', 'hard', 'hell', 'purgatory'],
+    custom:   null,  // 由助理在自由模式設定頁勾選的 customTiers 決定
+  },
+  // 題型 schema(必填欄位,用於上傳驗證)
+  typeFields: {
+    short_answer:    { required:['id','topic','question','answer'] },
+    multiple_choice: { required:['id','topic','question','options','correct','explanation'] },
+    essay:           { required:['id','topic','question','key_points','model_answer'] },
+    calculation:     { required:['id','topic','question','given','steps','answer','unit'] },
+    word_game:       { required:['id','topic','word','options','correct'] },
+  },
+  // 框架系統 A:標準 9 框架(簡單/中等/困難/地獄)
+  frameworksA: [
+    { id:'f1_insurance_basics',  shortId:'F1', label:'保險基礎與法規' },
+    { id:'f2_contract_terms',    shortId:'F2', label:'契約條款與效力' },
+    { id:'f3_underwriting',      shortId:'F3', label:'核保與健康告知' },
+    { id:'f4_claims',            shortId:'F4', label:'理賠實務與爭議' },
+    { id:'f5_product_planning',  shortId:'F5', label:'險種規劃與商品' },
+    { id:'f6_actuarial',         shortId:'F6', label:'精算、財務與監理' },
+    { id:'f7_wealth_tax',        shortId:'F7', label:'高資產與稅務傳承' },
+    { id:'f8_ethics_compliance', shortId:'F8', label:'業務倫理與合規' },
+    { id:'f9_premium_calc',      shortId:'F9', label:'保費、保單運用與計算' },
+  ],
+  // 框架系統 B:煉獄專用 4 框架(L1-L4 能力分層)
+  frameworksB: [
+    { id:'l1_cross_dept',  shortId:'L1', label:'跨部門溝通' },
+    { id:'l2_customer',    shortId:'L2', label:'客戶溝通' },
+    { id:'l3_ethics',      shortId:'L3', label:'道德判斷' },
+    { id:'l4_time_scale',  shortId:'L4', label:'時間尺度' },
+  ],
+};
+
+/* 已掛載的題庫(由助理上傳,持久化在 localStorage)
+   結構:{ easy: {questions:..., uploadedAt:'2026-04-26T...', count:60, frameworks:[...]}, ... } */
+const BANK = { easy:null, medium:null, hard:null, hell:null, purgatory:null };
+const BANK_STORAGE_KEY = 'pgg_quiz_bank_v1';
+
+
+/* ════════════════════════════════════════════════════════════════════
+   PartyBus · 跨分頁事件總線(基於 localStorage storage 事件)
+   - 助理(主控)透過 emit() 廣播事件
+   - 主持人/參賽者(讀者)用 on() 訂閱
+   - 同分頁也會觸發(storage 事件不會在自己分頁觸發,所以加 self-dispatch)
+   - 正式版 PartyKit 接好後,把這個換成 party.broadcast 即可
+   ════════════════════════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════════════
+   PartyBus · 跨分頁事件總線
+   主通道:BroadcastChannel(現代瀏覽器,file://也支援良好)
+   後援:localStorage storage 事件(BroadcastChannel 不可用時)
+   兩個機制都會跑,接收端用 ts 去重避免重複觸發
+   正式版 PartyKit 接好後,改成 party.broadcast 即可
+   ════════════════════════════════════════════════════════════════════ */
+const PARTY_BUS_KEY = 'pgg_party_event';
+const PARTY_BUS_CHANNEL = 'pgg_bus';
+const PartyBus = {
+  _listeners: {},
+  _channel: null,
+  _seenTs: new Set(),  // 去重(避免雙通道送達兩次)
+  emit(type, payload) {
+    const event = { type, payload, ts: Date.now() + Math.random() };
+    // 通道 1:BroadcastChannel
+    if (this._channel) {
+      try { this._channel.postMessage(event); } catch (e) {}
+    }
+    // 通道 2:localStorage(storage 事件 fallback)
+    try { localStorage.setItem(PARTY_BUS_KEY, JSON.stringify(event)); } catch (e) {}
+    // 自己分頁直接 dispatch(這兩個機制都不會在自己分頁觸發)
+    this._seenTs.add(event.ts);
+    this._dispatch(type, payload);
+    if (this._seenTs.size > 100) {
+      // 清舊 ts(保留最新 50 個)
+      this._seenTs = new Set(Array.from(this._seenTs).slice(-50));
+    }
+  },
+  on(type, cb) {
+    if (!this._listeners[type]) this._listeners[type] = [];
+    this._listeners[type].push(cb);
+  },
+  _dispatch(type, payload) {
+    (this._listeners[type] || []).forEach(cb => {
+      try { cb(payload); } catch (e) { console.error(`PartyBus[${type}]`, e); }
+    });
+  },
+  _handleEvent(ev) {
+    if (!ev || !ev.type) return;
+    // 用 ts 去重
+    if (this._seenTs.has(ev.ts)) return;
+    this._seenTs.add(ev.ts);
+    if (this._seenTs.size > 100) {
+      this._seenTs = new Set(Array.from(this._seenTs).slice(-50));
+    }
+    this._dispatch(ev.type, ev.payload);
+  },
+  _init() {
+    // 主通道 BroadcastChannel
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        this._channel = new BroadcastChannel(PARTY_BUS_CHANNEL);
+        this._channel.addEventListener('message', e => this._handleEvent(e.data));
+      } catch (e) {
+        console.warn('BroadcastChannel 不可用,改用 storage fallback');
+      }
+    }
+    // 後援 storage 事件
+    window.addEventListener('storage', e => {
+      if (e.key !== PARTY_BUS_KEY || !e.newValue) return;
+      try { this._handleEvent(JSON.parse(e.newValue)); } catch (err) {}
+    });
+  },
+};
+PartyBus._init();
+window.PartyBus = PartyBus;
+
+/* 診斷工具:在 console 跑 PGG.ping() 測試聯動;另一端會看到 console.log */
+window.PGG = window.PGG || {};
+window.PGG.ping = function(msg) {
+  PartyBus.emit('__ping__', { from: 'assistant', msg: msg || 'hello', t: new Date().toLocaleTimeString() });
+  console.log('[PGG] ping sent from assistant');
+};
+PartyBus.on('__ping__', p => {
+  console.log(`[PGG] PING from ${p.from} @ ${p.t}: ${p.msg}`);
+});
+
+/* 參賽者加入 → 把名字塞到對應組的 members、進退場紀錄、重渲染分組表 */
+PartyBus.on('player_join', payload => {
+  if (!payload?.name || !payload?.team) return;
+  // 確保 S.groups 已初始化(若助理還沒 rebuildNames,先觸發一次)
+  if (!S.groups || S.groups.length === 0) {
+    if (typeof syncGroupsFromInputs === 'function') syncGroupsFromInputs();
+  }
+  // 找對應的組(用組名比對;若找不到,放第一組 fallback)
+  let idx = S.groups.findIndex(g => g.name === payload.team);
+  if (idx < 0) {
+    // 找不到完全比對的組(可能組名已改);demo 階段放第一組
+    idx = 0;
+  }
+  if (!S.groups[idx]) return;
+  // members 陣列若沒有就建一個
+  if (!Array.isArray(S.groups[idx].members)) S.groups[idx].members = [];
+  // 不重複加入
+  if (!S.groups[idx].members.includes(payload.name)) {
+    S.groups[idx].members.push(payload.name);
+  }
+  // 進退場紀錄
+  if (typeof addLog === 'function') {
+    addLog(payload.name, '加入', 'join', S.groups[idx].name);
+  }
+  // 重渲染分組表 + 計分表
+  if (typeof renderGroups === 'function') renderGroups();
+  if (typeof renderScores === 'function') renderScores();
+});
+
+/* 參賽者改組名:更新 S.groups + 重新渲染 + 進退場紀錄 + 廣播 score_update */
+PartyBus.on('team_rename', payload => {
+  if (!payload?.oldName || !payload?.newName) return;
+
+  // 1. 更新分組設定的 input 值(gn-0/gn-1/...)——這個在 startGame 前就存在
+  // 用 oldName 找哪個 input 的 value 是這個值
+  let inputUpdated = false;
+  for (let i = 0; i < 16; i++) {
+    const inp = document.getElementById(`gn-${i}`);
+    if (!inp) continue;
+    const cur = (inp.value || '').trim() || `第${i+1}組`;
+    if (cur === payload.oldName) {
+      inp.value = payload.newName;
+      inputUpdated = true;
+      break;
+    }
+  }
+
+  // 2. 若 S.groups 已建(startGame 後),也更新 S.groups
+  let groupUpdated = false;
+  if (S.groups && S.groups.length > 0) {
+    const idx = S.groups.findIndex(g => g.name === payload.oldName);
+    if (idx >= 0) {
+      S.groups[idx].name = payload.newName;
+      groupUpdated = true;
+    }
+  }
+
+  // 都找不到就不處理(可能是奇怪的 payload)
+  if (!inputUpdated && !groupUpdated) return;
+
+  // 進退場紀錄
+  if (typeof addLog === 'function') {
+    addLog(
+      payload.by || '某位玩家',
+      `把「${payload.oldName}」改名為「${payload.newName}」`,
+      'rename',
+      ''
+    );
+  }
+
+  // 重渲染分組表 + 計分表
+  if (typeof renderGroups === 'function') renderGroups();
+  if (typeof renderScores === 'function') renderScores();
+
+  // 廣播給其他端(主持人/參賽者各組)同步
+  // 用 score_update 把新組名一起帶過去(若 S.groups 已有)
+  if (S.groups && S.groups.length > 0) {
+    PartyBus.emit('score_update', {
+      scores: S.groups.map((g, i) => ({ idx:i, name:g.name, score:g.score })),
+      changedIdx: null,
+      delta: 0,
+    });
+  }
+});
+
+/* 參賽者登入完成 → 助理把該玩家加進對應組的 members + 進退場紀錄 */
+PartyBus.on('player_join', payload => {
+  if (!payload?.name || !payload?.team) return;
+  // 確保 S.groups 已根據設定頁同步,讓即使尚未按開始遊戲也能正確分組
+  if (!S.groups || S.groups.length === 0) {
+    if (typeof syncGroupsFromInputs === 'function') syncGroupsFromInputs();
+  }
+  // 找出對應的組
+  let group = (S.groups || []).find(g => g.name === payload.team);
+  if (!group) {
+    // 找不到組(可能是參賽者寫死的組名跟設定頁的不一樣):退而求其次,塞進第一組
+    group = S.groups?.[0];
+  }
+  if (!group) return;
+  // 確保 members 陣列存在
+  if (!Array.isArray(group.members)) group.members = [];
+  // 重複加入時去重(用名字)
+  if (!group.members.includes(payload.name)) {
+    group.members.push(payload.name);
+  }
+  // 進退場紀錄
+  if (typeof addLog === 'function') {
+    addLog(payload.name, '加入', 'join', group.name);
+  }
+  // 重渲染分組表/計分表(讓組員列即時顯示)
+  if (typeof renderGroups === 'function') renderGroups();
+  if (typeof renderScores === 'function') renderScores();
+});
+
+/* 參賽者離開(預留,正式版 PartyKit disconnect 時觸發) */
+PartyBus.on('player_leave', payload => {
+  if (!payload?.name) return;
+  let removedFrom = null;
+  (S.groups || []).forEach(g => {
+    if (!Array.isArray(g.members)) return;
+    const idx = g.members.indexOf(payload.name);
+    if (idx >= 0) {
+      g.members.splice(idx, 1);
+      removedFrom = g.name;
+    }
+  });
+  if (typeof addLog === 'function' && removedFrom) {
+    addLog(payload.name, '退出', 'leave', removedFrom);
+  }
+  if (typeof renderGroups === 'function') renderGroups();
+  if (typeof renderScores === 'function') renderScores();
+});
+
+/* ── 接收參賽者按下搶答鈕 ────────────────────────────
+   payload: { name, team, ts }
+   依當前 rushSession.mode 處理:
+   - speed:     第一個有效按到的組獲勝
+   - count:     累計該組計數
+   - lightning: 0~3 秒按下淘汰個人;3 秒後第一個有效按到的組獲勝
+   - allhands:  滑動窗口同步集群邏輯
+*/
+PartyBus.on('buzz_press', payload => {
+  const sess = S.rushSession;
+  if (!sess) return;
+  if (sess.winnerLocked) return;
+  if (Date.now() < sess.armedAt) return;  // 還沒 armed,忽略
+  if (!payload?.team) return;
+  // 找出對應的組 idx
+  const teamIdx = (S.groups || []).findIndex(g => g.name === payload.team);
+  if (teamIdx < 0) return;
+
+  if (sess.mode === 'speed') {
+    // 第一個按到的就贏
+    sess.clicks.push({ name: payload.name, team: payload.team, teamIdx, ts: Date.now() });
+    _lockRushWinner(teamIdx);
+  } else if (sess.mode === 'lightning') {
+    // 閃電一按:armedAt 起算,0~3 秒按下淘汰個人;>= 3 秒按下贏
+    const elapsed = Date.now() - sess.armedAt;
+    // 該玩家已經被淘汰過 → 任何後續按下都忽略
+    if (sess.disqualified[teamIdx] && sess.disqualified[teamIdx].has(payload.name)) return;
+    if (elapsed < 3000) {
+      // 0~3 秒淘汰窗口
+      if (!sess.disqualified[teamIdx]) sess.disqualified[teamIdx] = new Set();
+      sess.disqualified[teamIdx].add(payload.name);
+      // 廣播淘汰事件 → 三端 UI 顯示
+      PartyBus.emit('lightning_disqualify', {
+        name: payload.name,
+        team: payload.team,
+        teamIdx,
+        elapsedMs: elapsed,
+      });
+    } else {
+      // >= 3 秒,有效按下 → 贏
+      sess.clicks.push({ name: payload.name, team: payload.team, teamIdx, ts: Date.now() });
+      _lockRushWinner(teamIdx);
+    }
+  } else if (sess.mode === 'count') {
+    // 累加該組計數;不 lock,等 5 秒結束才判定
+    sess.teamCounts[teamIdx] = (sess.teamCounts[teamIdx] || 0) + 1;
+  } else if (sess.mode === 'allhands') {
+    // 全組到位(滑動窗口演算法):
+    // 1. 個人冷卻 1 秒檢查
+    // 2. 紀錄這次按下
+    // 3. 用滑動窗口 0.5 秒找出該組此刻最佳同步集群,更新 bestCluster
+    const now = Date.now();
+    if (!sess.lastPressedAt[teamIdx]) sess.lastPressedAt[teamIdx] = {};
+    const lastTs = sess.lastPressedAt[teamIdx][payload.name];
+    if (lastTs != null && (now - lastTs) < 1000) return;  // 冷卻中,忽略
+    sess.lastPressedAt[teamIdx][payload.name] = now;
+    if (!sess.teamClicks[teamIdx]) sess.teamClicks[teamIdx] = [];
+    sess.teamClicks[teamIdx].push({ name: payload.name, ts: now });
+    // 滑動窗口:從 [now-500, now] 找出有按過的不重複玩家(以最後一次按為準)
+    const winStart = now - 500;
+    const seenMembers = new Map();  // name -> ts(該人在窗口內最後一次按下時間)
+    for (const c of sess.teamClicks[teamIdx]) {
+      if (c.ts >= winStart && c.ts <= now) {
+        seenMembers.set(c.name, c.ts);
+      }
+    }
+    const clusterCount = seenMembers.size;
+    const cluster = sess.bestCluster[teamIdx] || { count: 0, endTs: null, members: [] };
+    // 比較:人數多者優先;同人數比 endTs(早者贏)
+    const isBetter =
+      clusterCount > cluster.count ||
+      (clusterCount === cluster.count && (cluster.endTs == null || now < cluster.endTs));
+    if (isBetter) {
+      sess.bestCluster[teamIdx] = {
+        count: clusterCount,
+        endTs: now,
+        members: Array.from(seenMembers.keys()),
+      };
+    }
+  }
+});
+
+/* 診斷工具:看題庫結構是否健康 */
+window.PGG.diagnose = function() {
+  console.log('=== 題庫診斷 ===');
+  console.log('當前模式:', S.mode);
+  console.log('已抽 IDs:', S.usedIds.size);
+  Object.keys(BANK).forEach(d => {
+    const b = BANK[d];
+    if (!b) { console.log(`  ${d}: 未掛載`); return; }
+    console.log(`  ${d}: ${b.questions?.length || 0} 題`);
+    if (b.questions?.[0]) {
+      const q = b.questions[0];
+      console.log(`    範例題: id=${q.id}, type=${q.type}, topic=${q.topic}`);
+    }
+    // 統計 topic 分布
+    const topics = {};
+    (b.questions || []).forEach(q => {
+      topics[q.topic || '<無 topic>'] = (topics[q.topic || '<無 topic>'] || 0) + 1;
+    });
+    console.log(`    topic 分布:`, topics);
+  });
+  if (typeof getActiveDifficulties === 'function') {
+    console.log('當前難度池:', getActiveDifficulties());
+  }
+};
+
+/* ════════════════════════════════════════════════════════════════════
+   抽題核心 · 從 BANK 抽符合條件的題目
+   ════════════════════════════════════════════════════════════════════ */
+
+/* 取某難度池中所有題目(過濾 framework + 已抽過) */
+function _collectQuestions(difficulties, frameworkId, excludeIds) {
+  const result = [];
+  difficulties.forEach(d => {
+    const bank = BANK[d];
+    if (!bank?.questions) return;
+    bank.questions.forEach(q => {
+      if (excludeIds.has(q.id)) return;
+      // frameworkId 是規範化的 id(f1_xxx),q.topic 可能是 id 或 label
+      // 用 _topicMatches 做雙向比對
+      if (frameworkId && !_topicMatches(q.topic, frameworkId)) return;
+      result.push({ ...q, _difficulty: d });
+    });
+  });
+  return result;
+}
+
+/* 取得當前模式涵蓋的難度池 */
+function getActiveDifficulties() {
+  if (!S.mode) return [];
+  if (S.mode === 'custom') return S.customTiers || [];
+  return BANK_SCHEMA.modePool[S.mode] || [];
+}
+
+/* 統計某難度池下各 framework 的題數
+   回傳 {fwId: count, ...} */
+function getFrameworkCounts(difficulties) {
+  const counts = {};
+  difficulties.forEach(d => {
+    const bank = BANK[d];
+    if (!bank?.frameworks) return;
+    bank.frameworks.forEach(fw => {
+      counts[fw.id] = (counts[fw.id] || 0) + fw.count;
+    });
+  });
+  return counts;
+}
+
+/* 隨機抽題(主要 API)
+   opts: { framework?, forcePurgatory? }
+   回傳: {ok, question, difficulty, framework, error} */
+function pickQuestion(opts) {
+  opts = opts || {};
+
+  // 強制煉獄(武裝態觸發 / 正常抽題撞到煉獄):從 L1-L4 隨機選 framework
+  if (opts.forcePurgatory) {
+    if (!BANK.purgatory) return { ok:false, error:'煉獄題庫未掛載' };
+    const fwIds = BANK_SCHEMA.frameworksB.map(f => f.id);
+    const fwId = fwIds[Math.floor(Math.random() * fwIds.length)];
+    let pool = _collectQuestions(['purgatory'], fwId, S.usedIds);
+    if (pool.length === 0) pool = _collectQuestions(['purgatory'], null, S.usedIds);
+    if (pool.length === 0) return { ok:false, error:'煉獄題庫已抽完' };
+    const q = pool[Math.floor(Math.random() * pool.length)];
+    // framework 規範化成 fw.id(避免 q.topic 可能是 label)
+    const fw = _findFwByTopic(q.topic);
+    return { ok:true, question:q, difficulty:'purgatory', framework:fw?.id || q.topic };
+  }
+
+  // 一般抽題:從當前模式涵蓋的難度池抽
+  let difficulties = getActiveDifficulties().filter(d => BANK[d]);
+  if (difficulties.length === 0) return { ok:false, error:'此模式相關難度的題庫未掛載' };
+
+  let pool = _collectQuestions(difficulties, opts.framework, S.usedIds);
+  if (pool.length === 0 && opts.framework) {
+    pool = _collectQuestions(difficulties, null, S.usedIds);
+  }
+  if (pool.length === 0) return { ok:false, error:'此分類已無題目可抽' };
+
+  const q = pool[Math.floor(Math.random() * pool.length)];
+
+  // 抽到煉獄難度時,等同走「強制煉獄」流程(讓 framework 變 L 系列)
+  if (q._difficulty === 'purgatory') {
+    return pickQuestion({ forcePurgatory: true });
+  }
+
+  // framework 規範化成 fw.id
+  const fw = _findFwByTopic(q.topic);
+  return { ok:true, question:q, difficulty:q._difficulty, framework:fw?.id || q.topic };
+}
+
+/* 對外 export */
+window.BANK = BANK;
+window.BANK_SCHEMA = BANK_SCHEMA;
+window.pickQuestion = pickQuestion;
+window.getActiveDifficulties = getActiveDifficulties;
+window.getFrameworkCounts = getFrameworkCounts;
+
+/* shortId(F1~F9) → framework full id 對應表 */
+function _fwIdByShortId(shortId) {
+  const fw = BANK_SCHEMA.frameworksA.find(f => f.shortId === shortId)
+          || BANK_SCHEMA.frameworksB.find(f => f.shortId === shortId);
+  return fw?.id;
+}
+
+/* 依 topic 值(可能是 id 或 label)找對應 framework 物件 */
+function _findFwByTopic(topic) {
+  if (!topic) return null;
+  const all = [...BANK_SCHEMA.frameworksA, ...BANK_SCHEMA.frameworksB];
+  return all.find(fw =>
+    fw.id === topic
+    || fw.label === topic
+    || fw.shortId === topic
+  ) || null;
+}
+
+/* 比對題目 topic 是否屬於某 framework(支援 topic 為 id/label/shortId) */
+function _topicMatches(qTopic, fwId) {
+  if (!qTopic || !fwId) return false;
+  const fw = _findFwByTopic(qTopic);
+  return fw?.id === fwId;
+}
+
+/* 依當前模式更新九宮格:統計各 F1-F9 在當前難度池中的題數,
+   0 題格灰掉 + pointer-events:none */
+function updateCategoryGrid() {
+  const grid = document.getElementById('cat-grid');
+  if (!grid) return;
+  const difficulties = getActiveDifficulties().filter(d => BANK[d]);
+  // 統計各 fw.id 剩餘題數(扣掉已抽過的)
+  // 用 _findFwByTopic 把題目的 topic 規範化成 fw.id 才比對
+  const remaining = {};
+  difficulties.forEach(d => {
+    const bank = BANK[d];
+    if (!bank?.questions) return;
+    bank.questions.forEach(q => {
+      if (S.usedIds.has(q.id)) return;
+      const fw = _findFwByTopic(q.topic);
+      if (!fw) return;
+      remaining[fw.id] = (remaining[fw.id] || 0) + 1;
+    });
+  });
+
+  grid.querySelectorAll('.cat-btn').forEach(btn => {
+    const shortId = btn.dataset.fid;
+    const fwId = _fwIdByShortId(shortId);
+    const c = remaining[fwId] || 0;
+    const countEl = btn.querySelector('.cb-count');
+    if (countEl) countEl.textContent = `${c} 題`;
+    if (c === 0) {
+      btn.classList.add('empty');
+      btn.disabled = true;
+    } else {
+      btn.classList.remove('empty');
+      btn.disabled = false;
+    }
+  });
+}
+window.updateCategoryGrid = updateCategoryGrid;
+
+const modeNames={ordinary:'普通模式',hell:'地獄模式',paradise:'極樂模式',custom:'自由模式'};
+
+/* ===== 房號 / 控制碼 ===== */
+function genCode(len, alphanumeric){
+  if(alphanumeric){
+    // 排除易混字元 0/O/1/l/I
+    const chars='ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+    return Array.from({length:len},()=>chars[Math.floor(Math.random()*chars.length)]).join('');
+  }
+  return String(Math.floor(Math.random()*Math.pow(10,len))).padStart(len,'0');
+}
+
+function initCodes(){
+  S.roomCode=genCode(4,false);   // 4 位數字房號
+  S.hostCode=genCode(6,true);    // 6 位英數控制碼
+  document.getElementById('room-code').textContent=S.roomCode;
+  document.getElementById('host-code').textContent=S.hostCode;
+}
+
+function copyCode(which){
+  const text=which==='room'?S.roomCode:S.hostCode;
+  const btn=document.getElementById(which==='room'?'btn-copy-room':'btn-copy-host');
+  navigator.clipboard.writeText(text).then(()=>{
+    if(!btn)return;
+    btn.classList.add('copied');btn.textContent='已複製';
+    setTimeout(()=>{btn.classList.remove('copied');btn.textContent='複製';},1500);
+  }).catch(()=>{
+    // fallback for non-secure context
+    const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);
+    ta.select();document.execCommand('copy');document.body.removeChild(ta);
+    if(btn){btn.classList.add('copied');btn.textContent='已複製';
+      setTimeout(()=>{btn.classList.remove('copied');btn.textContent='複製';},1500);}
+  });
+}
+
+/* 複製短網址(參賽者邀請) */
+function copyInviteUrl(){
+  const text = PGG_JOIN_URL;
+  const btn = document.getElementById('btn-copy-url');
+  navigator.clipboard.writeText(text).then(()=>{
+    if(!btn)return;
+    btn.classList.add('copied');btn.textContent='已複製';
+    setTimeout(()=>{btn.classList.remove('copied');btn.textContent='複製';},1500);
+  }).catch(()=>{
+    const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);
+    ta.select();document.execCommand('copy');document.body.removeChild(ta);
+    if(btn){btn.classList.add('copied');btn.textContent='已複製';
+      setTimeout(()=>{btn.classList.remove('copied');btn.textContent='複製';},1500);}
+  });
+}
+window.copyInviteUrl = copyInviteUrl;
+
+/* 渲染邀請 QR Code(在房間分頁) */
+function renderInviteQR() {
+  const container = document.getElementById('invite-qr-host');
+  const urlEl = document.getElementById('invite-url');
+  if (urlEl) urlEl.textContent = PGG_JOIN_URL;
+  if (!container) return;
+  if (typeof QRCode === 'undefined') {
+    container.innerHTML = '<span style="font-size:11px;color:var(--ink-3)">QR Code library 載入中…</span>';
+    return;
+  }
+  container.innerHTML = '';
+  new QRCode(container, {
+    text: PGG_JOIN_URL,
+    width: 176,
+    height: 176,
+    correctLevel: QRCode.CorrectLevel.H,
+  });
+}
+window.renderInviteQR = renderInviteQR;
+
+/* 在主持人介面顯示 QR Code(觸發主持人重新顯示 1 分鐘) */
+function showPresenterQR() {
+  PartyBus.emit('presenter_show_qr', { durationMs: 60000 });
+  const btn = document.getElementById('btn-show-presenter-qr');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '已通知主持人(60 秒後可再按)';
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.textContent = '在主持人介面顯示 QR Code';
+    }, 60000);
+  }
+}
+window.showPresenterQR = showPresenterQR;
+
+function regenRoom(){
+  if(!confirm('重新生成房號會踢掉所有已加入的玩家,確定?'))return;
+  S.roomCode=genCode(4,false);
+  document.getElementById('room-code').textContent=S.roomCode;
+  addLog('系統','房號重新生成','system','所有玩家被踢出');
+}
+
+function regenHost(){
+  S.hostCode=genCode(6,true);
+  document.getElementById('host-code').textContent=S.hostCode;
+}
+
+/* ===== 進退場紀錄 ===== */
+function addLog(name,action,type,group){
+  const time=new Date().toLocaleTimeString('zh-TW',{hour12:false});
+  S.log.unshift({time,name,action,type,group:group||''});
+  renderLog();
+}
+
+function renderLog(){
+  const list=document.getElementById('log-list');
+  if(!S.log.length){list.innerHTML='<div class="log-empty">尚無進退場紀錄</div>';return;}
+  list.innerHTML=S.log.map(l=>`
+    <div class="log-row ${l.type}">
+      <span class="log-time">${l.time}</span>
+      <span class="log-action">${l.action}</span>
+      <span class="log-name">${l.name}</span>
+      <span class="log-group">${l.group}</span>
+    </div>`).join('');
+}
+
+function pickMode(m){
+  S.mode=m;
+  document.querySelectorAll('.mode-card').forEach(c=>c.classList.remove('sel'));
+  document.querySelector(`.mode-card[data-mode="${m}"]`).classList.add('sel');
+  document.getElementById('brand-mode').textContent=modeNames[m];
+  // 整個 app 切到該模式 — accent 變數會自動跟著切換
+  document.querySelector('.app').dataset.mode=m;
+  // 自由模式才顯示次選項區塊
+  document.getElementById('custom-block').classList.toggle('show', m === 'custom');
+  if (m === 'custom') updateCustomPool();
+  // 切模式時九宮格重新統計
+  updateCategoryGrid();
+  // 廣播給主持人:即時跟隨切換背景與模式名,讓觀眾看到模式變化
+  PartyBus.emit('mode_preview', {
+    mode: m,
+    // 自由模式時帶上次選項當前狀態,讓主持人 scr-custom 同步
+    customTiers: m === 'custom' ? [...S.customTiers] : undefined,
+    customTypes: m === 'custom' ? [...S.customTypes] : undefined,
+  });
+  chk();
+}
+
+/* 自由模式 chip 切換(不可全部取消,至少留一個) */
+function toggleCustChip(el) {
+  const grp = el.dataset.grp;
+  const val = el.dataset.val;
+  const arr = grp === 'tier' ? S.customTiers : S.customTypes;
+  const idx = arr.indexOf(val);
+  if (idx >= 0) {
+    if (arr.length === 1) return;  // 至少留一個
+    arr.splice(idx, 1);
+    el.classList.remove('active');
+  } else {
+    arr.push(val);
+    el.classList.add('active');
+  }
+  updateCustomPool();
+  // 自由模式調整 customTiers 時九宮格也要同步重算
+  if (grp === 'tier') updateCategoryGrid();
+  chk();
+  // 廣播給主持人:同步 scr-custom 的 chip active 狀態
+  PartyBus.emit('custom_tiers_changed', {
+    customTiers: [...S.customTiers],
+    customTypes: [...S.customTypes],
+  });
+}
+
+/* ── 搶答模式選擇 ───────────────────────────────────
+   id: 'lightning' | 'allhands' | 'hunt' | 'random'
+   - 改了之後下一輪搶答(下次按開始搶答時)生效
+   - rushing 進行中不允許切換 */
+const RUSH_MODE_LABELS = {
+  speed:     '電光石火',
+  count:     '狂點奪魁',
+  lightning: '閃電一按',
+  allhands:  '全組到位',
+  random:    '隨機',
+};
+function pickRushMode(id) {
+  if (!RUSH_MODE_LABELS[id]) return;
+  // 進行中不允許切換
+  if (S.phase === 'rushing') {
+    setStatus('搶答進行中,無法切換搶答模式');
+    return;
+  }
+  S.rushMode = id;
+  // 更新 UI 卡片選中態
+  document.querySelectorAll('#rm-grid .rm-card').forEach(c => {
+    c.classList.toggle('sel', c.dataset.rm === id);
+  });
+  // 更新「當前」字樣
+  document.getElementById('rm-current').textContent = `當前 · ${RUSH_MODE_LABELS[id]}`;
+  // 廣播給主持人 / 參賽者(讓他們的搶答提示文字同步)
+  PartyBus.emit('rush_mode_changed', {
+    mode: id,
+    label: RUSH_MODE_LABELS[id],
+  });
+  setStatus(`搶答模式已切換為 · ${RUSH_MODE_LABELS[id]} · 下一題生效`);
+}
+window.pickRushMode = pickRushMode;
+
+/* 估算自由模式題池大小 */
+function updateCustomPool() {
+  // 從 BANK 實際統計:勾選的難度 × 勾選的題型,加總題數
+  let pool = 0;
+  S.customTiers.forEach(d => {
+    const bank = BANK[d];
+    if (!bank?.questions) return;
+    bank.questions.forEach(q => {
+      if (S.customTypes.includes(q.type)) pool++;
+    });
+  });
+  document.getElementById('cb-pool-num').textContent = pool || '—';
+}
+
+function recalc(){
+  S.totalQ=parseInt(document.getElementById('i-q').value)||0;
+  S.spq=parseInt(document.getElementById('i-s').value)||0;
+  document.getElementById('total-pill').textContent=`${S.totalQ*S.spq} 分`;
+  chk();
+}
+
+function getGroupSizes(){
+  const total=parseInt(document.getElementById('i-total')?.value)||0;
+  const n=parseInt(document.getElementById('i-n')?.value)||0;
+  if(!total||!n)return Array(n).fill(0);
+  const base=Math.floor(total/n);
+  const extra=total%n;
+  return Array.from({length:n},(_,i)=>i<extra?base+1:base);
+}
+
+function rebuildNames(){
+  const n=parseInt(document.getElementById('i-n').value)||4;
+  const dflt=['第一組','第二組','第三組','第四組','第五組','第六組','第七組','第八組','第九組','第十組'];
+  const sizes=getGroupSizes();
+  document.getElementById('group-names').innerHTML=
+    Array.from({length:n},(_,i)=>`
+      <div class="gn-row">
+        <span class="gn-badge">${dflt[i]||'第'+(i+1)+'組'} / ${sizes[i]}人</span>
+        <input type="text" id="gn-${i}" value="${dflt[i]||'第'+(i+1)+'組'}" placeholder="組名" maxlength="8" oninput="onGroupNameInput(event)">
+        <span class="gn-err" id="gn-err-${i}"></span>
+      </div>`).join('');
+  syncGroupsFromInputs();
+  chk();
+}
+
+/* 從設定頁的 input 同步到 S.groups(讓分組表/計分表能即時預覽,
+   即使尚未按開始遊戲) */
+function syncGroupsFromInputs() {
+  const n = parseInt(document.getElementById('i-n')?.value) || 0;
+  if (n < 1) return;
+  const dflt = ['第一組','第二組','第三組','第四組','第五組','第六組','第七組','第八組','第九組','第十組'];
+  // 保留既有的 score 與 members(rebuild 時不要把資料弄丟)
+  const oldScores = (S.groups || []).map(g => g.score || 0);
+  const oldMembers = (S.groups || []).map(g => g.members || []);
+  S.groups = Array.from({length: n}, (_, i) => ({
+    id: `GROUP ${String(i+1).padStart(2,'0')}`,
+    name: (document.getElementById(`gn-${i}`)?.value || '').trim() || (dflt[i] || `第${i+1}組`),
+    score: oldScores[i] || 0,
+    members: oldMembers[i] || [],
+  }));
+  // 重渲染分組表/計分表(若分頁正在被瀏覽)
+  if (typeof renderGroups === 'function') renderGroups();
+  if (typeof renderScores === 'function') renderScores();
+}
+window.syncGroupsFromInputs = syncGroupsFromInputs;
+
+/* 助理直接改設定頁的組名 input 時:同步 S.groups + 廣播給其他端 */
+function onGroupNameInput(e) {
+  // 偵測超出 8 字(被 maxlength 截斷或貼上長字串)
+  if (e?.target) {
+    const inp = e.target;
+    const val = inp.value;
+    if (val.length >= 8) {
+      // 找出對應的錯誤元素
+      const errEl = inp.parentElement?.querySelector('.gn-err');
+      if (errEl) {
+        errEl.textContent = '組名最長 8 個字';
+        errEl.classList.add('show');
+        clearTimeout(inp._gnErrTimer);
+        inp._gnErrTimer = setTimeout(() => {
+          errEl.classList.remove('show');
+          errEl.textContent = '';
+        }, 2000);
+      }
+    }
+  }
+  const dflt = ['第一組','第二組','第三組','第四組','第五組','第六組','第七組','第八組','第九組','第十組'];
+  // 先記下「改之前」的組名(用 S.groups 當基準;若 S.groups 還沒建,用預設)
+  const n = parseInt(document.getElementById('i-n')?.value) || 0;
+  const oldNames = [];
+  for (let i = 0; i < n; i++) {
+    oldNames.push(S.groups?.[i]?.name || dflt[i] || `第${i+1}組`);
+  }
+  rebuildNamesValue();
+  // 比對新舊名,若有 1 處不同 → 廣播 team_rename
+  const newNames = (S.groups || []).map(g => g.name);
+  newNames.forEach((nn, i) => {
+    if (oldNames[i] && oldNames[i] !== nn) {
+      // 用 emit 廣播,讓主持人/參賽者也同步
+      PartyBus.emit('team_rename', {
+        oldName: oldNames[i],
+        newName: nn,
+        by: '助理',
+      });
+    }
+  });
+}
+
+/* 只重新同步 input → S.groups,不重建 input(避免 input 失焦) */
+function rebuildNamesValue() {
+  syncGroupsFromInputs();
+  chk();
+}
+
+function chk(){
+  const q=parseInt(document.getElementById('i-q')?.value)||0;
+  const s=parseInt(document.getElementById('i-s')?.value)||0;
+  const n=parseInt(document.getElementById('i-n')?.value)||0;
+  // 自由模式必須勾至少一個難度 + 至少一個題型
+  const customOk = S.mode !== 'custom' || (S.customTiers.length > 0 && S.customTypes.length > 0);
+  document.getElementById('start-btn').disabled=!(S.mode&&q>0&&s>0&&n>=2&&customOk);
+}
+
+function startGame(){
+  const n=parseInt(document.getElementById('i-n').value);
+  S.totalQ=parseInt(document.getElementById('i-q').value);
+  S.spq=parseInt(document.getElementById('i-s').value);
+  S.currQ=0;
+  // 新場次:重置已抽過的題目 ID 集合(嚴格不重複)
+  S.usedIds = new Set();
+  S.askedQuestions = [];
+  S.currentQuestion = null;
+  S.currentDifficulty = null;
+  S.currentFramework = null;
+  const oldMembers = (S.groups || []).map(g => g.members || []);
+  S.groups=Array.from({length:n},(_,i)=>({
+    id:`GROUP ${String(i+1).padStart(2,'0')}`,
+    name:document.getElementById(`gn-${i}`)?.value||`第${i+1}組`,
+    score:0,
+    members: oldMembers[i] || [],
+  }));
+  document.getElementById('m-round').textContent='01';
+  document.getElementById('m-q').textContent=`0 / ${S.totalQ}`;
+  document.getElementById('m-max').textContent=`${S.totalQ*S.spq}`;
+  document.getElementById('tot-q').textContent=S.totalQ;
+  document.getElementById('curr-q').textContent='0';
+  // 解鎖 group/score 分頁(applyTabLock 會自動處理,但這裡明確切到 score)
+  renderGroups();renderScores();
+  // 九宮格依模式重算
+  updateCategoryGrid();
+  // 廣播遊戲開始(主持人/參賽者收到後初始化)
+  S.gameStarted = true;
+  PartyBus.emit('game_start', {
+    mode: S.mode,
+    customTiers: S.customTiers,
+    customTypes: S.customTypes,
+    totalQ: S.totalQ,
+    spq: S.spq,
+    groups: S.groups.map(g => ({ name: g.name })),
+    rushMode: S.rushMode,
+  });
+  // 初始化分數列(全部 0 分)
+  PartyBus.emit('score_update', {
+    scores: S.groups.map((g, idx) => ({ idx, name: g.name, score: g.score })),
+    changedIdx: null,
+    delta: 0,
+  });
+  // 進入 idle 狀態(等助理按開始搶答)
+  setPhase('idle');
+  setStatus('遊戲已開始 · 按「開始搶答」進入下一輪');
+  sw('score');
+}
+
+/* ══ 流程狀態機 ══
+   集中管理 6 個按鈕的啟用/禁用 + 九宮格鎖定狀態
+   phase: idle | rushing | won | picking | answering | revealed | ended
+*/
+function setPhase(p) {
+  S.phase = p;
+  const $ = id => document.getElementById(id);
+  const set = (id, en) => { const el = $(id); if (el) el.disabled = !en; };
+
+  // 按鈕啟用矩陣
+  const en = {
+    idle:      { rush:1, rerush:0, skip:0, redraw:0, reveal:0, next:0 },
+    rushing:   { rush:0, rerush:1, skip:0, redraw:0, reveal:0, next:0 },
+    won:       { rush:0, rerush:1, skip:1, redraw:0, reveal:0, next:0 },
+    picking:   { rush:0, rerush:1, skip:1, redraw:0, reveal:0, next:0 },
+    answering: { rush:0, rerush:0, skip:1, redraw:1, reveal:1, next:0 },
+    revealed:  { rush:0, rerush:0, skip:0, redraw:0, reveal:0, next:1 },
+    ended:     { rush:0, rerush:0, skip:0, redraw:0, reveal:0, next:0 },
+  }[p] || {};
+  set('btn-rush',   !!en.rush);
+  set('btn-rerush', !!en.rerush);
+  set('btn-skip',   !!en.skip);
+  set('btn-redraw', !!en.redraw);
+  set('btn-reveal', !!en.reveal);
+  set('btn-next',   !!en.next);
+
+  // 九宮格啟用規則:只有 won / picking 兩個 phase 可點,避免誤觸
+  // - idle/rushing/answering/revealed/ended 全部鎖
+  const grid = document.getElementById('cat-grid');
+  if (grid) {
+    const canPick = (p === 'won' || p === 'picking');
+    grid.classList.toggle('phase-locked', !canPick);
+  }
+  // 搶答模式卡片:rushing 期間鎖,避免改到一半混亂
+  document.querySelectorAll('#rm-grid .rm-card').forEach(c => {
+    c.classList.toggle('disabled', p === 'rushing');
+  });
+  // phase 變化也會牽動分頁鎖定狀態
+  if (typeof applyTabLock === 'function') applyTabLock();
+}
+
+/* 開始搶答(從 idle 進 rushing) */
+function doStartRush() {
+  if (S.phase !== 'idle') return;
+  // 新一輪:題目相關狀態歸零
+  S.selectedIdx = null;
+  S.pendingIdx = null;
+  S.currentQuestion = null;
+  S.currentDifficulty = null;
+  S.currentFramework = null;
+  // 九宮格回到「全 disabled」(等待搶答完成才開放)
+  resetCategoryPicker(/*emit=*/false);
+  renderScores();
+  // 決定本輪實際搶答模式:若選 random,隨機抽一個非 random 的模式
+  S.rushModeActual = _resolveRushMode(S.rushMode);
+  // 更新 UI「當前」字樣(若是 random,顯示「隨機 → 實際模式」)
+  const curEl = document.getElementById('rm-current');
+  if (curEl) {
+    if (S.rushMode === 'random') {
+      curEl.textContent = `本輪隨機 · ${RUSH_MODE_LABELS[S.rushModeActual]}`;
+    } else {
+      curEl.textContent = `當前 · ${RUSH_MODE_LABELS[S.rushMode]}`;
+    }
+  }
+  setPhase('rushing');
+  // 隨機模式:多 5 秒揭曉階段;否則直接 start_rush
+  if (S.rushMode === 'random') {
+    _runRandomReveal(S.rushModeActual, /*rerush=*/false);
+  } else {
+    setStatus(`搶答進行中 · ${RUSH_MODE_LABELS[S.rushModeActual]} · 主持人倒數中`);
+    PartyBus.emit('start_rush', { rushMode: S.rushModeActual });
+    _startRushSession(S.rushModeActual);
+  }
+}
+
+/* 隨機模式:先廣播 rush_reveal 揭曉 5 秒,然後再進入 start_rush 倒數 */
+function _runRandomReveal(actualMode, rerush) {
+  setStatus(`隨機模式揭曉 · ${RUSH_MODE_LABELS[actualMode]} · 5 秒準備時間`);
+  // 第一階段:揭曉(5 秒)
+  PartyBus.emit('rush_reveal', {
+    rushMode: actualMode,
+    revealMs: 5000,
+    rerush: !!rerush,
+  });
+  // 5 秒後切入第二階段:傳統倒數
+  S._rushRevealTimer = setTimeout(() => {
+    if (S.phase !== 'rushing') return;
+    setStatus(`搶答進行中 · ${RUSH_MODE_LABELS[actualMode]} · 主持人倒數中`);
+    PartyBus.emit('start_rush', { rushMode: actualMode, rerush: !!rerush });
+    _startRushSession(actualMode);
+  }, 5000);
+}
+
+/* 解析實際搶答模式(若 random 則從 4 個固定模式隨機抽一個) */
+function _resolveRushMode(m) {
+  if (m !== 'random') return m;
+  const pool = ['speed', 'count', 'lightning', 'allhands'];
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+/* 啟動搶答 session(對 rushMode 分流) */
+function _startRushSession(mode) {
+  // 清除可能殘留的計時器
+  _clearRushTimers();
+  // 建立 session
+  S.rushSession = {
+    mode,
+    armedAt: Date.now() + 3000,  // 倒數 3 秒後 armed
+    winnerLocked: false,
+    clicks: [],                  // [{name, team, teamIdx, ts}, ...]
+    teamCounts: {},              // count 模式:每組點擊數累計
+    // allhands 模式專用:
+    teamClicks: {},              // teamIdx -> [{name, ts}, ...] 該組所有按下紀錄
+    bestCluster: {},             // teamIdx -> {count, endTs, members:[...]}
+    lastPressedAt: {},           // teamIdx -> {name -> ts} 個人冷卻檢查
+    totals: {},                  // teamIdx -> 該組總人數
+    // lightning 模式專用:
+    disqualified: {},            // teamIdx -> Set<name> 在 0~3 秒淘汰窗口按下被淘汰的玩家
+  };
+  // allhands:預先建空容器(無低標,單純記錄滑動窗口集群)
+  if (mode === 'allhands') {
+    S.groups.forEach((g, i) => {
+      const total = (g.members && g.members.length) ? g.members.length : 0;
+      S.rushSession.totals[i] = total;
+      S.rushSession.teamClicks[i] = [];
+      S.rushSession.bestCluster[i] = { count: 0, endTs: null, members: [] };
+      S.rushSession.lastPressedAt[i] = {};
+    });
+  }
+  // lightning:預先建立 disqualified 容器
+  if (mode === 'lightning') {
+    S.groups.forEach((g, i) => {
+      S.rushSession.disqualified[i] = new Set();
+    });
+  }
+  // 倒數 3 秒後 armed,然後啟動模式專屬邏輯
+  S._rushArmTimer = setTimeout(() => {
+    if (S.phase !== 'rushing') return;
+    if (mode === 'speed') {
+      // 等第一個 buzz_press 進來判定;沒人按的話 fallback 模擬
+      _scheduleRushFallback(8000);
+    } else if (mode === 'lightning') {
+      // 閃電一按:0~3 秒是淘汰窗口、3 秒後才能贏;fallback 11 秒(寬限期 + 搶答窗)
+      _scheduleRushFallback(11000);
+      // DEMO mock:讓 1-2 個假玩家在淘汰窗口內手賤,1 個玩家在 3.x 秒按到贏
+      _mockLightningClicksForOtherTeams();
+    } else if (mode === 'count') {
+      _runCountSession();
+    } else if (mode === 'allhands') {
+      _runAllhandsSession();
+    }
+  }, 3000);
+}
+
+/* 清除所有搶答 session 計時器 */
+function _clearRushTimers() {
+  ['_rushArmTimer', '_rushFallbackTimer', '_rushCountTimer', '_rushCountTickTimer',
+   '_rushAllhandsTimer', '_rushRevealTimer'].forEach(k => {
+    if (S[k]) { clearTimeout(S[k]); clearInterval(S[k]); S[k] = null; }
+  });
+}
+
+/* DEMO fallback:若無人按,給一段時間後隨機選贏家 */
+function _scheduleRushFallback(ms) {
+  S._rushFallbackTimer = setTimeout(() => {
+    if (S.phase !== 'rushing') return;
+    if (S.rushSession?.winnerLocked) return;
+    // 沒人按 → mock 一個搶贏的組
+    const winnerIdx = Math.floor(Math.random() * S.groups.length);
+    _lockRushWinner(winnerIdx);
+  }, ms);
+}
+
+/* 鎖定搶答結果(speed/lightning/allhands 共用) */
+function _lockRushWinner(idx) {
+  if (!S.rushSession || S.rushSession.winnerLocked) return;
+  S.rushSession.winnerLocked = true;
+  _clearRushTimers();
+  onRushWinner(idx);
+}
+
+/* 狂點奪魁 session:5 秒倒數 + 即時 tick 廣播每組點擊數 + 結束後選最多者 */
+function _runCountSession() {
+  const sess = S.rushSession;
+  // 初始化每組計數
+  S.groups.forEach((g, i) => { sess.teamCounts[i] = 0; });
+  // 廣播一次初始狀態(讓主持人/參賽者準備好計數面板)
+  PartyBus.emit('rush_tick', {
+    mode: 'count',
+    teamCounts: S.groups.map((g, i) => ({ idx: i, name: g.name, count: 0 })),
+    remainingMs: 5000,
+  });
+  // DEMO mock:其他組由模擬玩家在 5 秒內隨機點(讓只有一個參賽者也能看到效果)
+  _mockCountClicksForOtherTeams();
+  // 每 100ms 廣播當前各組計數 + 剩餘時間
+  const startedAt = Date.now();
+  const totalMs = 5000;
+  S._rushCountTickTimer = setInterval(() => {
+    if (S.phase !== 'rushing' || !sess) { clearInterval(S._rushCountTickTimer); return; }
+    const elapsed = Date.now() - startedAt;
+    const remainingMs = Math.max(0, totalMs - elapsed);
+    PartyBus.emit('rush_tick', {
+      mode: 'count',
+      teamCounts: S.groups.map((g, i) => ({ idx: i, name: g.name, count: sess.teamCounts[i] || 0 })),
+      remainingMs,
+    });
+    if (remainingMs <= 0) {
+      clearInterval(S._rushCountTickTimer);
+    }
+  }, 100);
+  // 5 秒後判定:最多點擊組獲勝(平手取最先到達峰值的)
+  S._rushCountTimer = setTimeout(() => {
+    if (S.phase !== 'rushing' || !sess || sess.winnerLocked) return;
+    let maxCount = -1, winnerIdx = 0;
+    S.groups.forEach((g, i) => {
+      const c = sess.teamCounts[i] || 0;
+      if (c > maxCount) { maxCount = c; winnerIdx = i; }
+    });
+    _lockRushWinner(winnerIdx);
+  }, totalMs + 50);  // 多 50ms 緩衝讓最後一波 tick 廣播完
+}
+
+/* DEMO:其他組假玩家在 5 秒內隨機按(模擬多組同時搶) */
+function _mockCountClicksForOtherTeams() {
+  const sess = S.rushSession;
+  if (!sess) return;
+  S.groups.forEach((g, i) => {
+    // 每組分配一個「亂點頻率」(每 50~250ms 點一次,持續 5 秒)
+    const interval = 50 + Math.random() * 200;
+    const stopAt = Date.now() + 5000;
+    const tick = () => {
+      if (S.phase !== 'rushing' || !sess || sess.winnerLocked) return;
+      if (Date.now() >= stopAt) return;
+      sess.teamCounts[i] = (sess.teamCounts[i] || 0) + 1;
+      setTimeout(tick, interval + (Math.random() - 0.5) * 60);
+    };
+    setTimeout(tick, Math.random() * 200);  // 起始隨機延遲
+  });
+}
+
+/* 全組到位 session(滑動窗口演算法)
+   - 8 秒視窗
+   - 每組各自比拼「0.5 秒內最多人同時按下」的最佳集群
+   - 個人冷卻 1 秒(在 buzz_press handler 處理)
+   - 結束時最佳集群人數最多者贏;平手比 endTs 早者
+*/
+function _runAllhandsSession() {
+  const sess = S.rushSession;
+  if (!sess) return;
+  const totalMs = 8000;
+  // 廣播一次初始狀態(讓三端準備好進度面板)
+  _emitAllhandsProgress(totalMs);
+  // DEMO mock:其他組假玩家在 8 秒內按 2-3 輪「3、2、1、按」(各有微差)
+  _mockAllhandsClicksForOtherTeams();
+  // 每 100ms 廣播當前進度
+  const startedAt = Date.now();
+  S._rushCountTickTimer = setInterval(() => {
+    if (S.phase !== 'rushing' || !sess) { clearInterval(S._rushCountTickTimer); return; }
+    if (sess.winnerLocked) { clearInterval(S._rushCountTickTimer); return; }
+    const elapsed = Date.now() - startedAt;
+    const remainingMs = Math.max(0, totalMs - elapsed);
+    _emitAllhandsProgress(remainingMs);
+    if (remainingMs <= 0) clearInterval(S._rushCountTickTimer);
+  }, 100);
+  // 8 秒後判定:取每組 bestCluster.count 最多者;平手比 endTs(早者贏)
+  S._rushAllhandsTimer = setTimeout(() => {
+    if (S.phase !== 'rushing' || !sess || sess.winnerLocked) return;
+    let winnerIdx = 0;
+    let bestCount = -1;
+    let bestEndTs = Infinity;
+    S.groups.forEach((g, i) => {
+      const cluster = sess.bestCluster[i] || { count: 0, endTs: null };
+      const cnt = cluster.count;
+      const endTs = cluster.endTs == null ? Infinity : cluster.endTs;
+      if (cnt > bestCount || (cnt === bestCount && endTs < bestEndTs)) {
+        bestCount = cnt;
+        bestEndTs = endTs;
+        winnerIdx = i;
+      }
+    });
+    _lockRushWinner(winnerIdx);
+  }, totalMs + 50);
+}
+
+/* 廣播 allhands_progress 事件
+   teamProgress 每組:
+   - currentCluster: 0.5 秒內 *當下* 同步集群人數(視覺即時跳動)
+   - bestCluster: 該組目前為止最佳同步集群人數+endTs+members
+   - total: 該組總人數
+*/
+function _emitAllhandsProgress(remainingMs) {
+  const sess = S.rushSession;
+  if (!sess) return;
+  const now = Date.now();
+  PartyBus.emit('allhands_progress', {
+    teamProgress: S.groups.map((g, i) => {
+      // 計算「當下」的滑動窗口集群人數(以 now 為終點往前 0.5 秒)
+      let currentCluster = 0;
+      const winStart = now - 500;
+      const seen = new Set();
+      const clicks = sess.teamClicks[i] || [];
+      for (const c of clicks) {
+        if (c.ts >= winStart && c.ts <= now) seen.add(c.name);
+      }
+      currentCluster = seen.size;
+      const best = sess.bestCluster[i] || { count: 0, endTs: null };
+      return {
+        idx: i,
+        name: g.name,
+        currentCluster,
+        bestCluster: best.count,
+        total: sess.totals[i] || 0,
+      };
+    }),
+    remainingMs,
+  });
+}
+
+/* DEMO:其他組假玩家在 8 秒內按 2-3 輪「3、2、1、按」
+   每輪所有人在很接近的時點按下(±150ms 內 → 在 0.5 秒同步窗口內)
+   個人冷卻 1 秒由 buzz_press handler 自然處理 */
+function _mockAllhandsClicksForOtherTeams() {
+  const sess = S.rushSession;
+  if (!sess) return;
+  S.groups.forEach((g, i) => {
+    let members = (g.members || []).slice();
+    if (members.length === 0) {
+      // 沒組員的組(demo 沒人加入時) → mock 6 人讓視覺看得到
+      members = ['冠瑋','雅婷','建志','珮瑜','凱傑','子涵'];
+      sess.totals[i] = members.length;
+    }
+    // 為每組分配 2 ~ 3 輪同步按下
+    const numRounds = 2 + Math.floor(Math.random() * 2);  // 2 或 3 輪
+    // 每輪的「中心時刻」:平均散布在 0.6 ~ 7.5 秒之間,確保至少 1.1 秒間距(避開冷卻)
+    const roundCenters = [];
+    for (let r = 0; r < numRounds; r++) {
+      const t = 700 + r * (6500 / numRounds) + (Math.random() * 600 - 300);
+      roundCenters.push(t);
+    }
+    // 每輪內每個成員在中心時刻 ±150ms 內按下,但有些人「漏按」(模擬參與度)
+    roundCenters.forEach((center, r) => {
+      members.forEach(name => {
+        // 該人本輪參與機率(80%~95%)
+        if (Math.random() > (0.8 + r * 0.05)) return;
+        const jitter = (Math.random() - 0.5) * 300;  // ±150ms
+        const delay = center + jitter;
+        setTimeout(() => {
+          if (S.phase !== 'rushing' || !sess || sess.winnerLocked) return;
+          // 模擬走 buzz_press handler 的邏輯(冷卻 + 滑動窗口)
+          if (!sess.lastPressedAt[i]) sess.lastPressedAt[i] = {};
+          const lastTs = sess.lastPressedAt[i][name];
+          const now = Date.now();
+          if (lastTs != null && (now - lastTs) < 1000) return;
+          sess.lastPressedAt[i][name] = now;
+          if (!sess.teamClicks[i]) sess.teamClicks[i] = [];
+          sess.teamClicks[i].push({ name, ts: now });
+          // 算當下滑動窗口集群、更新 bestCluster
+          const winStart = now - 500;
+          const seen = new Set();
+          for (const c of sess.teamClicks[i]) {
+            if (c.ts >= winStart && c.ts <= now) seen.add(c.name);
+          }
+          const cnt = seen.size;
+          const cluster = sess.bestCluster[i] || { count: 0, endTs: null, members: [] };
+          if (cnt > cluster.count || (cnt === cluster.count && (cluster.endTs == null || now < cluster.endTs))) {
+            sess.bestCluster[i] = { count: cnt, endTs: now, members: Array.from(seen) };
+          }
+        }, delay);
+      });
+    });
+  });
+}
+
+/* DEMO:閃電一按其他組假玩家 — 模擬人性
+   - 60% 該組「老實派」:在 3.0~3.8 秒內按到(贏家候選)
+   - 40% 該組「手賤派」:在 0.5~2.5 秒內就先按了(被淘汰)
+   只 mock 非真實參賽者所在的組,讓真實玩家的決策有意義 */
+function _mockLightningClicksForOtherTeams() {
+  const sess = S.rushSession;
+  if (!sess || sess.mode !== 'lightning') return;
+  S.groups.forEach((g, i) => {
+    let members = (g.members || []).slice();
+    if (members.length === 0) {
+      members = ['冠瑋','雅婷','建志','珮瑜','凱傑','子涵'];
+    }
+    // 該組第一個老實派的人(60% 機率組存在這種人)
+    const hasObedient = Math.random() < 0.6;
+    if (hasObedient) {
+      const obedient = members[Math.floor(Math.random() * members.length)];
+      const delay = 3000 + Math.random() * 800;  // 3.0~3.8 秒按到
+      setTimeout(() => {
+        if (S.phase !== 'rushing' || !sess || sess.winnerLocked) return;
+        // 模擬走 buzz_press 邏輯
+        const elapsed = Date.now() - sess.armedAt;
+        if (elapsed < 3000) {
+          // 還沒到時候,但本來就排程在 3 秒後...理論上不會走到這
+          return;
+        }
+        sess.clicks.push({ name: obedient, team: g.name, teamIdx: i, ts: Date.now() });
+        _lockRushWinner(i);
+      }, delay);
+    }
+    // 1-2 個「手賤派」,在 0.5~2.5 秒內按下被淘汰
+    const numImpatient = 1 + Math.floor(Math.random() * 2);
+    const impatientPicks = [...members].sort(() => 0.5 - Math.random()).slice(0, numImpatient);
+    impatientPicks.forEach(name => {
+      const delay = 500 + Math.random() * 2000;  // 0.5~2.5 秒
+      setTimeout(() => {
+        if (S.phase !== 'rushing' || !sess || sess.winnerLocked) return;
+        if (!sess.disqualified[i]) sess.disqualified[i] = new Set();
+        if (sess.disqualified[i].has(name)) return;
+        sess.disqualified[i].add(name);
+        PartyBus.emit('lightning_disqualify', {
+          name, team: g.name, teamIdx: i,
+          elapsedMs: Date.now() - sess.armedAt,
+        });
+      }, delay);
+    });
+  });
+}
+
+/* 重新搶答(回到 rushing,清掉勝者) */
+function doReRush() {
+  if (S.phase !== 'rushing' && S.phase !== 'won' && S.phase !== 'picking') return;
+  // 清掉舊 session 的 timer + 狀態
+  _clearRushTimers();
+  S.rushSession = null;
+  S.selectedIdx = null;
+  S.pendingIdx = null;
+  resetCategoryPicker(false);
+  renderScores();
+  // 重新搶答時也重新解析 random(讓重抽一輪可能跑出不同模式)
+  S.rushModeActual = _resolveRushMode(S.rushMode);
+  setPhase('rushing');
+  // 隨機模式:多 5 秒揭曉階段
+  if (S.rushMode === 'random') {
+    _runRandomReveal(S.rushModeActual, /*rerush=*/true);
+  } else {
+    setStatus(`重新搶答 · ${RUSH_MODE_LABELS[S.rushModeActual]} · 主持人倒數中`);
+    PartyBus.emit('start_rush', { rerush: true, rushMode: S.rushModeActual });
+    _startRushSession(S.rushModeActual);
+  }
+}
+
+/* 搶答結果回呼(系統判定 / DEMO 模擬產生) */
+function onRushWinner(idx) {
+  S.selectedIdx = idx;
+  setPhase('won');
+  renderScores();
+  const g = S.groups[idx];
+  setStatus(`${g?.name || ''} 搶答成功 · 點九宮格選分類`);
+  // 收集模式特定的詳細資料
+  const details = _buildRushWinnerDetails(idx);
+  // 廣播給主持人/參賽者:winner 頁顯示
+  console.log('[PGG] rush_winner emitted at', Date.now(), 'mode:', details.rushMode);
+  PartyBus.emit('rush_winner', {
+    groupIdx: idx,
+    groupName: g?.name,
+    ...details,
+  });
+  // 給觀眾足夠時間看 winner 頁(3.5 秒),然後進九宮格
+  setTimeout(() => {
+    if (S.phase !== 'won') return;
+    console.log('[PGG] enter_category emitted at', Date.now());
+    PartyBus.emit('enter_category', {});
+  }, 3500);
+}
+
+/* 依當前 rushSession.mode 蒐集 winner 詳細資料(rushMode/personName/elapsedMs/clickCount/runners-up) */
+function _buildRushWinnerDetails(winnerIdx) {
+  const sess = S.rushSession;
+  const mode = sess?.mode || S.rushModeActual || 'speed';
+  const winnerGroup = S.groups[winnerIdx];
+  const teamMembers = (winnerGroup?.members || []).slice();
+
+  // 從 sess.clicks 找出該組第一個按下的人(speed/lightning 的 MVP)
+  const findFirstPresser = () => {
+    if (!sess?.clicks) return null;
+    const c = sess.clicks.find(x => x.teamIdx === winnerIdx);
+    return c?.name || null;
+  };
+  // 取得該組的「代表人物」(隨機從 members 抓,沒組員就回 mock)
+  const mockMember = () => {
+    if (teamMembers.length > 0) {
+      return teamMembers[Math.floor(Math.random() * teamMembers.length)];
+    }
+    // DEMO ONLY: 沒人加入時的 placeholder(實裝時不會走到)
+    return '玩家A';
+  };
+
+  if (mode === 'speed') {
+    const firstName = findFirstPresser();
+    const personName = firstName || mockMember();
+    // DEMO ONLY: 計算「按下耗時」(armedAt → first click ts)
+    let elapsedMs = null;
+    const c = sess?.clicks?.find(x => x.teamIdx === winnerIdx);
+    if (c && sess.armedAt) {
+      elapsedMs = Math.max(0, c.ts - sess.armedAt);
+    } else {
+      // 沒真實資料,demo 用合理隨機值
+      elapsedMs = 300 + Math.random() * 1500;
+    }
+    return { rushMode: 'speed', personName, elapsedMs };
+  }
+
+  if (mode === 'lightning') {
+    const firstName = findFirstPresser();
+    const personName = firstName || mockMember();
+    // 閃電一按:從「開始搶答倒數結束(armedAt)」算起
+    let pressedAtSec = null;
+    const c = sess?.clicks?.find(x => x.teamIdx === winnerIdx);
+    if (c && sess.armedAt) {
+      pressedAtSec = (c.ts - sess.armedAt) / 1000;
+    } else {
+      // DEMO ONLY: 隨機 3.0 ~ 4.5 秒(有效區間)
+      pressedAtSec = 3.0 + Math.random() * 1.5;
+    }
+    return { rushMode: 'lightning', personName, pressedAtSec };
+  }
+
+  if (mode === 'count') {
+    // 找該組 MVP(個人最多點擊)
+    // DEMO ONLY: sess 目前只有 teamCounts 沒記 personCounts;
+    // 實裝時 server 要紀錄 perPersonCounts,這裡先 mock 一個合理值
+    const winnerCount = sess?.teamCounts?.[winnerIdx] || 0;
+    const memberCount = Math.max(1, teamMembers.length || 6);
+    // mock MVP 點擊數 = 該組總數 / 人數 × 1.4(MVP 比平均高一些)
+    const mvpClicks = Math.round(winnerCount / memberCount * 1.4);
+    const mvpName = mockMember();
+    // 第二名組(runner-up)
+    const ranking = S.groups.map((grp, i) => ({
+      idx: i,
+      name: grp.name,
+      count: sess?.teamCounts?.[i] || 0,
+    })).sort((a, b) => b.count - a.count);
+    const runnerUp = ranking.find(r => r.idx !== winnerIdx) || null;
+    return {
+      rushMode: 'count',
+      personName: mvpName,
+      teamTotalClicks: winnerCount,
+      mvpClicks,
+      runnerUp: runnerUp ? { name: runnerUp.name, count: runnerUp.count } : null,
+    };
+  }
+
+  if (mode === 'allhands') {
+    // 全組到位(滑動窗口版):取該組 bestCluster 的人數+完成時間
+    const cluster = sess?.bestCluster?.[winnerIdx] || { count: 0, endTs: null, members: [] };
+    const total = sess?.totals?.[winnerIdx] || teamMembers.length || 8;
+    let endAtSec = 0;
+    if (cluster.endTs != null && sess?.armedAt) {
+      endAtSec = (cluster.endTs - sess.armedAt) / 1000;
+    }
+    return {
+      rushMode: 'allhands',
+      clusterCount: cluster.count,        // 同步集群人數(達成的最高紀錄)
+      totalCount: total,                  // 該組總人數
+      endAtSec,                           // 達成該集群的時間(從 armed 起)
+    };
+  }
+
+  // 兜底:當 unknown mode 或 fallback,只給組
+  return { rushMode: mode, personName: mockMember(), elapsedMs: 600 };
+}
+
+function doReveal(){
+  if (S.phase !== 'answering') return;
+  if (!S.currentQuestion) {
+    setStatus('尚未抽題,無法公佈答案');
+    return;
+  }
+  setPhase('revealed');
+  setStatus('已公佈答案 · 請判斷是否計分');
+  document.getElementById('rev-acts').classList.add('show');
+  S.pendingIdx = S.selectedIdx;
+  if (S.pendingIdx !== null) {
+    document.getElementById('rev-ok').textContent =
+      `答對 · ${S.groups[S.pendingIdx]?.name} +${S.spq}分`;
+  }
+  // 廣播:主持人/參賽者顯示完整答案
+  PartyBus.emit('reveal_answer', {});
+}
+
+function scoreOk(){
+  if(S.pendingIdx===null)return;
+  adj(S.pendingIdx,S.spq);
+  afterScore();
+}
+function scorePass(){afterScore();}
+function afterScore(){
+  document.getElementById('rev-acts').classList.remove('show');
+  S.selectedIdx=null;
+  S.pendingIdx=null;
+  renderScores();
+  setStatus('揭曉完成 · 按「下一題」繼續');
+}
+
+function doNext(){
+  if (S.phase !== 'revealed') return;
+  // 清掉殘留的搶答 session
+  if (typeof _clearRushTimers === 'function') _clearRushTimers();
+  S.rushSession = null;
+  S.currQ++;
+  document.getElementById('curr-q').textContent=S.currQ;
+  document.getElementById('m-q').textContent=`${S.currQ} / ${S.totalQ}`;
+  document.getElementById('m-round').textContent=String(S.currQ+1).padStart(2,'0');
+  if(S.currQ>=S.totalQ){doEnd();return;}
+  document.getElementById('rev-acts').classList.remove('show');
+  S.pendingIdx = null;
+  S.selectedIdx = null;
+  S.currentQuestion = null;
+  S.currentDifficulty = null;
+  S.currentFramework = null;
+  resetCategoryPicker(false);
+  renderScores();
+  // 廣播給主持人:回待命頁
+  PartyBus.emit('next_question', {});
+  setPhase('idle');
+  setStatus('已進入下一題 · 按「開始搶答」開始下輪');
+}
+
+function doSkip(){
+  if (!['won','picking','answering'].includes(S.phase)) return;
+  // 清掉殘留的搶答 session
+  if (typeof _clearRushTimers === 'function') _clearRushTimers();
+  S.rushSession = null;
+  document.getElementById('rev-acts').classList.remove('show');
+  S.pendingIdx=null;
+  S.selectedIdx=null;
+  S.currentQuestion=null;
+  S.currentDifficulty=null;
+  S.currentFramework=null;
+  resetCategoryPicker(false);
+  renderScores();
+  PartyBus.emit('skip_question', {});
+  setPhase('idle');
+  setStatus('已跳過 · 按「開始搶答」開始下輪');
+}
+
+function doRedraw(){
+  if (S.phase !== 'answering') return;
+  // 把當前題目從 usedIds 拉出來(算重抽不消耗)
+  if (S.currentQuestion) S.usedIds.delete(S.currentQuestion.id);
+  S.currentQuestion=null;
+  // 重新從同 framework 抽
+  const fwId = S.currentFramework;
+  const r = pickQuestion({ framework: fwId });
+  if (!r.ok) {
+    setStatus(`重抽失敗:${r.error}`);
+    return;
+  }
+  S.usedIds.add(r.question.id);
+  if (!S.askedQuestions.find(x => x.id === r.question.id)) S.askedQuestions.push({ ...r.question, _difficulty:r.difficulty, _framework:r.framework });
+  S.currentQuestion = r.question;
+  S.currentDifficulty = r.difficulty;
+  S.currentFramework = r.framework;
+  PartyBus.emit('question_pick', {
+    id: r.question.id,
+    difficulty: r.difficulty,
+    framework: r.framework,
+  });
+  setStatus(`已重抽 · 新題目 ${r.question.id}`);
+}
+
+/* ══ 分類九宮格(兩階段:預覽 → 拍板) ══
+
+  pickCategory(fid)        · 預覽:點某格,主持人投影同步預覽,可繼續切換
+  confirmCategory()        · 拍板:鎖定當前預覽格,主持人端進入該分類抽題
+  resetCategoryPicker()    · 重置:回到「未選擇」狀態(下一題開始時呼叫)
+*/
+
+function sw(t){
+  const targetTab=document.getElementById(`tb-${t}`);
+  if(targetTab?.classList.contains('disabled'))return;
+  ['room','setup','group','score','bank'].forEach(x=>{
+    document.getElementById(`pg-${x}`)?.classList.remove('active');
+    document.getElementById(`tb-${x}`)?.classList.remove('active');
+  });
+  document.getElementById(`pg-${t}`)?.classList.add('active');
+  document.getElementById(`tb-${t}`)?.classList.add('active');
+}
+
+/* 依當前 phase 決定哪些分頁可用、哪些鎖定
+   - 未開始遊戲(idle 且 S.askedQuestions 為空):房間/設定/分組表/題庫 可用,計分表 鎖
+   - 遊戲進行中(rushing/won/picking/answering/revealed):分組表/計分表 可用,其他鎖
+   - 遊戲已結束(ended):分組表/計分表 可用,其他鎖(讓助理可匯出後但不能改設定)
+   - 重新開始後(idle 且 askedQuestions 空):同「未開始」 */
+function applyTabLock() {
+  // 遊戲是否已開始(由 startGame 設 true、doRestart 設 false)
+  // S.phase 'idle' 在「按過開始遊戲但還沒按搶答」也是 idle,所以不能用 phase 判斷
+  const inSession = !!S.gameStarted;
+  // 房間/設定/題庫:遊戲進行中或已結束時鎖定;否則開放
+  ['room','setup','bank'].forEach(t => {
+    const btn = document.getElementById(`tb-${t}`);
+    if (!btn) return;
+    btn.classList.toggle('disabled', inSession);
+  });
+  // 分組表:永遠開放
+  document.getElementById('tb-group')?.classList.remove('disabled');
+  // 計分表:遊戲已開始時開放;否則鎖定
+  const tbScore = document.getElementById('tb-score');
+  if (tbScore) tbScore.classList.toggle('disabled', !inSession);
+  // 若當前 active 分頁被鎖,自動切到一個合理的可用分頁
+  const activeTab = document.querySelector('.tab-btn.active');
+  if (activeTab?.classList.contains('disabled')) {
+    sw(inSession ? 'score' : 'setup');
+  }
+}
+window.applyTabLock = applyTabLock;
+
+function renderGroups(){
+  document.getElementById('group-grid').innerHTML=S.groups.map(g=>{
+    const members = Array.isArray(g.members) ? g.members : [];
+    let body;
+    if (members.length === 0) {
+      body = `<div class="gc-note" style="opacity:.5">尚無成員加入</div>`;
+    } else {
+      body = `
+        <div class="gc-note" style="margin-bottom:6px;font-size:11px;color:var(--ink-3);letter-spacing:.16em">${members.length} 人</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          ${members.map(m => `<span style="font-size:13px;color:var(--ink-1);background:var(--bg-deep);border:1px solid var(--line);padding:4px 10px">${m}</span>`).join('')}
+        </div>`;
+    }
+    return `
+    <div class="gc">
+      <div class="gc-hd">
+        <span class="gc-id">${g.id}</span>
+        <span class="gc-name">${g.name}</span>
+      </div>
+      ${body}
+    </div>`;
+  }).join('');
+}
+
+function selectTeam(i){
+  // 點同一組 → 取消選中；點其他組 → 切換
+  // 注意:搶答結果由系統自動判定(onRushWinner),這裡是「人工覆寫」用
+  S.selectedIdx = (S.selectedIdx === i) ? null : i;
+  renderScores();
+  if(S.selectedIdx !== null){
+    setStatus(`${S.groups[S.selectedIdx].name} 搶答中 · 流程繼續`);
+  } else {
+    setStatus('未選組別');
+  }
+}
+
+function renderScores(){
+  const mx=Math.max(...S.groups.map(g=>g.score),0);
+  document.getElementById('score-grid').innerHTML=S.groups.map((g,i)=>{
+    const isLead=g.score===mx&&mx>0;
+    const isPick=S.selectedIdx===i;
+    const classes=['sc', isLead?'lead':'', isPick?'picking':''].filter(Boolean).join(' ');
+    return `
+    <div class="${classes}" id="sc-${i}" onclick="selectTeam(${i})">
+      <div class="sf" id="sf-${i}"></div>
+      <div class="dp" id="dp-${i}"></div>
+      ${isPick ? `<div class="sc-pick-badge">▶ 搶答中</div>` : (isLead ? '<div class="rank-bdg">1ST</div>' : '')}
+      <div class="sc-id">${g.id}</div>
+      <div class="sc-name">${g.name}</div>
+      <div class="sc-val">${g.score}</div>
+      <div class="sc-btns">
+        <button class="sc-btn add" onclick="event.stopPropagation();adj(${i},${S.spq})">+${S.spq}</button>
+        <button class="sc-btn sub" onclick="event.stopPropagation();adj(${i},-${S.spq})">−${S.spq}</button>
+      </div>
+    </div>`}).join('');
+  renderRank();
+}
+
+function adj(i,d){
+  S.groups[i].score=Math.max(0,S.groups[i].score+d);
+  renderScores();
+  flash(i,d>0?'gold':'red',d);
+  // 廣播全組分數給參賽者(讓戰況長條即時更新)
+  PartyBus.emit('score_update', {
+    scores: S.groups.map((g, idx) => ({ idx, name: g.name, score: g.score })),
+    changedIdx: i,
+    delta: d,
+  });
+}
+
+function flash(i,cls,d){
+  setTimeout(()=>{
+    const f=document.getElementById(`sf-${i}`);
+    const dp=document.getElementById(`dp-${i}`);
+    if(!f||!dp)return;
+    f.className=`sf ${cls}`;f.style.opacity='1';
+    setTimeout(()=>{f.style.opacity='0';},230);
+    dp.textContent=(d>0?'+':'')+d;
+    dp.style.color=d>0?'var(--accent)':'var(--err)';
+    dp.style.opacity='1';dp.style.transform='translateY(0)';dp.style.transition='none';
+    requestAnimationFrame(()=>{
+      dp.style.transition='opacity 600ms ease-out,transform 600ms ease-out';
+      dp.style.opacity='0';dp.style.transform='translateY(-28px)';
+    });
+  },10);
+}
+
+function renderRank(){
+  const sorted=[...S.groups].sort((a,b)=>b.score-a.score);
+  const maxScore=Math.max(...sorted.map(g=>g.score),1);
+  const totalMax=S.totalQ*S.spq||100;
+  document.getElementById('ranking').innerHTML=`
+    <div class="rank-hd">
+      <span class="rank-lbl">即時排行</span>
+      <span class="rank-max-hint">滿分 ${totalMax}</span>
+    </div>
+    <div class="bar-list">
+      ${sorted.map((g,r)=>{
+        const pct=maxScore>0?Math.round(g.score/totalMax*100):0;
+        return `
+        <div class="bar-row ${r===0&&g.score>0?'first':''}">
+          <div class="bar-name">${g.name}</div>
+          <div class="bar-track">
+            <div class="bar-fill ${r===0&&g.score>0?'first':''}" style="width:${pct}%"></div>
+          </div>
+          <div class="bar-score">${g.score}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
+function setStatus(t){document.getElementById('sts').textContent=t;}
+
+function pickCategory(fid) {
+  // 已拍板就不能再切
+  if (S.catLocked) return;
+  // 視覺:標記為預覽
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('preview'));
+  const btn = document.querySelector(`.cat-btn[data-fid="${fid}"]`);
+  if (btn) btn.classList.add('preview');
+  S.catPreview = fid;
+  // 確定鈕亮起
+  const cBtn = document.getElementById('cat-confirm-btn');
+  cBtn.disabled = false;
+  cBtn.textContent = '確定';
+  cBtn.classList.remove('locked');
+  // 提示文字(武裝態仍維持「預覽中」字面,不暴露給觀眾;助理自己知道煉獄旗標亮著)
+  const name = btn?.querySelector('.cb-name')?.textContent || fid;
+  document.getElementById('cat-hint').innerHTML = `預覽中 · <span class="accent">${fid} ${name}</span> · 按確定拍板`;
+  // 廣播給主持人投影同步預覽(無論武裝與否,主持人投影都看到正常預覽)
+  PartyBus.emit('category_preview', { fid });
+  // 第一次點時(從 won 進 picking),狀態切換
+  if (S.phase === 'won') setPhase('picking');
+}
+
+function confirmCategory() {
+  if (!S.catPreview || S.catLocked) return;
+
+  // ── 武裝態:無視所選分類,改觸發煉獄降臨 ──
+  if (S.purgArmed) {
+    const r = pickQuestion({ forcePurgatory: true });
+    if (!r.ok) {
+      setStatus(`抽題失敗:${r.error}`);
+      return;
+    }
+    S.catLocked = true;
+    S.usedIds.add(r.question.id);
+    if (!S.askedQuestions.find(x => x.id === r.question.id)) S.askedQuestions.push({ ...r.question, _difficulty:r.difficulty, _framework:r.framework });
+    S.currentQuestion = r.question;
+    S.currentDifficulty = r.difficulty;
+    S.currentFramework = r.framework;
+    const cBtn = document.getElementById('cat-confirm-btn');
+    cBtn.textContent = '✓ 煉獄降臨';
+    cBtn.classList.add('locked');
+    cBtn.disabled = true;
+    document.getElementById('cat-grid').classList.add('locked');
+    document.getElementById('cat-hint').innerHTML = `<span class="purg">◆ 煉獄降臨 · 命運已定 · ${r.question.id}</span>`;
+    setStatus(`煉獄降臨 · ${r.question.id} · 主持人端正在播放降臨特效`);
+    // 廣播煉獄(三端跑特效)+ 廣播題目 ID(三端讀題)
+    PartyBus.emit('purgatory_summon', {});
+    PartyBus.emit('question_pick', {
+      id: r.question.id,
+      difficulty: r.difficulty,
+      framework: r.framework,
+    });
+    if (typeof window.summonPurgatory === 'function') window.summonPurgatory();
+    setPhase('answering');
+    return;
+  }
+
+  // ── 正常路徑:依當前 framework 抽題 ──
+  const fwId = _fwIdByShortId(S.catPreview);
+  const r = pickQuestion({ framework: fwId });
+  if (!r.ok) {
+    setStatus(`抽題失敗:${r.error}`);
+    return;
+  }
+
+  // 抽到煉獄(難度池含 purgatory 且抽中):pickQuestion 內部已遞迴轉成 forcePurgatory,
+  // 所以 r.difficulty === 'purgatory' 表示需要降臨特效
+  const isPurgatory = (r.difficulty === 'purgatory');
+
+  S.catLocked = true;
+  S.usedIds.add(r.question.id);
+  if (!S.askedQuestions.find(x => x.id === r.question.id)) S.askedQuestions.push({ ...r.question, _difficulty:r.difficulty, _framework:r.framework });
+  S.currentQuestion = r.question;
+  S.currentDifficulty = r.difficulty;
+  S.currentFramework = r.framework;
+  S.currentCat = S.catPreview;
+  const btn = document.querySelector(`.cat-btn[data-fid="${S.catPreview}"]`);
+  if (btn) {
+    btn.classList.remove('preview');
+    btn.classList.add('locked');
+  }
+  document.getElementById('cat-grid').classList.add('locked');
+  const cBtn = document.getElementById('cat-confirm-btn');
+  cBtn.textContent = isPurgatory ? '✓ 煉獄降臨' : '✓ 已選定';
+  cBtn.classList.add('locked');
+  cBtn.disabled = true;
+  const name = btn?.querySelector('.cb-name')?.textContent || S.catPreview;
+  if (isPurgatory) {
+    document.getElementById('cat-hint').innerHTML = `<span class="purg">◆ 命運降臨煉獄 · ${r.question.id}</span>`;
+    setStatus(`命運降臨 · 從 ${S.currentCat} 抽到煉獄題 · ${r.question.id}`);
+  } else {
+    document.getElementById('cat-hint').innerHTML = `已拍板 · <span class="accent">${S.currentCat} ${name}</span> · ${r.question.id}`;
+    setStatus(`已切到 ${S.currentCat} · ${name} · 抽到 ${r.question.id}`);
+  }
+  // 廣播
+  PartyBus.emit('category_confirm', { fid: S.currentCat });
+  if (isPurgatory) {
+    PartyBus.emit('purgatory_summon', {});
+    if (typeof window.summonPurgatory === 'function') window.summonPurgatory();
+  }
+  PartyBus.emit('question_pick', {
+    id: r.question.id,
+    difficulty: r.difficulty,
+    framework: r.framework,
+  });
+  setPhase('answering');
+}
+
+/* 「確定煉獄」武裝/解除(秘技;只有助理本機可見,主持人投影完全無感) */
+function togglePurgArm() {
+  if (S.catLocked) return;  // 已拍板就不能再武裝
+  S.purgArmed = !S.purgArmed;
+  const btn = document.getElementById('cat-purg-btn');
+  btn.classList.toggle('armed', S.purgArmed);
+  // 助理本機狀態列提示(只有助理看到)
+  if (S.purgArmed) {
+    setStatus('煉獄已武裝 · 按下確定後將觸發煉獄(無視所選分類)');
+  } else {
+    setStatus('煉獄武裝已解除');
+  }
+}
+
+function resetCategoryPicker(emit) {
+  if (emit === undefined) emit = true;
+  S.catPreview = null;
+  S.catLocked = false;
+  S.purgArmed = false;
+  document.querySelectorAll('.cat-btn').forEach(b => {
+    b.classList.remove('preview', 'locked');
+  });
+  document.getElementById('cat-grid').classList.remove('locked');
+  const cBtn = document.getElementById('cat-confirm-btn');
+  cBtn.textContent = '確定';
+  cBtn.classList.remove('locked');
+  cBtn.disabled = true;
+  document.getElementById('cat-purg-btn')?.classList.remove('armed');
+  document.getElementById('cat-hint').textContent = '尚未選擇分類';
+  // 重算九宮格(扣掉已抽過的題目)
+  updateCategoryGrid();
+  // 廣播給主持人:回到分類選擇等候態(內部呼叫時不必 emit 避免冗餘)
+  if (emit) PartyBus.emit('category_reset', {});
+}
+window.resetCategoryPicker = resetCategoryPicker;
+
+function _doEndImpl(){
+  document.getElementById('rev-acts').classList.remove('show');
+  setPhase('ended');
+  // 鎖回設定/題庫等分頁(進入結束狀態,只允許看分組表/計分表)
+  applyTabLock();
+  // 自動匯出結果(廣播給參賽者 → 跳出「是否觀看結果」浮窗)
+  if (typeof doExport === 'function') doExport();
+  setStatus('本場遊戲結束 · 結果已推送至參賽者畫面');
+}
+
+/* 結束本場:跳確認 modal,確定後才執行 */
+function doEnd(){
+  cfOpen({
+    eyebrow: 'End Game · 結束本場',
+    title: '確定要結束本場?',
+    sub: '結束後將自動匯出結果到參賽者畫面,且本場無法繼續進行。',
+    okText: '結束本場',
+    okClass: 'danger',
+    onOk: _doEndImpl,
+  });
+}
+
+/* 重新開始:完全重置遊戲狀態,主持人回 scr-select、參賽者回登入後等待頁 */
+function _doRestartImpl(){
+  // 1. 重置助理本機狀態
+  S.gameStarted = false;
+  S.usedIds = new Set();
+  S.askedQuestions = [];
+  S.currentQuestion = null;
+  S.currentDifficulty = null;
+  S.currentFramework = null;
+  S.currentCat = null;
+  S.catPreview = null;
+  S.catLocked = false;
+  S.purgArmed = false;
+  S.currQ = 0;
+  S.selectedIdx = null;
+  S.pendingIdx = null;
+  S.phase = 'idle';
+  // 各組分數歸零,但保留組名(讓助理不用重新輸入)
+  if (Array.isArray(S.groups)) S.groups.forEach(g => g.score = 0);
+  // 2. 重渲染
+  if (typeof renderGroups === 'function') renderGroups();
+  if (typeof renderScores === 'function') renderScores();
+  if (typeof updateCategoryGrid === 'function') updateCategoryGrid();
+  document.getElementById('m-round').textContent = '01';
+  document.getElementById('m-q').textContent = `0 / ${S.totalQ}`;
+  document.getElementById('curr-q').textContent = '0';
+  // 3. 清掉九宮格鎖定態
+  const grid = document.getElementById('cat-grid');
+  if (grid) {
+    grid.classList.remove('locked');
+    grid.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('locked','preview'));
+  }
+  const cBtn = document.getElementById('cat-confirm-btn');
+  if (cBtn) {
+    cBtn.disabled = true;
+    cBtn.textContent = '確定';
+    cBtn.classList.remove('locked');
+  }
+  document.getElementById('cat-hint').innerHTML = '';
+  // 4. 切回設定分頁
+  setPhase('idle');
+  sw('setup');
+  // 5. 解鎖分頁(回到「未開始遊戲」狀態)
+  applyTabLock();
+  // 6. 廣播給主持人 / 參賽者
+  PartyBus.emit('game_restart', {});
+  setStatus('遊戲已重置 · 主持人回模式選擇 · 參賽者回等待頁');
+}
+
+/* 重新開始:跳確認 modal,確定後才執行 */
+function doRestart(){
+  cfOpen({
+    eyebrow: 'Restart · 重新開始',
+    title: '確定要重新開始嗎?',
+    sub: '本場進度與分數將全部清空,主持人/參賽者將回到初始狀態。組名會保留。',
+    okText: '重新開始',
+    okClass: 'danger',
+    onOk: _doRestartImpl,
+  });
+}
+
+/* ── 通用確認 modal(用於重新開始 / 結束本場 等危險操作) ───────────── */
+let _cfPendingOk = null;
+function cfOpen(opts) {
+  document.getElementById('cf-eyebrow').textContent = opts.eyebrow || 'CONFIRM';
+  document.getElementById('cf-title').textContent = opts.title || '確定?';
+  document.getElementById('cf-sub').textContent = opts.sub || '';
+  const okBtn = document.getElementById('cf-ok-btn');
+  okBtn.textContent = opts.okText || '確定';
+  okBtn.className = 'cf-btn primary';
+  if (opts.okClass) okBtn.classList.add(opts.okClass);
+  _cfPendingOk = opts.onOk || null;
+  document.getElementById('cf-modal').classList.add('show');
+}
+function cfCancel() {
+  document.getElementById('cf-modal').classList.remove('show');
+  _cfPendingOk = null;
+}
+function cfConfirm() {
+  const fn = _cfPendingOk;
+  _cfPendingOk = null;
+  document.getElementById('cf-modal').classList.remove('show');
+  if (typeof fn === 'function') fn();
+}
+window.cfOpen = cfOpen;
+window.cfCancel = cfCancel;
+window.cfConfirm = cfConfirm;
+
+function doExport(){
+  // 整理本場資料 → 廣播給參賽者(讓他們在 stage-end 看到結果)
+  const sorted = [...S.groups].sort((a,b) => b.score - a.score);
+  const modeLabel = { ordinary:'普通', hell:'地獄', paradise:'極樂', custom:'自由' };
+
+  // 從進退場紀錄推算各組的組員(以最後狀態為準)
+  // 因為加入記錄會被 rename 改寫的問題,簡化處理:用「目前 join 狀態還在的人」
+  const membersByGroup = {};
+  S.groups.forEach(g => { membersByGroup[g.name] = []; });
+  // S.log 是 unshift 的,所以新的在前;從舊到新處理才能追蹤狀態
+  const logsAsc = [...S.log].reverse();
+  logsAsc.forEach(entry => {
+    if (entry.type === 'join' && entry.group && membersByGroup[entry.group]) {
+      if (!membersByGroup[entry.group].includes(entry.name)) {
+        membersByGroup[entry.group].push(entry.name);
+      }
+    } else if (entry.type === 'leave' && entry.group && membersByGroup[entry.group]) {
+      const i = membersByGroup[entry.group].indexOf(entry.name);
+      if (i >= 0) membersByGroup[entry.group].splice(i, 1);
+    }
+    // rename 不影響成員,但組名變了要把 list 搬移
+    // 暫時略過(實作複雜度高,demo 階段先不處理 rename 後的成員追蹤)
+  });
+
+  PartyBus.emit('export_result', {
+    mode: S.mode,
+    modeLabel: modeLabel[S.mode] || '—',
+    totalQ: S.totalQ,
+    spq: S.spq,
+    actualQ: S.askedQuestions.length,
+    groups: S.groups.map(g => ({
+      name: g.name,
+      score: g.score,
+      members: membersByGroup[g.name] || [],
+    })),
+    sortedGroups: sorted.map(g => ({
+      name: g.name,
+      score: g.score,
+    })),
+    askedQuestions: S.askedQuestions,
+    exportTime: new Date().toLocaleString('zh-TW'),
+  });
+  setStatus('已匯出結果到參賽者畫面');
+}
+
+/* === DEMO: console 用 mockLog() 看進退場紀錄滿載樣貌, addLog(name,action,type,group) 手動加 === */
+window.mockLog=function(){
+  S.log=[
+    {time:'10:32:18',name:'陳冠瑋',action:'加入',type:'join',group:'第一組'},
+    {time:'10:32:24',name:'林雅婷',action:'加入',type:'join',group:'第二組'},
+    {time:'10:33:51',name:'黃建志',action:'加入',type:'join',group:'第三組'},
+    {time:'10:35:02',name:'吳珮瑜',action:'加入',type:'join',group:'第四組'},
+    {time:'10:38:47',name:'王詩涵',action:'加入',type:'join',group:'第一組'},
+    {time:'10:41:15',name:'王詩涵',action:'重連',type:'reconn',group:'第一組'},
+    {time:'10:42:33',name:'張凱傑',action:'退出',type:'leave',group:'第二組'},
+    {time:'10:43:08',name:'張凱傑',action:'重連',type:'reconn',group:'第二組'},
+  ];
+  renderLog();
+};
+window.addLog=addLog;
+
+/* ══ 煉獄狀態徽章(由主持人端透過 PartyKit 廣播煉獄事件時呼叫) ══ */
+function summonPurgatory(){
+  const app=document.querySelector('.app');
+  if(!app)return;
+  app.classList.add('purg-on');
+  // 重新觸發進場動畫(避免狀態已是 on 時再 set 不動)
+  const m=document.getElementById('purg-mark');
+  if(m){m.style.animation='none';void m.offsetHeight;m.style.animation='';}
+}
+function endPurgatory(){
+  const app=document.querySelector('.app');
+  if(!app)return;
+  app.classList.remove('purg-on');
+}
+window.summonPurgatory=summonPurgatory;
+window.endPurgatory=endPurgatory;
+
+/* ════════════════════════════════════════════════════════════════════
+   題庫管理 (上傳、驗證、持久化、統計)
+   ════════════════════════════════════════════════════════════════════ */
+
+/* 從 localStorage 載入(啟動時呼叫) */
+function loadBankFromStorage() {
+  try {
+    const raw = localStorage.getItem(BANK_STORAGE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    BANK_SCHEMA.difficulties.forEach(d => {
+      if (data[d.id]) BANK[d.id] = data[d.id];
+    });
+  } catch (e) {
+    console.warn('題庫載入失敗:', e);
+  }
+}
+
+/* 寫回 localStorage */
+function saveBankToStorage() {
+  try {
+    const data = {};
+    BANK_SCHEMA.difficulties.forEach(d => {
+      if (BANK[d.id]) data[d.id] = BANK[d.id];
+    });
+    localStorage.setItem(BANK_STORAGE_KEY, JSON.stringify(data));
+  } catch (e) {
+    console.error('題庫儲存失敗(可能超過 localStorage 上限):', e);
+    setStatus('題庫儲存失敗,容量可能不足');
+  }
+}
+
+/* 解析並驗證上傳的 JSON
+   回傳 {ok, data, error, count, frameworks, byType} */
+function parseBankFile(jsonText, difficultyId) {
+  const dSpec = BANK_SCHEMA.difficulties.find(d => d.id === difficultyId);
+  if (!dSpec) return { ok:false, error:'未知難度' };
+
+  let parsed;
+  try { parsed = JSON.parse(jsonText); }
+  catch (e) { return { ok:false, error:'JSON 格式錯誤: ' + e.message.split('\n')[0] }; }
+
+  // 取出題目陣列(支援兩種結構)
+  let questions = [];
+  const byType = {};
+
+  if (dSpec.framework === 'B') {
+    // 煉獄:扁平陣列
+    if (parsed.questions && Array.isArray(parsed.questions)) {
+      questions = parsed.questions;
+    } else if (Array.isArray(parsed)) {
+      questions = parsed;
+    } else {
+      return { ok:false, error:'煉獄題庫應為扁平陣列(questions: [...])' };
+    }
+    questions.forEach(q => {
+      const t = q.type;
+      if (t) byType[t] = (byType[t]||0) + 1;
+    });
+  } else {
+    // 一般:questions.<difficulty>.<type> 巢狀,或直接 .<type> 巢狀
+    let bank = parsed.questions?.[difficultyId] || parsed[difficultyId] || parsed.questions || parsed;
+    if (!bank || typeof bank !== 'object') {
+      return { ok:false, error:'結構應為 {<type>: [...]} 或 {questions: {<difficulty>: {<type>: [...]}}}' };
+    }
+    dSpec.expectedTypes.forEach(t => {
+      if (Array.isArray(bank[t])) {
+        const arr = bank[t].map(q => ({ ...q, type:t }));
+        questions = questions.concat(arr);
+        byType[t] = arr.length;
+      }
+    });
+  }
+
+  if (questions.length === 0) {
+    return { ok:false, error:'未讀到任何題目,請檢查 JSON 結構' };
+  }
+
+  // 收集 topic/framework 統計
+  const fwCount = {};
+  questions.forEach(q => {
+    const tp = q.topic;
+    if (tp) fwCount[tp] = (fwCount[tp]||0) + 1;
+  });
+  const frameworks = Object.entries(fwCount).map(([id, c]) => ({ id, count:c }))
+    .sort((a, b) => b.count - a.count);
+
+  return {
+    ok: true,
+    data: {
+      questions,
+      count: questions.length,
+      byType,
+      frameworks,
+      uploadedAt: new Date().toISOString(),
+      filename: null,
+    },
+  };
+}
+
+/* 處理檔案上傳 */
+function handleBankFile(file, difficultyId) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const result = parseBankFile(e.target.result, difficultyId);
+    const card = document.querySelector(`.bank-card[data-d="${difficultyId}"]`);
+    if (!result.ok) {
+      // 標記錯誤
+      if (card) {
+        card.classList.add('error');
+        card.classList.remove('loaded');
+        const errEl = card.querySelector('.bk-error');
+        if (errEl) errEl.textContent = result.error;
+      }
+      return;
+    }
+    result.data.filename = file.name;
+    BANK[difficultyId] = result.data;
+    saveBankToStorage();
+    renderBankPage();
+    // 題庫變動後,九宮格與自由模式題池都要重算
+    updateCategoryGrid();
+    if (S.mode === 'custom') updateCustomPool();
+    setStatus(`已掛載 ${BANK_SCHEMA.difficulties.find(d=>d.id===difficultyId).label} · ${result.data.count} 題`);
+  };
+  reader.readAsText(file);
+}
+
+/* 清掉某難度 */
+function clearBankDifficulty(difficultyId) {
+  if (!BANK[difficultyId]) return;
+  if (!confirm(`確定要清掉「${BANK_SCHEMA.difficulties.find(d=>d.id===difficultyId).label}」題庫嗎?此操作不可還原。`)) return;
+  BANK[difficultyId] = null;
+  saveBankToStorage();
+  renderBankPage();
+  updateCategoryGrid();
+  if (S.mode === 'custom') updateCustomPool();
+}
+
+/* 全部清除 */
+function clearAllBank() {
+  if (!confirm('確定要清除全部 5 個難度的題庫嗎?此操作不可還原。')) return;
+  BANK_SCHEMA.difficulties.forEach(d => { BANK[d.id] = null; });
+  saveBankToStorage();
+  renderBankPage();
+  updateCategoryGrid();
+  if (S.mode === 'custom') updateCustomPool();
+}
+
+/* 渲染題庫頁 */
+function renderBankPage() {
+  const grid = document.getElementById('bank-grid');
+  if (!grid) return;
+
+  // 五張卡
+  grid.innerHTML = BANK_SCHEMA.difficulties.map(d => {
+    const loaded = BANK[d.id];
+    const isError = false;
+    const cls = ['bank-card'];
+    if (loaded) cls.push('loaded');
+    const count = loaded ? loaded.count : d.expectedCount;
+    const typesHtml = d.expectedTypes.map(t => {
+      const has = loaded?.byType?.[t] > 0;
+      const label = { short_answer:'簡', multiple_choice:'選', essay:'申', calculation:'計', word_game:'字' }[t] || t;
+      const num = loaded?.byType?.[t] || '';
+      return `<span class="bk-type-chip ${has?'has':''}">${label}${num?' '+num:''}</span>`;
+    }).join('');
+    const meta = loaded
+      ? `<div class="bk-meta">${loaded.filename || '已掛載'} · <span class="ts">${formatBankTime(loaded.uploadedAt)}</span></div>`
+      : '';
+    const action = loaded
+      ? '已掛載 · 點選重新上傳'
+      : '點選或拖曳 JSON 檔';
+    return `
+      <div class="${cls.join(' ')}" data-d="${d.id}"
+           ondragover="bankDragOver(event)"
+           ondragleave="bankDragLeave(event)"
+           ondrop="bankDrop(event,'${d.id}')">
+        <input type="file" class="bank-file-input" accept=".json,application/json"
+               onchange="handleBankFile(this.files[0], '${d.id}')">
+        <div class="bk-head">
+          <span class="bk-prefix">${d.prefix} · ${d.framework==='B'?'L 框架':'F 框架'}</span>
+          ${loaded ? `<button class="bank-clear-btn" style="font-size:9px;padding:3px 8px"
+            onclick="event.stopPropagation();event.preventDefault();clearBankDifficulty('${d.id}')">清除</button>` : ''}
+        </div>
+        <div class="bk-name">${d.label}</div>
+        <div class="bk-count">
+          <span class="v">${count}</span><span class="u">題</span>
+          ${loaded && loaded.count !== d.expectedCount ? `<span class="u" style="color:#D9B477;margin-left:6px">預期 ${d.expectedCount}</span>` : ''}
+        </div>
+        <div class="bk-types">${typesHtml}</div>
+        ${meta}
+        <div class="bk-error" style="display:none"></div>
+        <div class="bk-action">${action}</div>
+      </div>
+    `;
+  }).join('');
+
+  // 總計
+  const loadedCount = BANK_SCHEMA.difficulties.filter(d => BANK[d.id]).length;
+  const totalQuestions = BANK_SCHEMA.difficulties.reduce((s, d) => s + (BANK[d.id]?.count || 0), 0);
+  document.getElementById('bs-loaded').textContent = loadedCount;
+  document.getElementById('bs-total').textContent = totalQuestions;
+  const badge = document.getElementById('bs-badge');
+  badge.classList.remove('empty', 'partial', 'ready');
+  if (loadedCount === 0) { badge.classList.add('empty'); badge.textContent = '尚未掛載'; }
+  else if (loadedCount < 5) { badge.classList.add('partial'); badge.textContent = `部分掛載 ${loadedCount}/5`; }
+  else { badge.classList.add('ready'); badge.textContent = '✓ 全部就緒'; }
+
+  // 全部清除按鈕
+  document.getElementById('bs-clear').style.display = loadedCount > 0 ? '' : 'none';
+
+  // 框架統計區
+  renderBankFrameworks();
+}
+
+function formatBankTime(iso) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  } catch { return iso; }
+}
+
+function renderBankFrameworks() {
+  const wrap = document.getElementById('bank-frameworks');
+  const list = document.getElementById('bank-fw-list');
+  if (!wrap || !list) return;
+
+  // 收集所有有題目的框架
+  const fwTotals = {};  // id -> { count, byDiff:{easy:n,medium:n,...} }
+  BANK_SCHEMA.difficulties.forEach(d => {
+    const bank = BANK[d.id];
+    if (!bank?.frameworks) return;
+    bank.frameworks.forEach(fw => {
+      if (!fwTotals[fw.id]) fwTotals[fw.id] = { count:0, byDiff:{} };
+      fwTotals[fw.id].count += fw.count;
+      fwTotals[fw.id].byDiff[d.id] = fw.count;
+    });
+  });
+
+  const entries = Object.entries(fwTotals).sort((a, b) => b[1].count - a[1].count);
+  if (!entries.length) { wrap.classList.remove('show'); return; }
+  wrap.classList.add('show');
+
+  list.innerHTML = entries.map(([fwId, info]) => {
+    // 找該框架的 label(在 A 或 B 系統)
+    const fw = BANK_SCHEMA.frameworksA.find(f => f.id === fwId)
+            || BANK_SCHEMA.frameworksB.find(f => f.id === fwId)
+            || { shortId:fwId, label:fwId };
+    const total = info.count;
+    const bars = BANK_SCHEMA.difficulties.map(d => {
+      const c = info.byDiff[d.id] || 0;
+      if (c === 0) return '';
+      const w = (c / total) * 100;
+      return `<div class="bank-fw-bar ${d.id}" style="width:${w}%" title="${d.label} ${c} 題"></div>`;
+    }).filter(Boolean).join('');
+    return `<div class="bank-fw-row">
+      <div class="bank-fw-name"><span class="id">${fw.shortId}</span>${fw.label}</div>
+      <div class="bank-fw-bars">${bars}</div>
+      <div class="bank-fw-total">${total}</div>
+    </div>`;
+  }).join('');
+}
+
+/* 拖放支援 */
+function bankDragOver(e) { e.preventDefault(); e.currentTarget.classList.add('dragover'); }
+function bankDragLeave(e) { e.currentTarget.classList.remove('dragover'); }
+function bankDrop(e, difficultyId) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('dragover');
+  const file = e.dataTransfer?.files?.[0];
+  if (file) handleBankFile(file, difficultyId);
+}
+
+/* 對外 API */
+window.handleBankFile = handleBankFile;
+window.clearBankDifficulty = clearBankDifficulty;
+window.clearAllBank = clearAllBank;
+window.bankDragOver = bankDragOver;
+window.bankDragLeave = bankDragLeave;
+window.bankDrop = bankDrop;
+window.BANK = BANK;
+window.BANK_SCHEMA = BANK_SCHEMA;
+
+/* ── 初始化 ── */
+loadBankFromStorage();
+renderBankPage();
+initCodes();
+rebuildNames();recalc();chk();
+updateCategoryGrid();
+
+// 邀請 QR Code(等 qrcodejs library 載入完才產生,稍微延遲)
+if (typeof QRCode !== 'undefined') {
+  renderInviteQR();
+} else {
+  window.addEventListener('load', () => setTimeout(renderInviteQR, 50));
+}
+</script>
+</body>
+</html>

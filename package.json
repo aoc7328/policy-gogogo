@@ -1,0 +1,19 @@
+{
+  "name": "policy-gogogo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Insurance training quiz game on PartyKit + Cloudflare Pages",
+  "type": "module",
+  "scripts": {
+    "dev": "partykit dev",
+    "deploy": "partykit deploy",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "partykit": "latest",
+    "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "partysocket": "latest"
+  }
+}

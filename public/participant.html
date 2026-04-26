@@ -1,0 +1,3112 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>保險知識星攻略 · 參與者</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=Noto+Serif+TC:wght@700;900&family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ── 四種模式主題（變數定義對齊主持人端） ─────── */
+:root {
+  --bg:#050912; --bg-s:#141B2E; --bg-r:#1C2540;
+  --ink-1:#F2EDE1; --ink-2:#9BA3B5; --ink-3:#5C6480; --ink-4:#3A4160;
+  --accent:#D4A34B; --accent-b:#EDC266; --accent-d:#8B6F3D;
+  --accent-s:rgba(212,163,75,.14); --accent-l:rgba(212,163,75,.38);
+  --line:rgba(155,163,181,.14); --line-s:rgba(155,163,181,.28);
+  --glow:rgba(212,163,75,.25);
+}
+/* 普通 — 暖金沙 */
+.tm-ordinary {
+  --bg:#14100A; --bg-s:#1E1810; --bg-r:#2A2116;
+  --ink-1:#F0E4C9; --ink-2:#BFA781; --ink-3:#8B7552; --ink-4:#5C4D33;
+  --accent:#D4A34B; --accent-b:#EDC266; --accent-d:#8B6F3D;
+  --accent-s:rgba(212,163,75,.16); --accent-l:rgba(212,163,75,.42);
+  --line:rgba(212,163,75,.18); --line-s:rgba(212,163,75,.4);
+  --glow:rgba(212,163,75,.25);
+}
+/* 地獄 — 深藍底 + 赤紅(主) + 金(輔) */
+.tm-hell {
+  --bg:#040812; --bg-s:#0A0F26; --bg-r:#121B3A;
+  --ink-1:#E8E4D8; --ink-2:#8BA0C4; --ink-3:#556A88; --ink-4:#2E3A52;
+  --accent:#D8344A; --accent-b:#EC5068; --accent-d:#8B2030;
+  --accent-s:rgba(216,52,74,.18); --accent-l:rgba(216,52,74,.45);
+  --secondary:#D4A34B;
+  --line:rgba(216,52,74,.18); --line-s:rgba(216,52,74,.45);
+  --glow:rgba(216,52,74,.3);
+}
+/* 極樂 — 深海藍底 + 金(主) + 紫/天光青白(輔) */
+.tm-paradise {
+  --bg:#070614; --bg-s:#0E0B22; --bg-r:#1A1438;
+  --ink-1:#F0E8D0; --ink-2:#B8A8D8; --ink-3:#7D6A9C; --ink-4:#4F4068;
+  --accent:#D4A34B; --accent-b:#F0C060; --accent-d:#8B6820;
+  --accent-s:rgba(212,163,75,.16); --accent-l:rgba(212,163,75,.42);
+  --secondary:#B48DD8; --tertiary:#7DABD8;
+  --line:rgba(212,163,75,.18); --line-s:rgba(212,163,75,.4);
+  --glow:rgba(180,141,216,.35);
+}
+/* 自由 — 灰白米底 + 金棕(主) + 朱印紅(輔) · 文人風 */
+.tm-custom {
+  --bg:#F2EFE8; --bg-s:#ECEAE3; --bg-r:#E0DCD2;
+  --ink-1:#1A1410; --ink-2:#4A3F32; --ink-3:#7A6E60; --ink-4:#B0A898;
+  --accent:#7A5C30; --accent-b:#A07A42; --accent-d:#523D1C;
+  --accent-s:rgba(122,92,48,.10); --accent-l:rgba(122,92,48,.38);
+  --seal-red:#A83228; --seal-red-d:#7C2018;
+  --line:rgba(26,20,16,.10); --line-s:rgba(26,20,16,.22);
+  --glow:rgba(122,92,48,.20);
+}
+
+/* ── 基礎 ─────────────────────────────────────── */
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{height:100%;overflow:hidden}
+body{
+  height:100dvh;overflow:hidden;
+  background:var(--bg);color:var(--ink-1);
+  font-family:"Noto Sans TC",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;letter-spacing:.01em;
+  display:flex;flex-direction:column;
+  position:relative;
+  transition:background 900ms cubic-bezier(.2,.7,.2,1),color 900ms cubic-bezier(.2,.7,.2,1);
+}
+/* ── 各模式主視覺背景層 ── */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  transition:opacity 900ms cubic-bezier(.2,.7,.2,1),background 900ms cubic-bezier(.2,.7,.2,1);
+}
+/* 地獄:雙徑向漸層(赤紅 glow + 金色點綴) */
+body.tm-hell::before{
+  background:
+    radial-gradient(ellipse at 20% 15%, var(--glow) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 85%, rgba(212,163,75,.12) 0%, transparent 55%);
+}
+/* 極樂:星空粒子 + 中央紫色 glow,呼吸動畫 */
+body.tm-paradise{
+  background:
+    radial-gradient(ellipse 130% 70% at 50% -15%, rgba(20,65,110,.95) 0%, transparent 65%),
+    #050F20;
+}
+body.tm-paradise::before{
+  background:
+    radial-gradient(1.5px 1.5px at 10% 15%, rgba(240,232,208,.8), transparent 50%),
+    radial-gradient(1px 1px at 22% 55%, rgba(180,141,216,.6), transparent 50%),
+    radial-gradient(1.5px 1.5px at 40% 25%, rgba(125,171,216,.7), transparent 50%),
+    radial-gradient(1px 1px at 65% 45%, rgba(240,232,208,.5), transparent 50%),
+    radial-gradient(2px 2px at 80% 70%, rgba(212,163,75,.7), transparent 50%),
+    radial-gradient(1px 1px at 15% 85%, rgba(180,141,216,.6), transparent 50%),
+    radial-gradient(1.5px 1.5px at 50% 92%, rgba(240,232,208,.5), transparent 50%),
+    radial-gradient(1px 1px at 90% 30%, rgba(125,171,216,.7), transparent 50%),
+    radial-gradient(1.5px 1.5px at 35% 75%, rgba(212,163,75,.6), transparent 50%);
+  animation:starBreathe 5s ease-in-out infinite;
+}
+/* 中央亮藍橢圓光暈(從上方天空撒下) */
+body.tm-paradise::after{
+  content:'';position:fixed;top:-100px;left:50%;transform:translateX(-50%);
+  width:500px;height:320px;
+  background:radial-gradient(ellipse, rgba(208,238,248,.40) 0%, rgba(160,203,232,.18) 35%, rgba(74,138,174,.05) 65%, transparent 85%);
+  animation:skyPulse 5s ease-in-out infinite;
+  pointer-events:none;z-index:0;
+}
+@keyframes skyPulse{
+  0%,100%{opacity:1;transform:translateX(-50%) scaleY(1)}
+  50%{opacity:.8;transform:translateX(-50%) scaleY(1.08)}
+}
+@keyframes starBreathe{0%,100%{opacity:1}50%{opacity:.45}}
+/* 自由:方格紙紋 (28px 格線,文人風) */
+body.tm-custom::before{
+  background:
+    linear-gradient(rgba(26,20,16,.042) 1px, transparent 1px) 0 0/28px 28px,
+    linear-gradient(90deg, rgba(26,20,16,.042) 1px, transparent 1px) 0 0/28px 28px;
+}
+button{cursor:pointer;font-family:inherit;-webkit-appearance:none}
+input{-webkit-appearance:none;border-radius:0}
+
+/* ── 階段切換 ─────────────────────────────────── */
+.stage{position:absolute;inset:0;display:flex;flex-direction:column;opacity:0;pointer-events:none;transition:opacity 480ms ease-out;z-index:1}
+.stage.active{opacity:1;pointer-events:all}
+
+/* ── 主持人登入入口（只在「輸入名字頁」顯示;進入答題後消失） ── */
+.host-login-btn{
+  position:fixed;top:8px;right:12px;z-index:1000;
+  background:rgba(5,9,18,.92);border:1px solid rgba(212,163,75,.4);
+  color:#D4A34B;font-family:"JetBrains Mono",monospace;
+  font-size:10px;letter-spacing:.16em;padding:6px 12px;
+  text-transform:uppercase;display:none;align-items:center;gap:7px;
+  backdrop-filter:blur(8px);transition:all 200ms;cursor:pointer;
+}
+body:has(#stage-login.active) .host-login-btn{display:flex}
+.host-login-btn:hover:not(:disabled){border-color:#D4A34B;background:rgba(212,163,75,.12);color:#EDC266}
+.host-login-btn .hl-dot{width:5px;height:5px;border-radius:50%;background:currentColor;box-shadow:0 0 8px currentColor;animation:hlPulse 2.4s ease-in-out infinite}
+@keyframes hlPulse{0%,100%{opacity:.5}50%{opacity:1}}
+.host-login-btn:disabled,.host-login-btn.taken{
+  opacity:.45;cursor:not-allowed;border-color:rgba(155,163,181,.22);color:rgba(155,163,181,.6)
+}
+.host-login-btn:disabled .hl-dot,.host-login-btn.taken .hl-dot{animation:none;background:rgba(155,163,181,.5);box-shadow:none}
+
+/* ── 主持人登入 Modal ── */
+.host-modal{position:fixed;inset:0;z-index:2000;display:none;align-items:center;justify-content:center;padding:20px}
+.host-modal.show{display:flex}
+.hm-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(8px);animation:hmFade 220ms ease-out}
+@keyframes hmFade{from{opacity:0}to{opacity:1}}
+.hm-card{position:relative;width:min(92vw,380px);background:var(--bg-s);border:1px solid var(--line-s);animation:hmIn 280ms cubic-bezier(.2,.7,.2,1)}
+@keyframes hmIn{from{opacity:0;transform:translateY(18px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+.hm-header{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--line)}
+.hm-title{font-family:"Noto Serif TC",serif;font-weight:700;font-size:16px;color:var(--ink-1);letter-spacing:.1em}
+.hm-close{background:transparent;border:none;color:var(--ink-3);font-size:22px;padding:0 4px;line-height:1;cursor:pointer}
+.hm-close:hover{color:var(--ink-1)}
+.hm-body{padding:20px;display:flex;flex-direction:column;gap:14px}
+.hm-hint{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;color:var(--ink-3);text-transform:uppercase;text-align:center}
+.hm-input{
+  background:var(--bg-r);border:1px solid var(--line-s);color:var(--ink-1);
+  font-family:"JetBrains Mono",monospace;font-size:22px;font-weight:500;
+  letter-spacing:.3em;text-align:center;padding:14px;outline:none;
+  width:100%;text-transform:uppercase;transition:border-color 180ms;
+}
+.hm-input:focus{border-color:var(--accent)}
+.hm-input::placeholder{color:var(--ink-4);letter-spacing:.2em;font-size:18px}
+.hm-status{min-height:18px;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.06em;text-align:center;line-height:1.5}
+.hm-status.err{color:#E66}
+.hm-status.ok{color:#6EC47A}
+.hm-actions{display:flex;gap:8px}
+.hm-btn{
+  flex:1;padding:11px;font-family:"JetBrains Mono",monospace;
+  font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+  border:1px solid var(--line-s);background:transparent;color:var(--ink-2);
+  transition:all 180ms;cursor:pointer;
+}
+.hm-btn.ghost:hover{color:var(--ink-1);border-color:var(--line-s);background:var(--bg-r)}
+.hm-btn.primary{background:var(--accent);border-color:var(--accent);color:var(--bg);font-weight:700}
+.hm-btn.primary:hover:not(:disabled){filter:brightness(1.12)}
+.hm-btn:disabled{opacity:.5;cursor:not-allowed}
+.hm-btn.full{flex:none;width:100%;padding:13px}
+.hm-actions-success{display:none}
+.hm-actions-success.show{display:block}
+.hm-demo-tip{
+  font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.04em;
+  color:var(--ink-3);text-align:center;padding-top:10px;margin-top:4px;
+  border-top:1px dashed var(--line);
+}
+.hm-demo-tip code{background:var(--bg-r);padding:2px 7px;color:var(--accent);border:1px solid var(--line-s);margin-left:4px;letter-spacing:.18em}
+
+/* ═══════════════════════════════════════════════
+   A. 登入頁
+   ═══════════════════════════════════════════════ */
+#stage-login{align-items:center;justify-content:center;padding:40px 32px;gap:0}
+
+.login-crown{text-align:center;margin-bottom:36px}
+.login-rule{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:10px}
+.lr-line{height:1px;width:44px;background:linear-gradient(to right,transparent,var(--accent))}
+.lr-line.r{background:linear-gradient(to left,transparent,var(--accent))}
+.lr-dot{width:5px;height:5px;background:var(--accent);transform:rotate(45deg);box-shadow:0 0 6px var(--accent)}
+.login-title{font-family:"Noto Serif TC",serif;font-weight:900;font-size:28px;color:var(--ink-1);letter-spacing:.1em;margin-bottom:6px}
+.login-sub{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.28em;color:var(--ink-3);text-transform:uppercase}
+
+.login-form{width:100%;max-width:320px;display:flex;flex-direction:column;gap:14px}
+.flbl{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;color:var(--ink-2);text-transform:uppercase;margin-bottom:5px;display:block}
+.login-input{
+  width:100%;background:var(--bg-r);border:1px solid var(--line-s);
+  color:var(--ink-1);font-family:"Noto Sans TC",system-ui,sans-serif;
+  font-size:18px;font-weight:500;padding:13px 15px;outline:none;
+  transition:border-color 200ms;
+}
+.login-input:focus{border-color:var(--accent)}
+.login-input::placeholder{color:var(--ink-3);font-size:14px}
+.login-btn{
+  width:100%;padding:14px;background:var(--accent);border:none;
+  color:var(--bg);font-family:"JetBrains Mono",monospace;
+  font-size:12px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;
+  transition:all 200ms;
+  box-shadow:0 4px 0 rgba(0,0,0,.3),0 6px 16px var(--accent-s);
+}
+.login-btn:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.3)}
+.login-btn:disabled{background:var(--bg-r);color:var(--ink-3);cursor:not-allowed;box-shadow:none}
+.login-note{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.16em;color:var(--ink-3);text-align:center;text-transform:uppercase}
+
+/* ═══════════════════════════════════════════════
+   B. 遊戲頁（單一畫面、永遠不跳頁）
+   ═══════════════════════════════════════════════ */
+#stage-game{display:none}
+#stage-game.active{display:flex}
+
+/* 頂部狀態列 */
+.gs-bar{
+  flex-shrink:0;display:flex;justify-content:space-between;align-items:center;
+  padding:10px 18px 8px;border-bottom:1px solid var(--line);background:var(--bg);
+}
+.gs-left{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0}
+.conn-dot{
+  width:7px;height:7px;border-radius:50%;background:#3DAA5C;
+  box-shadow:0 0 6px #3DAA5C;flex-shrink:0;
+  animation:connBlink 2.4s ease-in-out infinite;
+}
+@keyframes connBlink{0%,100%{opacity:.7;box-shadow:0 0 4px #3DAA5C}50%{opacity:1;box-shadow:0 0 10px #3DAA5C}}
+.gs-name{font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.12em;color:var(--ink-2)}
+.gs-name .nm{color:var(--accent);font-weight:700}
+.gs-right{display:flex;gap:8px;align-items:center;flex-shrink:0}
+.gs-team{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.14em;color:var(--ink-3);padding:3px 9px;border:1px solid var(--line-s);cursor:pointer;transition:all 180ms;display:inline-flex;align-items:center;gap:5px}
+.gs-team:hover{color:var(--ink-1);border-color:var(--accent);background:var(--accent-s)}
+.gs-team::after{content:'';width:5px;height:5px;border-right:1px solid currentColor;border-bottom:1px solid currentColor;transform:rotate(45deg) translateY(-1px);opacity:.6}
+/* 頂部 bar 小按鈕(改名 / 邀請) */
+.gs-mini-btn{background:transparent;border:1px solid var(--line-s);color:var(--ink-3);font-size:13px;padding:2px 7px;cursor:pointer;transition:all 180ms;line-height:1;display:inline-flex;align-items:center;justify-content:center;height:22px}
+.gs-mini-btn:hover{color:var(--accent);border-color:var(--accent);background:var(--accent-s)}
+.gs-mini-btn.invite{font-size:14px;padding:2px 8px}
+.gs-rename-input{
+  font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.06em;
+  background:var(--accent-s);border:1px solid var(--accent);color:var(--ink-1);
+  padding:2px 6px;width:90px;outline:none;height:22px;
+}
+.gs-rename-err{font-family:"JetBrains Mono",monospace;font-size:9px;color:var(--err);letter-spacing:.04em;opacity:0;transition:opacity 200ms;margin-left:2px}
+.gs-rename-err.show{opacity:1}
+
+/* 邀請 modal */
+.invite-modal{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;padding:24px}
+.invite-modal.show{display:flex}
+.invite-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);animation:imFade 200ms ease-out}
+@keyframes imFade{from{opacity:0}to{opacity:1}}
+.invite-card{position:relative;width:min(92vw,360px);background:var(--bg-surface);border:1px solid var(--line);padding:24px 22px 18px;text-align:center;animation:imIn 280ms cubic-bezier(.2,.7,.2,1)}
+@keyframes imIn{from{opacity:0;transform:translateY(8px) scale(.96)}to{opacity:1;transform:none}}
+.invite-eyebrow{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.32em;color:var(--accent);text-transform:uppercase;margin-bottom:6px}
+.invite-title{font-family:"Noto Serif TC",serif;font-weight:700;font-size:18px;color:var(--ink-1);letter-spacing:.06em;margin-bottom:14px}
+.invite-qr-box{width:220px;height:220px;background:#fff;padding:12px;margin:0 auto 12px;display:flex;align-items:center;justify-content:center}
+.invite-qr-box canvas, .invite-qr-box img{display:block;max-width:100%;height:auto}
+.invite-or{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.24em;color:var(--ink-3);margin:8px 0;position:relative}
+.invite-or::before, .invite-or::after{content:'';position:absolute;top:50%;width:50px;height:1px;background:var(--line)}
+.invite-or::before{left:50%;margin-left:-100px}
+.invite-or::after{right:50%;margin-right:-100px}
+.invite-url-row{display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:10px}
+.invite-url-text{font-family:"JetBrains Mono",monospace;font-size:14px;color:var(--accent);letter-spacing:.04em;font-weight:700}
+.invite-copy-btn{background:transparent;border:1px solid var(--line);color:var(--ink-2);font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.18em;padding:4px 10px;cursor:pointer;text-transform:uppercase;transition:all 180ms}
+.invite-copy-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-s)}
+.invite-copy-btn.copied{border-color:#3DAA5C;color:#3DAA5C}
+.invite-room-code{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-3);letter-spacing:.12em;margin:8px 0 14px}
+.invite-room-code .ic-label{margin-right:8px}
+.invite-room-code .ic-val{color:var(--ink-1);font-weight:700;letter-spacing:.2em;font-size:14px}
+.invite-close{width:100%;padding:9px;background:transparent;border:1px solid var(--line);color:var(--ink-2);font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;cursor:pointer;transition:all 180ms}
+.invite-close:hover{border-color:var(--ink-2);color:var(--ink-1)}
+.gs-round{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.12em;color:var(--ink-3)}
+
+/* ═══════════════════════════════════════════════
+   組員名單浮窗(點頂部組別 chip 觸發)
+   ═══════════════════════════════════════════════ */
+.team-modal{position:fixed;inset:0;z-index:2000;display:none;align-items:center;justify-content:center;padding:20px}
+.team-modal.show{display:flex}
+.tm-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(8px);animation:hmFade 220ms ease-out}
+.tm-card{position:relative;width:min(92vw,360px);max-height:80vh;display:flex;flex-direction:column;background:var(--bg-s);border:1px solid var(--line-s);animation:hmIn 280ms cubic-bezier(.2,.7,.2,1)}
+.tm-header{display:flex;justify-content:space-between;align-items:baseline;padding:16px 20px;border-bottom:1px solid var(--line);flex-shrink:0}
+.tm-title{font-family:"Noto Serif TC",serif;font-weight:700;font-size:16px;color:var(--ink-1);letter-spacing:.1em;display:flex;align-items:baseline;gap:6px}
+.tm-title .nm{color:var(--accent)}
+/* 可編輯態:組名右側加鉛筆,點擊變 input */
+.tm-name-wrap{display:inline-flex;align-items:baseline;gap:4px;cursor:pointer;padding:2px 6px;margin-left:-6px;border-radius:3px;transition:background 160ms}
+.tm-name-wrap.editable:hover{background:rgba(212,163,75,.1)}
+.tm-name-wrap .pencil{font-size:11px;color:var(--accent);opacity:0;transition:opacity 160ms}
+.tm-name-wrap.editable:hover .pencil{opacity:.85}
+.tm-name-wrap.locked{cursor:default}
+.tm-name-wrap.locked .pencil{display:none}
+.tm-name-input{
+  font-family:"Noto Serif TC",serif;font-weight:700;font-size:16px;letter-spacing:.1em;
+  background:rgba(212,163,75,.08);border:1px solid var(--accent);color:var(--accent);
+  padding:2px 8px;width:140px;outline:none;border-radius:0;
+}
+.tm-name-err{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--err);letter-spacing:.06em;opacity:0;transition:opacity 200ms;margin-left:4px}
+.tm-name-err.show{opacity:1}
+.tm-count{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.14em;color:var(--ink-3);text-transform:uppercase}
+.tm-close{position:absolute;top:10px;right:14px;background:transparent;border:none;color:var(--ink-3);font-size:22px;padding:0 4px;line-height:1;cursor:pointer}
+.tm-close:hover{color:var(--ink-1)}
+.tm-list{padding:8px 12px 14px;overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--line-s) transparent}
+.tm-list::-webkit-scrollbar{width:3px}
+.tm-list::-webkit-scrollbar-thumb{background:var(--line-s)}
+.tm-row{
+  display:flex;align-items:center;gap:10px;padding:9px 10px;
+  border-bottom:1px dashed var(--line);font-family:var(--font-sans);
+  transition:background 160ms;
+}
+.tm-row:last-child{border-bottom:none}
+.tm-row.me{background:var(--accent-s)}
+.tm-row .num{
+  font-family:"JetBrains Mono",monospace;font-size:10px;
+  letter-spacing:.1em;color:var(--ink-3);min-width:20px;
+}
+.tm-row .nm{flex:1;font-size:14px;color:var(--ink-1);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ── 結果通知 modal:遊戲結束時跳出「是否觀看結果」 ─────── */
+.result-modal{position:fixed;inset:0;z-index:2100;display:none;align-items:center;justify-content:center;padding:20px}
+.result-modal.show{display:flex}
+.rm-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.78);backdrop-filter:blur(10px);animation:hmFade 220ms ease-out}
+.rm-card{
+  position:relative;width:min(92vw,360px);
+  background:var(--bg-s);border:1px solid var(--accent-l);
+  padding:32px 28px 24px;text-align:center;
+  animation:hmIn 320ms cubic-bezier(.2,.7,.2,1);
+  box-shadow:0 0 40px rgba(212,163,75,.14);
+}
+.rm-card::before{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse at top,var(--accent-s) 0%,transparent 70%);
+}
+.rm-eyebrow{
+  font-family:"JetBrains Mono",monospace;font-size:10px;
+  letter-spacing:.3em;color:var(--accent);
+  text-transform:uppercase;margin-bottom:10px;
+}
+.rm-title{
+  font-family:"Noto Serif TC",serif;font-weight:900;font-size:22px;
+  color:var(--ink-1);letter-spacing:.04em;margin-bottom:8px;
+}
+.rm-sub{font-size:13px;color:var(--ink-3);margin-bottom:24px;line-height:1.7}
+.rm-actions{display:flex;gap:10px;justify-content:center;align-items:center;position:relative;z-index:1}
+.rm-confirm{
+  flex:1;padding:12px 20px;
+  background:var(--accent);border:1px solid var(--accent);
+  color:var(--bg);font-family:var(--font-sans);font-weight:700;font-size:14px;
+  letter-spacing:.06em;cursor:pointer;transition:all 180ms;
+}
+.rm-confirm:hover{background:var(--accent-b);border-color:var(--accent-b)}
+.rm-close{
+  position:absolute;top:10px;right:12px;
+  background:transparent;border:none;color:var(--ink-3);
+  font-size:22px;padding:0 4px;line-height:1;cursor:pointer;z-index:2;
+}
+.rm-close:hover{color:var(--ink-1)}
+.tm-row.me .nm{color:var(--accent);font-weight:700}
+.tm-row.me .nm::after{content:' (我)';font-size:10px;font-family:"JetBrains Mono",monospace;letter-spacing:.1em;color:var(--ink-3);font-weight:400}
+.tm-row .stat{
+  width:7px;height:7px;border-radius:50%;flex-shrink:0;
+  background:#3DAA5C;box-shadow:0 0 4px rgba(61,170,92,.5);
+}
+.tm-row.offline .stat{background:var(--ink-4);box-shadow:none}
+.tm-row.offline .nm{color:var(--ink-3);text-decoration:line-through;text-decoration-color:var(--ink-4);text-decoration-thickness:1px}
+.tm-empty{font-family:var(--font-serif);font-style:italic;font-size:13px;color:var(--ink-3);text-align:center;padding:32px 0}
+
+/* ═══════════════════════════════════════════════
+   即時分數長條(分組競爭視覺,固定在頂部狀態列下方)
+   - 每組一條長條,以「最高分」歸一化(差距用長度差直接表達)
+   - 自己的組別會凸出(更亮、左側標示、字色加深)
+   - 領先組別會閃一下小光暈
+   - 可折疊,折疊後只剩一條摘要列(我的分數 + 領先組)
+   - updateScoreBar(arr, myGroup) 由 PartyKit 廣播計分時呼叫
+   ═══════════════════════════════════════════════ */
+.score-bar{
+  flex-shrink:0;background:var(--bg);
+  border-bottom:1px solid var(--line);
+  transition:padding 280ms cubic-bezier(.2,.7,.2,1);
+}
+.score-bar .sb-toggle{
+  width:100%;background:transparent;border:none;
+  padding:8px 18px;cursor:pointer;
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  font-family:"JetBrains Mono",monospace;font-size:9px;
+  letter-spacing:.22em;color:var(--ink-3);text-transform:uppercase;
+  transition:color 200ms;
+}
+.score-bar .sb-toggle:hover{color:var(--ink-2)}
+.sb-tg-l{display:flex;align-items:center;gap:8px;min-width:0;flex:1}
+.sb-tg-arrow{display:inline-block;width:9px;font-size:10px;color:var(--ink-3);transition:transform 240ms cubic-bezier(.2,.7,.2,1)}
+.score-bar.collapsed .sb-tg-arrow{transform:rotate(-90deg)}
+/* 折疊摘要 */
+.sb-summary{display:none;align-items:center;gap:8px;font-size:10px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.score-bar.collapsed .sb-summary{display:flex}
+.sb-sm-mine{color:var(--accent);font-weight:700;letter-spacing:.06em}
+.sb-sm-sep{color:var(--ink-4);opacity:.6}
+.sb-sm-lead{color:var(--ink-3);letter-spacing:.06em}
+.sb-sm-lead .nm{color:var(--ink-1)}
+/* 展開時右側顯示領先 */
+.sb-tg-lead{color:var(--accent);font-weight:700;letter-spacing:.14em;flex-shrink:0}
+.score-bar.collapsed .sb-tg-lead{display:none}
+
+/* 長條列表 */
+.sb-list{
+  padding:0 18px 10px;display:flex;flex-direction:column;gap:5px;
+  max-height:240px;overflow-y:auto;overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;overscroll-behavior:contain;
+}
+.sb-list::-webkit-scrollbar{width:2px}
+.sb-list::-webkit-scrollbar-thumb{background:var(--line-s)}
+.score-bar.collapsed .sb-list{display:none}
+
+.sb-row{
+  display:grid;grid-template-columns:auto 1fr auto;
+  align-items:center;gap:10px;
+  font-family:"JetBrains Mono",monospace;font-size:11px;
+  color:var(--ink-2);letter-spacing:.06em;
+  min-height:18px;
+}
+.sb-row-name{
+  color:var(--ink-3);font-size:10px;letter-spacing:.1em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  width:9.5em;flex-shrink:0;display:flex;align-items:center;gap:5px;
+}
+.sb-row-name::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.sb-row[data-g="0"] .sb-row-name::before{background:#7DABD8}
+.sb-row[data-g="1"] .sb-row-name::before{background:#E8C46A}
+.sb-row[data-g="2"] .sb-row-name::before{background:#D8746A}
+.sb-row[data-g="3"] .sb-row-name::before{background:#7DBA92}
+.sb-row[data-g="4"] .sb-row-name::before{background:#B48DD8}
+.sb-row[data-g="5"] .sb-row-name::before{background:#E89F5A}
+.sb-row[data-g="6"] .sb-row-name::before{background:#5AB8B8}
+.sb-row[data-g="7"] .sb-row-name::before{background:#C97AB0}
+.sb-row.mine .sb-row-name{color:var(--ink-1);font-weight:700}
+
+/* 長條本體 */
+.sb-row-track{display:block;position:relative;height:8px;background:rgba(0,0,0,.18);border:1px solid var(--line);overflow:hidden}
+.sb-row-fill{
+  display:block;
+  height:100%;width:0%;
+  transition:width 600ms cubic-bezier(.2,.7,.2,1);
+  position:relative;
+}
+.sb-row[data-g="0"] .sb-row-fill{background:linear-gradient(90deg,#5a7fb8,#7DABD8)}
+.sb-row[data-g="1"] .sb-row-fill{background:linear-gradient(90deg,#b89a3a,#E8C46A)}
+.sb-row[data-g="2"] .sb-row-fill{background:linear-gradient(90deg,#a85248,#D8746A)}
+.sb-row[data-g="3"] .sb-row-fill{background:linear-gradient(90deg,#5a8a6e,#7DBA92)}
+.sb-row[data-g="4"] .sb-row-fill{background:linear-gradient(90deg,#7E5FA0,#B48DD8)}
+.sb-row[data-g="5"] .sb-row-fill{background:linear-gradient(90deg,#A06D38,#E89F5A)}
+.sb-row[data-g="6"] .sb-row-fill{background:linear-gradient(90deg,#3D8080,#5AB8B8)}
+.sb-row[data-g="7"] .sb-row-fill{background:linear-gradient(90deg,#8E4F7C,#C97AB0)}
+.sb-row.mine .sb-row-fill{filter:brightness(1.2) saturate(1.15);box-shadow:inset 0 0 0 1px rgba(255,255,255,.4)}
+.sb-row.lead .sb-row-fill::after{
+  content:'';position:absolute;inset:0;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.5);
+  animation:sbLeadPulse 2.4s ease-in-out infinite;
+}
+@keyframes sbLeadPulse{0%,100%{opacity:.5}50%{opacity:1}}
+
+.sb-row-val{
+  color:var(--ink-1);font-weight:700;font-size:11px;
+  letter-spacing:.04em;font-variant-numeric:tabular-nums;
+  min-width:24px;text-align:right;
+}
+.sb-row.mine .sb-row-val{color:var(--accent)}
+
+/* 題目可捲動區（佔剩餘空間，約上方 2/3） */
+.q-zone{
+  flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;padding:20px 20px 0;
+  min-height:0;
+}
+.q-zone::-webkit-scrollbar{width:2px}
+.q-zone::-webkit-scrollbar-thumb{background:var(--line-s)}
+
+/* 等待狀態 */
+.q-wait{
+  min-height:100%;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  text-align:center;gap:18px;padding:24px;
+}
+.qw-glyph{
+  font-family:"Noto Serif TC",serif;font-weight:900;
+  font-size:48px;color:var(--ink-4);letter-spacing:.1em;
+  animation:glyphBreath 3s ease-in-out infinite;
+}
+@keyframes glyphBreath{0%,100%{opacity:.35}50%{opacity:.75}}
+.qw-title{font-size:24px;font-weight:700;color:var(--ink-1);font-family:"Noto Serif TC",serif;letter-spacing:.06em}
+.qw-mode{
+  font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.24em;
+  color:var(--accent);text-transform:uppercase;font-weight:700;
+  padding:4px 12px;border:1px solid var(--accent-l);border-radius:2px;
+  background:var(--accent-s);
+}
+.qw-rule{font-size:13px;color:var(--ink-3);line-height:1.65;max-width:280px;margin:0 auto}
+.qw-hint{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;color:var(--ink-3);text-transform:uppercase}
+.qw-countdown{
+  font-family:var(--font-mono);font-weight:700;font-size:64px;
+  color:var(--accent);letter-spacing:.04em;line-height:1;
+  text-shadow:0 0 30px var(--accent-l);
+  animation:cdPulse 800ms ease-in-out infinite;
+}
+@keyframes cdPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.7;transform:scale(1.05)}}
+
+/* 狂點奪魁:即時計數面板 */
+.qw-count-panel{display:flex;flex-direction:column;align-items:center;gap:14px;width:100%;max-width:300px}
+.qcp-remain{font-family:var(--font-mono);font-weight:700;font-size:42px;color:var(--accent);line-height:1;text-shadow:0 0 24px var(--accent-l)}
+.qcp-remain .qcp-unit{font-size:18px;color:var(--ink-3);margin-left:4px}
+.qcp-list{display:flex;flex-direction:column;gap:6px;width:100%}
+.qcp-row{display:flex;align-items:center;gap:8px;font-size:13px;padding:6px 10px;border:1px solid var(--line-s);background:var(--bg-surface)}
+.qcp-row.mine{border-color:var(--accent);background:var(--accent-s)}
+.qcp-row .qcp-name{flex:1;color:var(--ink-2);text-align:left;font-weight:500}
+.qcp-row.mine .qcp-name{color:var(--accent);font-weight:700}
+.qcp-row .qcp-count{font-family:var(--font-mono);font-weight:700;font-size:16px;color:var(--ink-1);min-width:42px;text-align:right}
+.qcp-row.mine .qcp-count{color:var(--accent)}
+
+/* 全組到位:進度面板 */
+.qw-allhands-panel{display:flex;flex-direction:column;align-items:center;gap:14px;width:100%;max-width:300px}
+.qah-remain{font-family:var(--font-mono);font-weight:700;font-size:42px;color:var(--accent);line-height:1;text-shadow:0 0 24px var(--accent-l)}
+.qah-remain .qah-unit{font-size:18px;color:var(--ink-3);margin-left:4px}
+.qah-list{display:flex;flex-direction:column;gap:5px;width:100%}
+.qah-row{display:flex;align-items:center;gap:6px;font-size:13px;padding:6px 10px;border:1px solid var(--line-s);background:var(--bg-surface);transition:all 200ms}
+.qah-row.mine{border-color:var(--accent-l);background:var(--accent-s)}
+.qah-row.leader{border-color:var(--accent);background:var(--accent-s)}
+.qah-row.leader .qah-name{color:var(--accent);font-weight:700}
+.qah-row .qah-name{flex:1;color:var(--ink-2);text-align:left;font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qah-row.mine .qah-name{color:var(--accent);font-weight:700}
+.qah-row .qah-frac{font-family:var(--font-mono);font-weight:700;font-size:14px;color:var(--ink-1);text-align:right;white-space:nowrap}
+.qah-row.leader .qah-frac{color:var(--accent)}
+.qah-row .qah-now{font-family:var(--font-mono);font-size:10px;color:var(--ink-3);margin-left:2px}
+/* 紅鈕冷卻覆蓋層(allhands 模式) */
+.btn-zone{position:relative}
+.btn-cooldown{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:var(--font-mono);font-weight:700;font-size:32px;color:var(--accent);text-shadow:0 0 18px var(--accent-l);pointer-events:none;animation:cdFade 200ms ease-out}
+@keyframes cdFade{from{opacity:0;transform:translate(-50%,-50%) scale(.7)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+
+/* 隨機模式 · 揭曉(5 秒) */
+.qw-reveal{display:flex;flex-direction:column;align-items:center;gap:10px;animation:revIn 500ms cubic-bezier(.2,.7,.2,1)}
+@keyframes revIn{from{opacity:0;transform:translateY(8px) scale(.94)}to{opacity:1;transform:none}}
+.qw-rev-eyebrow{font-family:var(--font-mono);font-size:10px;letter-spacing:.32em;color:var(--accent);text-transform:uppercase}
+.qw-rev-name{font-family:"Noto Serif TC",serif;font-weight:900;font-size:38px;color:var(--accent);letter-spacing:.06em;line-height:1;text-shadow:0 0 24px var(--accent-l),0 0 50px rgba(212,163,75,.35);margin:6px 0;animation:revGlow 1500ms ease-in-out infinite}
+@keyframes revGlow{0%,100%{filter:brightness(1)}50%{filter:brightness(1.18)}}
+.qw-rev-rule{font-size:14px;color:var(--ink-1);line-height:1.65;max-width:280px;margin:0 auto;text-align:center}
+.qw-rev-prep{font-family:"Noto Serif TC",serif;font-weight:700;font-size:16px;color:var(--ink-2);letter-spacing:.06em;margin-top:6px}
+.qw-rev-progress{width:200px;height:3px;background:rgba(155,163,181,0.1);border:1px solid var(--line-s);margin-top:10px;position:relative;overflow:hidden}
+.qw-rev-progress-fill{position:absolute;inset:0;background:linear-gradient(90deg,var(--accent),var(--accent-b));transform-origin:left;transform:scaleX(0);box-shadow:0 0 12px var(--accent-l)}
+.qw-rev-progress.run .qw-rev-progress-fill{animation:qwRevCD 5s linear forwards}
+@keyframes qwRevCD{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+
+/* 搶答結果頁(我這組贏 vs 別組贏 視覺對比) */
+.qw-result{display:flex;flex-direction:column;align-items:center;gap:10px;padding:12px;animation:qwrIn 500ms cubic-bezier(.2,.7,.2,1)}
+@keyframes qwrIn{from{opacity:0;transform:translateY(12px) scale(.94)}to{opacity:1;transform:none}}
+.qwr-badge{font-family:var(--font-mono);font-size:10px;letter-spacing:.32em;color:var(--accent);padding:4px 14px;border:1px solid var(--accent-l);text-transform:uppercase;background:var(--accent-s)}
+.qwr-group{font-family:"Noto Serif TC",serif;font-weight:900;font-size:48px;color:var(--ink-1);letter-spacing:.06em;line-height:1;text-shadow:0 0 24px var(--accent-l),0 0 50px rgba(212,163,75,.25);margin:6px 0}
+.qw-result.mine .qwr-group{color:var(--accent);text-shadow:0 0 30px var(--accent-l),0 0 70px rgba(212,163,75,.5);animation:winGlow 1500ms ease-in-out infinite}
+@keyframes winGlow{0%,100%{filter:brightness(1)}50%{filter:brightness(1.25)}}
+.qwr-rule{width:100px;height:1px;background:linear-gradient(to right,transparent,rgba(212,163,75,.45),transparent)}
+.qwr-sub{font-size:14px;color:var(--ink-2);line-height:1.7;text-align:center;max-width:280px}
+.qwr-sub .person{color:var(--ink-1);font-weight:700}
+.qwr-sub .ms{font-family:var(--font-mono);color:var(--accent);font-weight:700;font-size:16px}
+.qwr-runnerup{margin-top:6px;padding:8px 18px;border:1px solid var(--line-s);display:flex;flex-direction:column;align-items:center;gap:2px;animation:qwrIn 600ms cubic-bezier(.2,.7,.2,1) 220ms backwards}
+.qwr-runnerup .qwru-eyebrow{font-family:var(--font-mono);font-size:9px;letter-spacing:.28em;color:var(--ink-3);text-transform:uppercase}
+.qwr-runnerup .qwru-line{font-family:"Noto Serif TC",serif;font-size:13px;color:var(--ink-2)}
+.qwr-runnerup .qwru-name{color:var(--ink-1);font-weight:700}
+.qwr-runnerup .qwru-count{font-family:var(--font-mono);color:var(--accent);font-weight:700}
+
+/* 題目內容 */
+.q-body{padding-bottom:20px}
+.q-tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.q-tag{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.14em;color:var(--ink-3);padding:2px 8px;border:1px solid var(--line-s);text-transform:uppercase}
+.q-tag.hi{color:var(--accent);border-color:var(--accent-l)}
+
+.q-stem{font-size:19px;font-weight:500;line-height:1.65;color:var(--ink-1);margin-bottom:18px}
+.q-stem strong{color:var(--accent)}
+
+/* 選擇題選項 */
+.opts{display:flex;flex-direction:column;gap:9px}
+.opt{display:flex;gap:12px;padding:12px 14px;background:var(--bg-s);border:1px solid var(--line);transition:all 480ms ease-out}
+.opt .ol{font-family:"JetBrains Mono",monospace;font-size:12px;font-weight:500;color:var(--ink-3);flex-shrink:0;padding-top:2px}
+.opt .ot{font-size:15px;line-height:1.6;color:var(--ink-1)}
+.opt.ok{background:var(--accent);border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-s),0 0 28px var(--accent-s);transform:translateX(4px)}
+.opt.ok .ol,.opt.ok .ot{color:var(--bg);font-weight:600}
+.opt.ng{opacity:.25}
+
+/* 一字千金 */
+.word-char{
+  font-family:"Noto Serif TC",serif;font-weight:900;font-size:96px;
+  color:var(--ink-1);text-align:center;display:block;line-height:1.1;
+  margin:6px 0 18px;text-shadow:0 0 40px var(--accent-s);
+}
+.word-opts{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:12px}
+.word-opt{background:var(--bg-s);border:1px solid var(--line);padding:12px 8px;text-align:center;transition:all 480ms ease-out}
+.word-opt .wl{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--ink-3);letter-spacing:.14em;margin-bottom:5px}
+.word-opt .wp{font-size:22px;font-weight:500;color:var(--ink-1)}
+.word-opt.ok{background:var(--accent);border-color:var(--accent);transform:translateY(-2px)}
+.word-opt.ok .wl,.word-opt.ok .wp{color:var(--bg);font-weight:700}
+.word-opt.ng{opacity:.25}
+
+/* 答案展開區 */
+.ans-block{
+  margin-top:14px;background:var(--bg-s);border-left:3px solid var(--accent);
+  padding:14px 16px;display:none;animation:ansIn 450ms ease-out;
+}
+.ans-block.show{display:block}
+@keyframes ansIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.ans-lbl{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.22em;color:var(--accent);text-transform:uppercase;margin-bottom:8px}
+.ans-text{font-size:14px;line-height:1.78;color:var(--ink-1)}
+
+/* 捲動漸層 */
+.scroll-fade{position:sticky;bottom:0;left:0;right:0;height:28px;background:linear-gradient(to bottom,transparent,var(--bg));pointer-events:none;margin:-28px -20px 0}
+
+/* ──────────── 按鈕固定區 ──────────── */
+.btn-zone{
+  flex-shrink:0;background:var(--bg);border-top:1px solid var(--line);
+  padding:14px 24px 22px;display:flex;flex-direction:column;align-items:center;gap:12px;
+}
+.btn-status{
+  font-family:"JetBrains Mono",monospace;font-size:10px;
+  letter-spacing:.18em;color:var(--ink-3);text-transform:uppercase;
+  text-align:center;min-height:15px;transition:color 300ms;
+}
+.btn-status.active-ok{color:#3DAA5C}
+.btn-status.active-mid{color:#E8B935}
+.btn-status.active-err{color:#C4202E}
+
+.btn-pair{display:flex;gap:18px;justify-content:center;align-items:center}
+
+/* ── 圓形立體按鈕 ── */
+.circ-btn{
+  width:90px;height:90px;border-radius:50%;border:none;outline:none;
+  display:flex;align-items:center;justify-content:center;
+  position:relative;
+  -webkit-user-select:none;user-select:none;touch-action:manipulation;
+  transition:transform 70ms ease-out,box-shadow 70ms ease-out,filter 70ms ease-out;
+}
+
+/* 紅色搶答鈕(縮小到佔螢幕 1/4 區塊內,~110px) */
+.buzz-btn{
+  width:110px !important;height:110px !important;
+  background:radial-gradient(ellipse at 38% 28%, #F08898 0%, #C4202E 42%, #8A1020 100%);
+  box-shadow:
+    0  3px 0 #780E1C,
+    0  6px 0 #640C18,
+    0  9px 0 #500A14,
+    0 12px 0 rgba(36,4,8,.85),
+    0 18px 26px rgba(48,6,12,.6),
+    inset 0 3px 6px rgba(255,255,255,.28),
+    inset 0 -3px 8px rgba(0,0,0,.28);
+  cursor:pointer;
+}
+.buzz-btn:active,.buzz-btn.dn{
+  transform:translateY(10px);
+  box-shadow:
+    0 2px 0 #780E1C,
+    0 4px 0 rgba(36,4,8,.6),
+    0 6px 12px rgba(48,6,12,.45),
+    inset 0 3px 6px rgba(255,255,255,.28),
+    inset 0 -3px 8px rgba(0,0,0,.28);
+}
+.buzz-btn .bb-label{
+  font-family:var(--font-serif);font-weight:900;font-size:22px;letter-spacing:.18em;
+  color:#fff;text-shadow:0 2px 4px rgba(0,0,0,.45),0 0 18px rgba(255,200,200,.35);
+  pointer-events:none;
+}
+/* 搶答鈕脈動光環(開放搶答時顯示) */
+.buzz-btn.armed{
+  animation:buzz-pulse 1200ms ease-in-out infinite;
+}
+@keyframes buzz-pulse{
+  0%,100%{
+    box-shadow:
+      0  3px 0 #780E1C,
+      0  6px 0 #640C18,
+      0  9px 0 #500A14,
+      0 12px 0 rgba(36,4,8,.85),
+      0 18px 26px rgba(48,6,12,.6),
+      0 0 0 0 rgba(255,80,100,.55),
+      inset 0 3px 6px rgba(255,255,255,.28),
+      inset 0 -3px 8px rgba(0,0,0,.28);
+  }
+  50%{
+    box-shadow:
+      0  3px 0 #780E1C,
+      0  6px 0 #640C18,
+      0  9px 0 #500A14,
+      0 12px 0 rgba(36,4,8,.85),
+      0 18px 26px rgba(48,6,12,.6),
+      0 0 0 18px rgba(255,80,100,0),
+      inset 0 3px 6px rgba(255,255,255,.28),
+      inset 0 -3px 8px rgba(0,0,0,.28);
+  }
+}
+
+/* flash */
+.circ-btn.flash{filter:brightness(1.6)}
+/* 鎖定 */
+.circ-btn.locked{opacity:.35;pointer-events:none;animation:none !important}
+
+/* ═══════════════════════════════════════════════
+   C. 結算頁
+   ═══════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════
+   B-purg. 煉獄狀態 (機率性觸發,在答題視窗外圍疊加火焰/餘燼/熱浪;不影響登入頁)
+   觸發方式:setPurgatory(true) / setPurgatory(false),由主持人端透過 PartyKit 廣播
+   ═══════════════════════════════════════════════ */
+.purg-fx{
+  position:absolute;inset:0;pointer-events:none;z-index:50;
+  opacity:0;transition:opacity 600ms ease;
+}
+#stage-game.purg .purg-fx{opacity:1}
+/* 底部火光 + 兩側升起的火焰 */
+.purg-fx-flame{
+  position:absolute;inset:0;
+  background:
+    radial-gradient(ellipse 60% 38% at 50% 100%, rgba(196,16,43,.55) 0%, transparent 70%),
+    radial-gradient(ellipse 38% 32% at 12% 100%, rgba(255,107,26,.5) 0%, transparent 65%),
+    radial-gradient(ellipse 38% 32% at 88% 100%, rgba(255,107,26,.5) 0%, transparent 65%);
+  animation:purgFxFlame 2.6s ease-in-out infinite;
+}
+@keyframes purgFxFlame{
+  0%,100%{opacity:.85;transform:translateY(0) scaleY(1)}
+  50%{opacity:1;transform:translateY(-6px) scaleY(1.07)}
+}
+/* 邊緣熱浪 */
+.purg-fx-haze{
+  position:absolute;inset:0;
+  background:linear-gradient(to top,rgba(255,107,26,.10) 0%,transparent 35%);
+  animation:purgFxHaze 3.6s ease-in-out infinite;
+}
+@keyframes purgFxHaze{0%,100%{opacity:.6}50%{opacity:1}}
+/* 餘燼粒子上飄 */
+.purg-embers{position:absolute;inset:0;overflow:hidden}
+.purg-embers .ember, .arr-embers .ember{
+  position:absolute;bottom:-10px;width:3px;height:3px;
+  background:#FF8A3D;border-radius:50%;
+  box-shadow:0 0 6px #FFB347, 0 0 12px #FF6B1A;
+  animation:purgEmberRise linear infinite;
+}
+@keyframes purgEmberRise{
+  0%{transform:translateY(0) translateX(0);opacity:1}
+  70%{opacity:1}
+  100%{transform:translateY(-100vh) translateX(var(--drift,40px));opacity:0}
+}
+/* 紅色內邊光暈 */
+#stage-game.purg{
+  box-shadow:inset 0 0 80px rgba(216,52,74,.45), inset 0 0 30px rgba(255,107,26,.25);
+}
+/* 煉獄狀態徽章(右上角小提示,跟主持人登入按鈕並列;放在 gs-bar 之內,不蓋住按鈕) */
+.purg-badge{
+  display:none;align-items:center;gap:6px;
+  padding:3px 10px;font-family:"JetBrains Mono",monospace;
+  font-size:9px;letter-spacing:.18em;text-transform:uppercase;
+  background:linear-gradient(135deg,#FF7A1A,#C4102B);color:#FFF4E0;
+  box-shadow:0 0 16px rgba(255,107,26,.5);
+  font-weight:700;
+}
+#stage-game.purg .purg-badge{display:inline-flex}
+.purg-badge::before{
+  content:'';width:5px;height:5px;border-radius:50%;background:#FFE4A0;
+  box-shadow:0 0 6px #FFB347;animation:purgBadgePulse 1.4s ease-in-out infinite;
+}
+@keyframes purgBadgePulse{0%,100%{opacity:.6}50%{opacity:1}}
+
+/* ═══════════════════════════════════════════════
+   B-purg-arrival. 煉獄降臨大畫面 (機率性事件,3 秒後自動切到答題頁並啟用 .purg)
+   觸發方式:summonPurgatory(),由主持人端透過 PartyKit 廣播「煉獄降臨」事件
+   ═══════════════════════════════════════════════ */
+#stage-purg-arrival{align-items:center;justify-content:center}
+.arr-bg{
+  position:absolute;inset:0;z-index:1;
+  background:
+    radial-gradient(ellipse at 50% 120%, #C4102B 0%, transparent 55%),
+    radial-gradient(ellipse at 30% 100%, rgba(196,16,43,.6) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 100%, rgba(255,107,26,.5) 0%, transparent 50%),
+    #0A0303;
+  animation:arrBgPulse 2.8s ease-in-out infinite;
+}
+@keyframes arrBgPulse{0%,100%{filter:brightness(1) saturate(1)}50%{filter:brightness(1.25) saturate(1.3)}}
+.arr-fire{position:absolute;inset:0;z-index:2;pointer-events:none}
+.fire-blob{
+  position:absolute;bottom:-60px;width:280px;height:420px;
+  background:radial-gradient(ellipse at 50% 100%, #FFB347 0%, #FF6B1A 25%, #C4102B 55%, transparent 80%);
+  filter:blur(32px);mix-blend-mode:screen;opacity:.9;
+  animation:flameWave 2.4s ease-in-out infinite;
+}
+.fire-blob:nth-child(1){left:-15%;animation-delay:0s}
+.fire-blob:nth-child(2){left:15%;animation-delay:-0.6s;width:240px;height:380px}
+.fire-blob:nth-child(3){left:45%;animation-delay:-1.2s;width:300px;height:450px}
+.fire-blob:nth-child(4){left:70%;animation-delay:-1.8s;width:260px;height:400px}
+.fire-blob:nth-child(5){left:-25%;animation-delay:-0.3s;width:180px;height:340px;opacity:.7}
+.fire-blob:nth-child(6){left:90%;animation-delay:-1.5s;width:200px;height:360px;opacity:.7}
+@keyframes flameWave{
+  0%,100%{transform:translateY(0) scaleY(1) scaleX(1);opacity:.85}
+  25%{transform:translateY(-30px) scaleY(1.1) scaleX(.95);opacity:1}
+  50%{transform:translateY(-10px) scaleY(.9) scaleX(1.05);opacity:.75}
+  75%{transform:translateY(-40px) scaleY(1.15) scaleX(.9);opacity:.95}
+}
+.arr-embers{position:absolute;inset:0;z-index:3;pointer-events:none;overflow:hidden}
+.arr-haze{
+  position:absolute;inset:0;z-index:4;pointer-events:none;
+  background:linear-gradient(to top,rgba(255,107,26,.12) 0%,transparent 40%);
+  animation:hazeShimmer 3.6s ease-in-out infinite;
+}
+@keyframes hazeShimmer{0%,100%{opacity:.6;transform:translateY(0)}50%{opacity:.9;transform:translateY(-4px)}}
+.arr-content{position:relative;z-index:5;text-align:center;padding:0 28px}
+.arr-omen{
+  font-family:"JetBrains Mono",monospace;font-size:11px;
+  color:rgba(255,200,160,.6);letter-spacing:.5em;
+  margin-bottom:28px;text-transform:uppercase;
+  text-shadow:0 0 8px rgba(255,100,0,.6);
+}
+.arr-title{
+  font-family:"Noto Serif TC",serif;font-weight:900;
+  font-size:96px;color:#FFF4E0;letter-spacing:.22em;line-height:1;
+  text-shadow:0 0 18px rgba(255,180,100,.9), 0 0 36px rgba(255,107,26,.8), 0 0 64px rgba(196,16,43,.6);
+}
+.arr-sub{
+  font-family:"JetBrains Mono",monospace;font-size:12px;
+  color:rgba(255,220,180,.6);letter-spacing:.4em;margin-top:32px;
+}
+#stage-purg-arrival.active .arr-content{animation:arrRise 1400ms cubic-bezier(.2,.7,.2,1)}
+#stage-purg-arrival.active .arr-title{animation:titleGlow 2.4s ease-in-out infinite 1400ms}
+@keyframes arrRise{
+  from{opacity:0;transform:translateY(30px) scale(.92);filter:blur(8px)}
+  60%{opacity:1;filter:blur(0)}
+  to{opacity:1;transform:translateY(0) scale(1)}
+}
+@keyframes titleGlow{
+  0%,100%{text-shadow:0 0 18px rgba(255,180,100,.9),0 0 36px rgba(255,107,26,.8),0 0 64px rgba(196,16,43,.6)}
+  50%{text-shadow:0 0 28px rgba(255,210,140,1),0 0 52px rgba(255,140,60,.95),0 0 96px rgba(220,40,60,.8)}
+}
+@media(max-width:360px){.arr-title{font-size:78px;letter-spacing:.18em}}
+@media(min-width:600px){.arr-title{font-size:120px}}
+
+#stage-end{
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:58px 20px 48px;flex-direction:column;gap:22px;
+}
+.end-hd{text-align:center;padding-bottom:18px;border-bottom:1px solid var(--line)}
+.end-badge{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.3em;color:var(--accent);text-transform:uppercase;margin-bottom:8px}
+.end-title{font-family:"Noto Serif TC",serif;font-weight:900;font-size:26px;color:var(--ink-1);letter-spacing:.06em}
+
+/* 我的成績卡 */
+.my-card{
+  background:var(--bg-s);border:1px solid var(--accent-l);padding:18px 20px;
+  position:relative;
+}
+.my-card::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at top right,var(--accent-s) 0%,transparent 60%);pointer-events:none}
+.my-card-lbl{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.22em;color:var(--accent);text-transform:uppercase;margin-bottom:8px}
+.my-name{font-family:"Noto Serif TC",serif;font-weight:900;font-size:26px;color:var(--ink-1);margin-bottom:4px}
+.my-group{font-size:15px;font-weight:500;color:var(--accent);margin-bottom:12px}
+.my-members{font-size:13px;color:var(--ink-3);line-height:1.6;margin-bottom:14px}
+.my-stats{display:flex;gap:24px;padding-top:12px;border-top:1px solid var(--line)}
+.my-stat-v{font-family:"JetBrains Mono",monospace;font-size:28px;font-weight:300;color:var(--ink-1)}
+.my-stat-l{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.16em;color:var(--ink-3);text-transform:uppercase;margin-top:2px}
+
+/* 區塊標題 */
+.sec-lbl{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.28em;color:var(--accent);text-transform:uppercase;margin-bottom:10px}
+
+/* 長條圖排行 */
+.bar-chart{display:flex;flex-direction:column;gap:8px;background:var(--bg-s);border:1px solid var(--line);padding:16px 18px}
+.bar-row{display:grid;grid-template-columns:64px 1fr 48px;gap:10px;align-items:center}
+.bar-name{font-size:13px;font-weight:500;color:var(--ink-2);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar-row.my-row .bar-name{color:var(--accent)}
+.bar-track{background:var(--bg-r);height:22px;position:relative;overflow:hidden}
+.bar-fill{position:absolute;left:0;top:0;bottom:0;background:var(--ink-4);transition:width 700ms cubic-bezier(.2,.7,.2,1)}
+.bar-fill.top{background:var(--accent)}
+.bar-row.my-row .bar-fill{background:var(--accent)}
+.bar-val{font-family:"JetBrains Mono",monospace;font-size:13px;color:var(--ink-2);text-align:right}
+.bar-row.my-row .bar-val{color:var(--accent)}
+
+/* Q&A 回顧 */
+.qa-list{display:flex;flex-direction:column;gap:12px}
+.qa-item{background:var(--bg-s);border:1px solid var(--line);padding:14px 16px;cursor:pointer;transition:border-color 180ms,background 180ms}
+.qa-item:hover{border-color:var(--accent-l);background:var(--bg-r)}
+.qa-item.expanded{border-color:var(--accent-l);background:var(--bg-r)}
+.qa-num{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.18em;color:var(--ink-3);margin-bottom:5px;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center}
+.qa-num .qa-toggle{font-size:14px;color:var(--accent);transition:transform 240ms ease}
+.qa-item.expanded .qa-num .qa-toggle{transform:rotate(180deg)}
+.qa-q{font-size:14px;font-weight:500;line-height:1.6;color:var(--ink-1)}
+.qa-answer-wrap{max-height:0;overflow:hidden;transition:max-height 360ms ease,margin-top 240ms ease,padding-top 240ms ease;margin-top:0;padding-top:0;border-top:0 solid var(--line)}
+.qa-item.expanded .qa-answer-wrap{max-height:1500px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.qa-meta{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.14em;color:var(--ink-3);margin-bottom:8px;text-transform:uppercase}
+.qa-options{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.qa-opt{font-size:13px;line-height:1.6;color:var(--ink-2);padding:8px 10px;background:var(--bg);border:1px solid var(--line);border-left-width:2px}
+.qa-opt.correct{border-left-color:var(--accent);color:var(--ink-1);background:var(--accent-s)}
+.qa-opt-letter{font-family:"JetBrains Mono",monospace;font-weight:700;color:var(--accent);margin-right:8px}
+.qa-section{margin-top:10px}
+.qa-section-lbl{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.18em;color:var(--accent);margin-bottom:5px;text-transform:uppercase}
+.qa-section-body{font-size:13px;line-height:1.7;color:var(--ink-2);padding-left:10px;border-left:2px solid var(--accent-l);white-space:pre-wrap}
+.qa-keypts{font-size:13px;line-height:1.7;color:var(--ink-2);padding-left:18px;margin:0}
+.qa-keypts li{margin-bottom:4px}
+.qa-word-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:6px;margin-bottom:10px}
+.qa-word-opt{font-size:13px;text-align:center;padding:6px 4px;background:var(--bg);border:1px solid var(--line);font-family:"Noto Sans TC"}
+.qa-word-opt.correct{border-color:var(--accent);color:var(--accent);background:var(--accent-s);font-weight:700}
+
+@media(min-height:700px){
+  .circ-btn{width:104px;height:104px}
+  .buzz-btn{width:130px !important;height:130px !important}
+  .buzz-btn .bb-label{font-size:26px}
+}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+
+<!-- ═══════ 主持人登入入口（永久存在；Demo bar 之外） ═══════ -->
+<button id="host-login-btn" class="host-login-btn" onclick="openHostModal()">
+  <span class="hl-dot"></span>
+  <span class="hl-text">主持人登入</span>
+</button>
+
+<!-- ═══════ 主持人登入彈窗 ═══════ -->
+<div class="host-modal" id="host-modal">
+  <div class="hm-backdrop" onclick="closeHostModal()"></div>
+  <div class="hm-card">
+    <div class="hm-header">
+      <div class="hm-title">主持人登入</div>
+      <button class="hm-close" onclick="closeHostModal()" aria-label="關閉">×</button>
+    </div>
+    <div class="hm-body">
+      <div class="hm-hint">請輸入助理提供的 6 位控制碼</div>
+      <input type="text" id="hm-input" class="hm-input" maxlength="6"
+             placeholder="——————" autocomplete="off" autocapitalize="characters"
+             oninput="this.value=this.value.toUpperCase()"
+             onkeydown="if(event.key==='Enter')submitHostLogin()">
+      <div class="hm-status" id="hm-status"></div>
+      <div class="hm-actions" id="hm-actions-default">
+        <button class="hm-btn ghost" onclick="closeHostModal()">取消</button>
+        <button class="hm-btn primary" id="hm-submit" onclick="submitHostLogin()">登入</button>
+      </div>
+      <div class="hm-actions-success" id="hm-actions-success">
+        <button class="hm-btn primary full" onclick="openPresenter()">→ 開啟主持人介面</button>
+      </div>
+      <div class="hm-demo-tip">DEMO 提示 · 有效控制碼<code>DEMO01</code></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ 組員名單浮窗 ═══════ -->
+<div class="team-modal" id="team-modal">
+  <div class="tm-backdrop" onclick="closeTeamModal()"></div>
+  <div class="tm-card">
+    <div class="tm-header">
+      <div class="tm-title">
+        <span class="tm-name-wrap locked" id="tm-name-wrap">
+          <span class="nm" id="tm-team-name">第三組</span>
+        </span>
+        <span style="font-size:11px;color:var(--ink-3);letter-spacing:.18em">組員</span>
+      </div>
+      <span class="tm-count" id="tm-count">— 人</span>
+    </div>
+    <button class="tm-close" onclick="closeTeamModal()" aria-label="關閉">×</button>
+    <div class="tm-list" id="tm-list">
+      <div class="tm-empty">名單載入中</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ 邀請朋友 modal(掃 QR / 複製短網址) ═══════ -->
+<div class="invite-modal" id="invite-modal">
+  <div class="invite-backdrop" onclick="closeInviteModal()"></div>
+  <div class="invite-card">
+    <div class="invite-eyebrow">邀請朋友加入</div>
+    <div class="invite-title">掃描 QR Code</div>
+    <div class="invite-qr-box" id="invite-qr-pt"></div>
+    <div class="invite-or">或</div>
+    <div class="invite-url-row">
+      <span class="invite-url-text" id="invite-url-pt">pgg.app/DEMO01</span>
+      <button class="invite-copy-btn" id="invite-copy-btn" onclick="copyInviteUrlPt()">複製</button>
+    </div>
+    <div class="invite-room-code">
+      <span class="ic-label">房號</span>
+      <span class="ic-val" id="invite-code-pt">DEMO01</span>
+    </div>
+    <button class="invite-close" onclick="closeInviteModal()">關閉</button>
+  </div>
+</div>
+
+<!-- ═══════ 結果通知 modal:遊戲結束時跳出 ═══════ -->
+<div class="result-modal" id="result-modal">
+  <div class="rm-backdrop" onclick="closeResultModal()"></div>
+  <div class="rm-card">
+    <button class="rm-close" onclick="closeResultModal()" aria-label="關閉">×</button>
+    <div class="rm-eyebrow">Game Over · 遊戲結束</div>
+    <div class="rm-title">是否觀看結果</div>
+    <div class="rm-sub">本場已落幕<br>按下確定查看本場成績與題目回顧</div>
+    <div class="rm-actions">
+      <button class="rm-confirm" onclick="confirmViewResult()">確定</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ A. 登入頁 ═══════ -->
+<div class="stage active" id="stage-login">
+  <div style="flex:1"></div>
+  <div class="login-crown">
+    <div class="login-rule">
+      <div class="lr-line"></div><div class="lr-dot"></div><div class="lr-line r"></div>
+    </div>
+    <div class="login-title">保險知識星攻略</div>
+    <div class="login-sub">Participant · 參與者</div>
+  </div>
+  <div style="display:flex;justify-content:center;padding:0 32px">
+    <div class="login-form">
+      <div>
+        <label class="flbl" for="inp-name">輸入你的名字</label>
+        <input class="login-input" id="inp-name" type="text"
+          placeholder="例：陳冠瑋" maxlength="20" autocomplete="off"
+          oninput="checkLogin()"
+          onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <button class="login-btn" id="login-btn" onclick="doLogin()" disabled>進入遊戲 →</button>
+      <div class="login-note">等待遊戲開始</div>
+    </div>
+  </div>
+  <div style="flex:1.5"></div>
+</div>
+
+<!-- ═══════ B. 遊戲頁 ═══════ -->
+<div class="stage" id="stage-game">
+
+  <!-- 煉獄外圍特效層(預設不顯示,加 .purg class 後才顯示) -->
+  <div class="purg-fx">
+    <div class="purg-fx-flame"></div>
+    <div class="purg-fx-haze"></div>
+    <div class="purg-embers" id="purg-embers"></div>
+  </div>
+
+  <div class="gs-bar">
+    <div class="gs-left">
+      <div class="conn-dot"></div>
+      <span class="gs-name"><span class="nm" id="gs-name">—</span></span>
+      <span class="gs-team" id="gs-team" onclick="openTeamModal()" role="button" tabindex="0">—</span>
+      <button class="gs-mini-btn" id="gs-rename-btn" onclick="startEditTeamNameInBar()" title="改組名">✎</button>
+      <input type="text" class="gs-rename-input" id="gs-rename-input" maxlength="8" style="display:none" />
+      <span class="gs-rename-err" id="gs-rename-err"></span>
+      <span class="purg-badge">◆ 煉獄</span>
+    </div>
+    <div class="gs-right">
+      <button class="gs-mini-btn invite" id="gs-invite-btn" onclick="openInviteModal()" title="邀請朋友加入">📱</button>
+      <span class="gs-round" id="gs-round">—</span>
+    </div>
+  </div>
+
+  <!-- 即時分數長條(可折疊) -->
+  <div class="score-bar" id="score-bar">
+    <button class="sb-toggle" onclick="toggleScoreBar()" aria-label="折疊/展開戰況">
+      <span class="sb-tg-l">
+        <span class="sb-tg-arrow">▾</span>
+        <span>戰況</span>
+        <span class="sb-summary" id="sb-summary"></span>
+      </span>
+      <span class="sb-tg-lead" id="sb-lead">—</span>
+    </button>
+    <div class="sb-list" id="sb-list"></div>
+  </div>
+
+  <!-- 題目可捲動區 -->
+  <div class="q-zone" id="q-zone">
+    <div class="q-wait" id="q-wait">
+      <div class="qw-glyph" id="qw-glyph">⋯</div>
+      <div class="qw-title" id="qw-title">等待主持人開始搶答</div>
+      <div class="qw-mode" id="qw-mode" style="display:none"></div>
+      <div class="qw-rule" id="qw-rule" style="display:none"></div>
+      <div class="qw-countdown" id="qw-countdown" style="display:none"></div>
+      <!-- 隨機揭曉(5 秒)-->
+      <div class="qw-reveal" id="qw-reveal" style="display:none">
+        <div class="qw-rev-eyebrow">本輪搶答方式</div>
+        <div class="qw-rev-name" id="qw-rev-name">電光石火</div>
+        <div class="qw-rev-rule" id="qw-rev-rule">321 GO 後最快按下的組獲勝</div>
+        <div class="qw-rev-prep">準備你的手指</div>
+        <div class="qw-rev-progress" id="qw-rev-progress"><div class="qw-rev-progress-fill"></div></div>
+      </div>
+      <!-- 搶答結果頁(2 秒展示後切到題目頁)-->
+      <div class="qw-result" id="qw-result" style="display:none">
+        <div class="qwr-badge" id="qwr-badge">搶答成功</div>
+        <div class="qwr-group" id="qwr-group">第三組</div>
+        <div class="qwr-rule"></div>
+        <div class="qwr-sub" id="qwr-sub"></div>
+        <div class="qwr-runnerup" id="qwr-runnerup" style="display:none">
+          <div class="qwru-eyebrow">本輪第二名</div>
+          <div class="qwru-line"><span class="qwru-name" id="qwru-name"></span> · <span class="qwru-count" id="qwru-count"></span> 次</div>
+        </div>
+      </div>
+      <!-- 狂點奪魁:即時計數面板(顯示各組點擊數 + 剩餘秒數) -->
+      <div class="qw-count-panel" id="qw-count-panel" style="display:none">
+        <div class="qcp-remain"><span id="qcp-remain-num">5.0</span><span class="qcp-unit">s</span></div>
+        <div class="qcp-list" id="qcp-list"></div>
+      </div>
+      <!-- 全組到位:即時進度面板(顯示各組已按人數/閾值 + 剩餘秒數) -->
+      <div class="qw-allhands-panel" id="qw-allhands-panel" style="display:none">
+        <div class="qah-remain"><span id="qah-remain-num">5.0</span><span class="qah-unit">s</span></div>
+        <div class="qah-list" id="qah-list"></div>
+      </div>
+      <div class="qw-hint" id="qw-hint">主持人正在準備中</div>
+    </div>
+    <div class="q-body" id="q-body" style="display:none"></div>
+    <div class="scroll-fade"></div>
+  </div>
+
+  <!-- 固定按鈕區 -->
+  <div class="btn-zone">
+    <div class="btn-status" id="btn-status"></div>
+    <div class="btn-pair">
+      <!-- 單顆紅色搶答鈕(預設 locked,助理開啟搶答後才解鎖) -->
+      <button class="circ-btn buzz-btn locked" id="btn-buzz" onclick="handleBuzz()">
+        <span class="bb-label">搶答</span>
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════ C. 結算頁 ═══════ -->
+<!-- ═══════ B-purg. 煉獄降臨大畫面 (機率性事件,3 秒後自動切到答題頁) ═══════ -->
+<div class="stage" id="stage-purg-arrival">
+  <div class="arr-bg"></div>
+  <div class="arr-fire">
+    <div class="fire-blob"></div><div class="fire-blob"></div><div class="fire-blob"></div>
+    <div class="fire-blob"></div><div class="fire-blob"></div><div class="fire-blob"></div>
+  </div>
+  <div class="arr-embers" id="arr-embers"></div>
+  <div class="arr-haze"></div>
+  <div class="arr-content">
+    <div class="arr-omen">Fate Has Chosen</div>
+    <div class="arr-title">煉獄</div>
+    <div class="arr-sub">PURGATORY · 命運降臨</div>
+  </div>
+</div>
+
+<div class="stage" id="stage-end">
+
+  <div class="end-hd">
+    <div class="end-badge">Game Over · 遊戲結束</div>
+    <div class="end-title">成績揭曉</div>
+  </div>
+
+  <!-- 我的成績 -->
+  <div class="my-card">
+    <div class="my-card-lbl">我的成績</div>
+    <div class="my-name" id="end-name">—</div>
+    <div class="my-group" id="end-group">—</div>
+    <div class="my-members" id="end-members">組員：—</div>
+    <div class="my-stats">
+      <div>
+        <div class="my-stat-v" id="end-rank">—</div>
+        <div class="my-stat-l">名次</div>
+      </div>
+      <div>
+        <div class="my-stat-v" id="end-score">—</div>
+        <div class="my-stat-l">得分</div>
+      </div>
+      <div>
+        <div class="my-stat-v" id="end-q">—</div>
+        <div class="my-stat-l">題數</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 長條圖排行 -->
+  <div>
+    <div class="sec-lbl">各組排行</div>
+    <div class="bar-chart" id="bar-chart"></div>
+  </div>
+
+  <!-- 題目回顧 -->
+  <div>
+    <div class="sec-lbl">本場題目與解答</div>
+    <div class="qa-list" id="qa-list"></div>
+  </div>
+
+</div>
+
+<script>
+
+/* ═══════════════════════════════════════════════════════════════
+   房號 / 短網址 (DEMO 階段寫死,實裝時由 PartyKit server 提供)
+   ═══════════════════════════════════════════════════════════════ */
+const PGG_ROOM_CODE = 'DEMO01';
+const PGG_JOIN_URL = 'https://pgg.app/' + PGG_ROOM_CODE;
+
+/* ══ 全域狀態 ══ */
+const G = {
+  name: '',
+  team: '第三組',
+  mode: '',
+  round: 0,
+  totalQ: 0,        // 總題數,由助理端設定;正式版透過 PartyKit 帶入
+  teamRoster: [],   // 我這組的組員名單 [{name:'李美慧', online:true}, ...];正式版由 PartyKit 帶入
+  currentQ: null,
+  revealed: false,
+  canRenameTeam: false,  // 是否可改組名(進入遊戲後 true,助理按開始遊戲後 false)
+  _pendingResult: null,  // 收到 export_result 時暫存的結果 payload(等使用者按確定才 render)
+  rushMode: 'speed',     // 下一輪搶答模式(由助理 game_start / rush_mode_changed 廣播,'random' 表示尚未揭曉)
+  buzzCooldownUntil: 0,  // allhands 模式:個人冷卻到期時間 ts(ms)
+  lightningArmedAt: 0,   // lightning 模式:紅鈕 armed 的時間(ms);0~3 秒按下會被淘汰
+  lightningEliminated: false,  // lightning 模式:本人是否已被淘汰
+};
+
+/* 搶答模式 metadata(label + 規則簡介,顯示在 q-wait) */
+const RUSH_MODE_META = {
+  speed:     { label: '電光石火', rule: '321 GO 後最快按下的組獲勝' },
+  count:     { label: '狂點奪魁', rule: '5 秒內猛點搶答鈕,全組總點擊最多者勝' },
+  lightning: { label: '閃電一按', rule: '從第 3 秒開始按,最快的人搶到;3 秒前按下直接淘汰' },
+  allhands:  { label: '全組到位', rule: '8 秒內,在 0.5 秒內同時按下的組員越多排名越前;每人按完冷卻 1 秒' },
+};
+
+/* ══ 主持人登入通道（mock，正式版由 PartyKit 後端 atomic check-and-set） ══ */
+const MOCK_HOST_CODE = 'DEMO01';        // 真實版由助理端產生的 S.hostCode 提供
+const HOST_CHANNEL_KEY = 'pgg_host_taken';
+let _bc = null;
+try { _bc = new BroadcastChannel('pgg_host_channel'); } catch(e) {}
+
+function isHostChannelTaken() {
+  return sessionStorage.getItem(HOST_CHANNEL_KEY) === '1';
+}
+function takeHostChannel() {
+  sessionStorage.setItem(HOST_CHANNEL_KEY, '1');
+  if (_bc) _bc.postMessage({ type: 'host_taken' });
+}
+function resetHostChannel() {
+  sessionStorage.removeItem(HOST_CHANNEL_KEY);
+  if (_bc) _bc.postMessage({ type: 'host_reset' });
+  updateHostBtnState();
+}
+window.resetHostChannel = resetHostChannel;  // demo 用：console 重置
+
+if (_bc) {
+  _bc.onmessage = (ev) => {
+    if (ev.data?.type === 'host_taken') {
+      sessionStorage.setItem(HOST_CHANNEL_KEY, '1');
+      updateHostBtnState();
+    } else if (ev.data?.type === 'host_reset') {
+      sessionStorage.removeItem(HOST_CHANNEL_KEY);
+      updateHostBtnState();
+    }
+  };
+}
+
+function updateHostBtnState() {
+  const btn = document.getElementById('host-login-btn');
+  const text = btn?.querySelector('.hl-text');
+  if (!btn || !text) return;
+  if (isHostChannelTaken()) {
+    btn.classList.add('taken');
+    btn.disabled = true;
+    text.textContent = '主持人已登入';
+  } else {
+    btn.classList.remove('taken');
+    btn.disabled = false;
+    text.textContent = '主持人登入';
+  }
+}
+
+function openHostModal() {
+  if (isHostChannelTaken()) return;
+  const m = document.getElementById('host-modal');
+  m.classList.add('show');
+  document.getElementById('hm-input').value = '';
+  document.getElementById('hm-status').textContent = '';
+  document.getElementById('hm-status').className = 'hm-status';
+  document.getElementById('hm-actions-default').style.display = '';
+  document.getElementById('hm-actions-success').classList.remove('show');
+  const submit = document.getElementById('hm-submit');
+  submit.disabled = false;
+  submit.textContent = '登入';
+  setTimeout(() => document.getElementById('hm-input').focus(), 50);
+}
+
+function closeHostModal() {
+  document.getElementById('host-modal').classList.remove('show');
+}
+
+function submitHostLogin() {
+  const input = document.getElementById('hm-input');
+  const status = document.getElementById('hm-status');
+  const submit = document.getElementById('hm-submit');
+  const code = input.value.trim().toUpperCase();
+
+  if (code.length !== 6) {
+    status.textContent = '請輸入 6 位控制碼';
+    status.className = 'hm-status err';
+    return;
+  }
+
+  // 模擬後端驗證延遲
+  submit.disabled = true;
+  submit.textContent = '驗證中…';
+  status.textContent = '';
+  status.className = 'hm-status';
+
+  setTimeout(() => {
+    if (code !== MOCK_HOST_CODE) {
+      status.textContent = '控制碼錯誤,請向助理確認';
+      status.className = 'hm-status err';
+      submit.disabled = false;
+      submit.textContent = '登入';
+      return;
+    }
+    if (isHostChannelTaken()) {
+      status.textContent = '此控制碼已有主持人登入';
+      status.className = 'hm-status err';
+      submit.disabled = false;
+      submit.textContent = '登入';
+      updateHostBtnState();
+      return;
+    }
+    // 成功 — atomic take
+    takeHostChannel();
+    updateHostBtnState();
+    status.textContent = '✓ 登入成功 · 通道已關閉';
+    status.className = 'hm-status ok';
+    document.getElementById('hm-actions-default').style.display = 'none';
+    document.getElementById('hm-actions-success').classList.add('show');
+  }, 380);
+}
+
+function openPresenter() {
+  // 正式版會以 SPA 路由切換到主持人介面;demo 用新分頁開啟
+  window.open('./presenter_combined.html', '_blank');
+  closeHostModal();
+}
+
+// 初始化
+updateHostBtnState();
+
+/* ══ 事件:模式切換(PartyKit 接管後由主持人端廣播) ══ */
+function simMode(m) {
+  G.mode = m;
+  document.body.className = m ? `tm-${m}` : '';
+}
+
+/* ══ 登入 ══ */
+function checkLogin() {
+  const v = document.getElementById('inp-name').value.trim();
+  document.getElementById('login-btn').disabled = v.length < 1;
+}
+function doLogin() {
+  const v = document.getElementById('inp-name').value.trim();
+  if (!v) return;
+  G.name = v;
+  document.getElementById('gs-name').textContent = v;
+  document.getElementById('gs-team').textContent = G.team;
+  document.getElementById('gs-round').textContent = '—';
+  // DEMO:從 MOCK_TEAMS 載入組員;正式版由 PartyKit 從助理端 broadcast 帶入
+  const myTeam = MOCK_TEAMS.find(t => t.name === G.team);
+  if (myTeam) {
+    const roster = myTeam.members.map(n => ({ name: n, online: true }));
+    // 確保我自己在名單中
+    if (!roster.find(p => p.name === v)) roster.unshift({ name: v, online: true });
+    updateTeamRoster(roster);
+  }
+  // 進入遊戲 = 立刻開放組名編輯(直到助理按開始遊戲後 5 秒鎖死)
+  G.canRenameTeam = true;
+  setTeamNameEditable(true);
+  // 廣播加入事件給助理(讓分組表/進退場紀錄即時更新)
+  if (window.PartyBus) {
+    PartyBus.emit('player_join', {
+      name: v,
+      team: G.team,
+    });
+  }
+  // 若助理已經按開始遊戲,直接補跑進 game 流程(套主題色 + 開組名編輯倒數)
+  if (G._gameStarted) {
+    enterGameStage();
+  } else {
+    // 還沒開始遊戲:就只是切到 game(等候主持人)
+    goStage('game');
+  }
+}
+
+/* ══ 階段切換 ══ */
+function goStage(id) {
+  document.querySelectorAll('.stage').forEach(s => s.classList.remove('active'));
+  const el = document.getElementById(`stage-${id}`);
+  if (el) el.classList.add('active');
+}
+
+/* ══ 題目模板 ══ */
+const Q_BANK = {
+  mc: {
+    type:'mc', diff:'困難級', cat:'F6 精算財務', label:'選擇題',
+    stem:'下列關於「保險公司責任準備金」的敘述，何者<strong>最為正確</strong>？',
+    options:[
+      '責任準備金屬於保險公司的負債，用於確保未來給付義務得以履行',
+      '責任準備金為保險公司的股東權益，可自由運用於投資決策',
+      '責任準備金只需於保單到期時提存，期中不必預先計算',
+      '責任準備金由金管會直接撥付，與保費收入無關',
+    ],
+    correct: 0,
+    answer: '選項 A。責任準備金依《保險法》第 145 條為負債科目，每期依精算方法提存，金管會監理其充足性而非直接撥付。'
+  },
+  word: {
+    type:'word', diff:'中等級', cat:'F2 契約條款', label:'一字千金',
+    word:'羈',
+    phonetics:['ㄐㄧ','ㄑㄧ','ㄐㄧˋ','ㄐㄩˋ'],
+    correct: 0,
+    answer:'音讀「ㄐㄧ」。本義為馬絡頭，引申為拘束、牽制。常見詞：羈絆（情感牽連）、羈押（法律拘留）、羈旅（客居異鄉）。'
+  },
+  essay: {
+    type:'essay', diff:'困難級', cat:'F5 險種規劃', label:'申論題',
+    stem:'客戶王先生：35 歲、雙薪家庭主力收入者、已婚、育有 5 歲及 8 歲兩名子女、房貸尚餘 800 萬（尚有 22 年）、年收入 150 萬、家庭年支出約 120 萬。請規劃其壽險保障結構，並說明配置邏輯。',
+    answer:'① 身故保額：建議涵蓋房貸餘額＋子女教育金＋家庭生活費，合計約 2,000 萬\n② 險種配置：20 年期定期壽險 1,200 萬為主軸，終身壽險 300–500 萬為輔\n③ 延伸保障：失能扶助險＋重大傷病險補強收入中斷風險\n④ 預算：年保費控制在 12–15 萬，每三年重新檢視保額需求'
+  }
+};
+
+/* ══ 事件:主持人推題(PartyKit 接管後由主持人端推送) ══ */
+function simPush(type) {
+  G.round++;
+  G.revealed = false;
+  G.currentQ = Q_BANK[type];
+  document.getElementById('gs-round').textContent = G.totalQ > 0
+    ? `${String(G.round).padStart(2,'0')} / ${String(G.totalQ).padStart(2,'0')}`
+    : `${String(G.round).padStart(2,'0')}`;
+  document.getElementById('q-wait').style.display = 'none';
+  const body = document.getElementById('q-body');
+  body.style.display = 'block';
+  body.innerHTML = buildQ(G.currentQ);
+  document.getElementById('q-zone').scrollTop = 0;
+  // 重置按鈕
+  resetBtns();
+  document.getElementById('btn-status').textContent = '';
+  document.getElementById('btn-status').className = 'btn-status';
+}
+
+function buildQ(q) {
+  let h = `<div class="q-tags">
+    <span class="q-tag hi">${q.diff}</span>
+    <span class="q-tag">${q.cat}</span>
+    <span class="q-tag">${q.label}</span>
+  </div>`;
+  if (q.type === 'mc') {
+    h += `<div class="q-stem">${q.stem}</div>
+      <div class="opts">${q.options.map((o,i)=>`
+        <div class="opt" data-i="${i}">
+          <span class="ol">${['A','B','C','D'][i]}</span>
+          <span class="ot">${o}</span>
+        </div>`).join('')}
+      </div>`;
+  } else if (q.type === 'word') {
+    h += `<div style="text-align:center;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.24em;color:var(--ink-3);text-transform:uppercase;margin-bottom:4px">請選出正確讀音</div>
+      <span class="word-char">${q.word}</span>
+      <div class="word-opts">${q.phonetics.map((p,i)=>`
+        <div class="word-opt" data-i="${i}">
+          <div class="wl">${['A','B','C','D'][i]}</div>
+          <div class="wp">${p}</div>
+        </div>`).join('')}
+      </div>`;
+  } else {
+    h += `<div class="q-stem">${q.stem}</div>`;
+  }
+  h += `<div class="ans-block" id="ans-block">
+    <div class="ans-lbl">解答</div>
+    <div class="ans-text">${(q.answer||'').replace(/\n/g,'<br>')}</div>
+  </div>`;
+  return h;
+}
+
+/* ══ 事件:公佈答案(PartyKit 接管後由助理端廣播) ══ */
+function simReveal() {
+  if (!G.currentQ || G.revealed) return;
+  G.revealed = true;
+  const q = G.currentQ;
+  if (q.type === 'mc') {
+    document.querySelectorAll('#q-body .opt').forEach(o => {
+      parseInt(o.dataset.i) === q.correct ? o.classList.add('ok') : o.classList.add('ng');
+    });
+  } else if (q.type === 'word') {
+    document.querySelectorAll('#q-body .word-opt').forEach(o => {
+      parseInt(o.dataset.i) === q.correct ? o.classList.add('ok') : o.classList.add('ng');
+    });
+  }
+  document.getElementById('ans-block')?.classList.add('show');
+}
+
+/* ══ 事件:遊戲結束 → 結算(PartyKit 接管後由助理端廣播) ══ */
+const MOCK_TEAMS = [
+  { name:'第一組', score:90, members:['陳冠瑋','林雅婷','黃建志','吳俊男','蘇宛萱','賴志宏','王曼麗'] },
+  { name:'第三組', score:80, members:['李美慧','劉志豪','鄭雅文','王雯','林宗翰','陳怡君','許承德','張育銘'] },
+  { name:'第二組', score:60, members:['吳珮瑜','張凱傑','王文豪','蔡語涵','楊昆達','江尚達'] },
+  { name:'第四組', score:40, members:['許家豪','謝依婷','蔡明宏','黃郁雯','洪嘉萱','邱俊瑋','彭士豪'] },
+];
+const MOCK_QA = [
+  { q:'下列關於「保險公司責任準備金」的敘述，何者最為正確？', a:'選項 A。責任準備金為保險公司負債，用於確保未來給付義務得以履行。' },
+  { q:'「不可抗辯條款」適用於保險契約生效滿幾年後？', a:'兩年後，保險人不得以告知不實為由解除契約或拒絕給付。' },
+  { q:'「羈」的正確讀音為何？', a:'ㄐㄧ。義為拘束、牽制，常見詞彙：羈絆、羈押、羈旅。' },
+];
+
+function simEnd() {
+  const myTeam = MOCK_TEAMS.find(t => t.name === G.team) || MOCK_TEAMS[1];
+  const sorted = [...MOCK_TEAMS].sort((a,b) => b.score-a.score);
+  const myRank = sorted.findIndex(t => t.name === myTeam.name) + 1;
+  const maxScore = sorted[0].score;
+
+  // 填入我的資訊
+  document.getElementById('end-name').textContent = G.name || '（未登入）';
+  document.getElementById('end-group').textContent = myTeam.name;
+  document.getElementById('end-members').textContent = '組員：' + myTeam.members.join('、');
+  document.getElementById('end-rank').textContent = myRank;
+  document.getElementById('end-score').textContent = myTeam.score;
+  document.getElementById('end-q').textContent = MOCK_QA.length;
+
+  // 長條圖排行
+  document.getElementById('bar-chart').innerHTML = sorted.map((t, r) => {
+    const pct = maxScore > 0 ? Math.round(t.score / maxScore * 100) : 0;
+    const isMe = t.name === myTeam.name;
+    const isTop = r === 0;
+    return `
+      <div class="bar-row ${isMe ? 'my-row' : ''}">
+        <div class="bar-name">${t.name}${isMe ? ' ★' : ''}</div>
+        <div class="bar-track">
+          <div class="bar-fill ${isTop && !isMe ? 'top' : ''}" style="width:0%" data-pct="${pct}"></div>
+        </div>
+        <div class="bar-val">${t.score}</div>
+      </div>`;
+  }).join('');
+
+  // Q&A
+  document.getElementById('qa-list').innerHTML = MOCK_QA.map((item,i) => `
+    <div class="qa-item">
+      <div class="qa-num">Q${String(i+1).padStart(2,'0')}</div>
+      <div class="qa-q">${item.q}</div>
+      <div class="qa-a">${item.a}</div>
+    </div>`).join('');
+
+  goStage('end');
+
+  // 長條圖動畫（微延遲觸發 transition）
+  setTimeout(() => {
+    document.querySelectorAll('.bar-fill').forEach(el => {
+      el.style.width = el.dataset.pct + '%';
+    });
+  }, 80);
+}
+
+/* ══ 搶答按鈕邏輯 ══
+   states:
+     locked  · 預設,不能按(等待助理開搶)
+     armed   · 助理開搶後,紅鈕脈動可按
+     pressed · 已按過,鎖住等結果
+*/
+function handleBuzz() {
+  const btn = document.getElementById('btn-buzz');
+  if (!btn || btn.classList.contains('locked')) return;
+  // count 模式:可以狂點,不 lock,直接 emit 並飛快動畫
+  if (G.rushMode === 'count') {
+    if (navigator.vibrate) navigator.vibrate(15);
+    btn.classList.add('dn');
+    setTimeout(() => btn.classList.remove('dn'), 60);
+    if (window.PartyBus) {
+      PartyBus.emit('buzz_press', {
+        name: G.name,
+        team: G.team,
+        ts: Date.now(),
+      });
+    }
+    return;
+  }
+  // allhands 模式:每按一次進入 1 秒冷卻,然後解鎖再按
+  if (G.rushMode === 'allhands') {
+    if (G.buzzCooldownUntil && Date.now() < G.buzzCooldownUntil) return;
+    if (navigator.vibrate) navigator.vibrate(35);
+    btn.classList.add('dn');
+    setTimeout(() => btn.classList.remove('dn'), 80);
+    // 廣播
+    if (window.PartyBus) {
+      PartyBus.emit('buzz_press', {
+        name: G.name,
+        team: G.team,
+        ts: Date.now(),
+      });
+    }
+    // 進入 1 秒冷卻:鎖鈕 + 顯示倒數
+    G.buzzCooldownUntil = Date.now() + 1000;
+    btn.classList.remove('armed');
+    btn.classList.add('locked');
+    // 在 btn-zone 顯示一個倒數覆蓋層
+    const zone = document.querySelector('.btn-zone');
+    let cdEl = document.getElementById('buzz-cd-overlay');
+    if (!cdEl && zone) {
+      cdEl = document.createElement('div');
+      cdEl.id = 'buzz-cd-overlay';
+      cdEl.className = 'btn-cooldown';
+      zone.appendChild(cdEl);
+    }
+    let remaining = 1.0;
+    const updateText = () => {
+      if (cdEl) cdEl.textContent = remaining.toFixed(1);
+    };
+    updateText();
+    const cdTick = setInterval(() => {
+      remaining = Math.max(0, (G.buzzCooldownUntil - Date.now()) / 1000);
+      updateText();
+      if (remaining <= 0) {
+        clearInterval(cdTick);
+        if (cdEl) cdEl.remove();
+        // 冷卻結束:重新 armed(若還在搶答中)
+        if (G.rushMode === 'allhands' && document.getElementById('q-wait').style.display !== 'none') {
+          btn.classList.remove('locked');
+          btn.classList.add('armed');
+        }
+      }
+    }, 100);
+    return;
+  }
+  // 閃電一按:判斷按下時間在哪個區段
+  if (G.rushMode === 'lightning') {
+    if (G.lightningEliminated) return;  // 已被淘汰,鈕不應可按(但雙保險)
+    if (!G.lightningArmedAt) return;
+    const elapsed = Date.now() - G.lightningArmedAt;
+    // 廣播給助理 → 助理判定
+    if (window.PartyBus) {
+      PartyBus.emit('buzz_press', {
+        name: G.name,
+        team: G.team,
+        ts: Date.now(),
+      });
+    }
+    if (elapsed < 3000) {
+      // 0~3 秒淘汰窗口 → 自己被淘汰(樂觀更新)
+      G.lightningEliminated = true;
+      if (navigator.vibrate) navigator.vibrate([50, 30, 100]);  // 淘汰震動
+      btn.classList.remove('armed');
+      btn.classList.add('locked','flash');
+      setTimeout(() => btn.classList.remove('flash'), 500);
+      const status = document.getElementById('btn-status');
+      if (status) {
+        status.textContent = '太快了 · 你已被淘汰';
+        status.className = 'btn-status active-err';
+      }
+    } else {
+      // >= 3 秒,有效按下 → 等助理判定(走 speed-like 流程)
+      if (navigator.vibrate) navigator.vibrate(45);
+      btn.classList.add('dn');
+      setTimeout(() => {
+        btn.classList.remove('dn');
+        btn.classList.add('flash');
+        btn.classList.remove('armed');
+        btn.classList.add('locked');
+        setTimeout(() => btn.classList.remove('flash'), 500);
+      }, 90);
+      const status = document.getElementById('btn-status');
+      if (status) {
+        status.textContent = '已搶答 · 等待判定';
+        status.className = 'btn-status active-mid';
+      }
+    }
+    return;
+  }
+  // 其他模式:同一輪只能按一次
+  if (G.buzzed) return;
+  G.buzzed = true;
+  if (navigator.vibrate) navigator.vibrate(45);
+  btn.classList.add('dn');
+  setTimeout(() => {
+    btn.classList.remove('dn');
+    btn.classList.add('flash');
+    btn.classList.remove('armed');
+    btn.classList.add('locked');
+    setTimeout(() => btn.classList.remove('flash'), 500);
+  }, 90);
+  // 廣播搶答事件給助理(正式版由 PartyKit 後端依規則判定)
+  if (window.PartyBus) {
+    PartyBus.emit('buzz_press', {
+      name: G.name,
+      team: G.team,
+      ts: Date.now(),
+    });
+  }
+  document.getElementById('btn-status').textContent = '已搶答 · 等待判定';
+  document.getElementById('btn-status').className = 'btn-status active-mid';
+}
+
+function armBuzz() {
+  const btn = document.getElementById('btn-buzz');
+  if (!btn) return;
+  G.buzzed = false;
+  btn.classList.remove('locked','dn','flash');
+  btn.classList.add('armed');
+  document.getElementById('btn-status').textContent = '搶答開放中';
+  document.getElementById('btn-status').className = 'btn-status active-ok';
+}
+
+function lockBuzz() {
+  const btn = document.getElementById('btn-buzz');
+  if (!btn) return;
+  btn.classList.remove('armed','dn','flash');
+  btn.classList.add('locked');
+  // 清 allhands 冷卻覆蓋層(若殘留)
+  _clearBuzzCooldown();
+}
+
+/* 清掉 allhands 冷卻倒數覆蓋層 + 重置冷卻狀態 + lightning 狀態 */
+function _clearBuzzCooldown() {
+  G.buzzCooldownUntil = 0;
+  G.lightningArmedAt = 0;
+  G.lightningEliminated = false;
+  const cd = document.getElementById('buzz-cd-overlay');
+  if (cd) cd.remove();
+}
+window._clearBuzzCooldown = _clearBuzzCooldown;
+
+function resetBtns() {
+  // 相容性 stub:某些舊呼叫點(如 simPush)仍會用,直接 lock 即可
+  lockBuzz();
+}
+
+/* ══ 煉獄狀態(機率性觸發,由主持人端透過 PartyKit 廣播) ══ */
+function generatePurgEmbers() {
+  const c = document.getElementById('purg-embers');
+  if (!c) return;
+  c.innerHTML = '';
+  for (let i = 0; i < 25; i++) {
+    const e = document.createElement('div');
+    e.className = 'ember';
+    e.style.left = Math.random() * 100 + '%';
+    e.style.animationDuration = (3 + Math.random()*3) + 's';
+    e.style.animationDelay = (Math.random()*4) + 's';
+    e.style.setProperty('--drift', (Math.random()*120 - 60) + 'px');
+    const sz = (2 + Math.random()*2) + 'px';
+    e.style.width = sz; e.style.height = sz;
+    c.appendChild(e);
+  }
+}
+function generateArrEmbers() {
+  const c = document.getElementById('arr-embers');
+  if (!c) return;
+  c.innerHTML = '';
+  for (let i = 0; i < 35; i++) {
+    const e = document.createElement('div');
+    e.className = 'ember';
+    e.style.left = Math.random() * 100 + '%';
+    e.style.animationDuration = (3 + Math.random()*3) + 's';
+    e.style.animationDelay = (Math.random()*4) + 's';
+    e.style.setProperty('--drift', (Math.random()*120 - 60) + 'px');
+    const sz = (2 + Math.random()*2) + 'px';
+    e.style.width = sz; e.style.height = sz;
+    c.appendChild(e);
+  }
+}
+/* 內部函式:切換答題頁外圍火焰特效 (.purg class) */
+function _setPurgatoryFx(on) {
+  const stage = document.getElementById('stage-game');
+  if (!stage) return;
+  if (on) {
+    stage.classList.add('purg');
+    generatePurgEmbers();
+  } else {
+    stage.classList.remove('purg');
+    const c = document.getElementById('purg-embers');
+    if (c) c.innerHTML = '';
+  }
+}
+/* 煉獄降臨:先播 3 秒大畫面,再切回答題頁並啟用煉獄外圍特效 */
+function summonPurgatory() {
+  goStage('purg-arrival');
+  generateArrEmbers();
+  setTimeout(() => {
+    goStage('game');
+    _setPurgatoryFx(true);
+  }, 3000);
+}
+/* 煉獄結束:關掉答題頁外圍特效(畫面交由後續流程切換) */
+function endPurgatory() {
+  _setPurgatoryFx(false);
+}
+window.summonPurgatory = summonPurgatory;
+window.endPurgatory = endPurgatory;
+
+/* ══ 組員名單浮窗(點頂部組別 chip 觸發) ══
+   updateTeamRoster(roster) 由 PartyKit 廣播組員變動時呼叫
+   roster: [{name:'李美慧', online:true}, ...]
+*/
+function updateTeamRoster(roster) {
+  if (!Array.isArray(roster)) return;
+  G.teamRoster = roster;
+  // 若 modal 正在開,即時更新
+  const modal = document.getElementById('team-modal');
+  if (modal?.classList.contains('show')) renderTeamList();
+}
+function renderTeamList() {
+  const list = document.getElementById('tm-list');
+  const count = document.getElementById('tm-count');
+  const teamName = document.getElementById('tm-team-name');
+  if (!list) return;
+  teamName.textContent = G.team || '第—組';
+  const roster = G.teamRoster || [];
+  if (!roster.length) {
+    list.innerHTML = '<div class="tm-empty">目前無組員資料</div>';
+    count.textContent = '— 人';
+    return;
+  }
+  const onlineCount = roster.filter(p => p.online !== false).length;
+  count.textContent = `${onlineCount} / ${roster.length} 人`;
+  list.innerHTML = roster.map((p, i) => {
+    const isMe = (p.name === G.name);
+    const offline = p.online === false;
+    const cls = [isMe ? 'me' : '', offline ? 'offline' : ''].filter(Boolean).join(' ');
+    return `<div class="tm-row ${cls}">
+      <span class="num">${String(i+1).padStart(2,'0')}</span>
+      <span class="nm">${p.name}</span>
+      <span class="stat"></span>
+    </div>`;
+  }).join('');
+}
+function openTeamModal() {
+  if (!G.team || G.team === '—') return;  // 尚未進入遊戲不開
+  renderTeamList();
+  document.getElementById('team-modal').classList.add('show');
+}
+function closeTeamModal() {
+  document.getElementById('team-modal').classList.remove('show');
+}
+
+/* ── 組名編輯(賽前 5 秒內可改) ────────────────────────────────── */
+function setTeamNameEditable(editable) {
+  const wrap = document.getElementById('tm-name-wrap');
+  // 頂部 bar 改名按鈕跟著顯隱(遊戲開始後鎖)
+  const renameBtn = document.getElementById('gs-rename-btn');
+  if (renameBtn) renameBtn.style.display = editable ? '' : 'none';
+  // 邀請按鈕整場顯示(讓中途加入的人能透過參賽者手機掃 QR)
+  if (!wrap) return;
+  if (editable) {
+    wrap.classList.remove('locked');
+    wrap.classList.add('editable');
+  } else {
+    wrap.classList.remove('editable');
+    wrap.classList.add('locked');
+    // 編輯中還沒送出 → 取消編輯
+    cancelEditTeamName();
+    cancelEditTeamNameInBar();
+  }
+}
+
+function startEditTeamName() {
+  if (!G.canRenameTeam) return;
+  const wrap = document.getElementById('tm-name-wrap');
+  const input = document.getElementById('tm-name-input');
+  const errEl = document.getElementById('tm-name-err');
+  if (!wrap || !input) return;
+  wrap.style.display = 'none';
+  input.style.display = 'inline-block';
+  input.value = G.team || '';
+  input.focus();
+  input.select();
+  // Enter / Esc / blur 三種終止方式
+  input.onkeydown = (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); commitEditTeamName(); }
+    else if (e.key === 'Escape') { e.preventDefault(); cancelEditTeamName(); }
+  };
+  input.onblur = () => commitEditTeamName();
+  // 截斷偵測:超過 8 字會被瀏覽器擋(maxlength=8),flash 錯誤訊息
+  input.oninput = () => {
+    if (input.value.length >= 8 && errEl) {
+      errEl.textContent = '組名最長 8 個字';
+      errEl.classList.add('show');
+      clearTimeout(input._tmErrTimer);
+      input._tmErrTimer = setTimeout(() => {
+        errEl.classList.remove('show');
+        errEl.textContent = '';
+      }, 2000);
+    }
+  };
+}
+
+function commitEditTeamName() {
+  const input = document.getElementById('tm-name-input');
+  const wrap = document.getElementById('tm-name-wrap');
+  const errEl = document.getElementById('tm-name-err');
+  if (!input || !wrap) return;
+  const newName = (input.value || '').trim();
+  const oldName = G.team;
+  // 8 字保險檢查(maxlength 應已擋下,但防程式化注入)
+  if (newName.length > 8) {
+    if (errEl) {
+      errEl.textContent = '組名最長 8 個字';
+      errEl.classList.add('show');
+      setTimeout(() => { errEl.classList.remove('show'); errEl.textContent = ''; }, 2000);
+    }
+    return;
+  }
+  // 收工:input 隱藏、wrap 顯示
+  input.style.display = 'none';
+  wrap.style.display = 'inline-flex';
+  input.onkeydown = null;
+  input.onblur = null;
+  input.oninput = null;
+  // 沒改就不送
+  if (!newName || newName === oldName) return;
+  // 廣播給助理 → 助理權威處理 → 廣播回 team_rename 給所有人 → 各端依新名同步
+  // 不本地搶先改(避免最後寫入者勝衝突時不一致)
+  if (window.PartyBus) {
+    PartyBus.emit('team_rename', {
+      oldName: oldName,
+      newName: newName,
+      by: G.name || '匿名',
+    });
+  }
+}
+
+function cancelEditTeamName() {
+  const input = document.getElementById('tm-name-input');
+  const wrap = document.getElementById('tm-name-wrap');
+  if (!input || !wrap) return;
+  input.style.display = 'none';
+  wrap.style.display = 'inline-flex';
+  input.onkeydown = null;
+  input.onblur = null;
+}
+
+/* ── 頂部 bar 內改組名(同樣 8 字限制 + 同步機制) ───────── */
+function startEditTeamNameInBar() {
+  if (!G.canRenameTeam) return;
+  const teamSpan = document.getElementById('gs-team');
+  const input = document.getElementById('gs-rename-input');
+  const errEl = document.getElementById('gs-rename-err');
+  const renameBtn = document.getElementById('gs-rename-btn');
+  if (!teamSpan || !input) return;
+  teamSpan.style.display = 'none';
+  if (renameBtn) renameBtn.style.display = 'none';
+  input.style.display = 'inline-block';
+  input.value = G.team || '';
+  input.focus();
+  input.select();
+  input.onkeydown = (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); commitEditTeamNameInBar(); }
+    else if (e.key === 'Escape') { e.preventDefault(); cancelEditTeamNameInBar(); }
+  };
+  input.onblur = () => commitEditTeamNameInBar();
+  input.oninput = () => {
+    if (input.value.length >= 8 && errEl) {
+      errEl.textContent = '最長 8 字';
+      errEl.classList.add('show');
+      clearTimeout(input._gsErrTimer);
+      input._gsErrTimer = setTimeout(() => {
+        errEl.classList.remove('show');
+        errEl.textContent = '';
+      }, 2000);
+    }
+  };
+}
+
+function commitEditTeamNameInBar() {
+  const input = document.getElementById('gs-rename-input');
+  const teamSpan = document.getElementById('gs-team');
+  const errEl = document.getElementById('gs-rename-err');
+  const renameBtn = document.getElementById('gs-rename-btn');
+  if (!input || !teamSpan) return;
+  const newName = (input.value || '').trim();
+  const oldName = G.team;
+  if (newName.length > 8) {
+    if (errEl) {
+      errEl.textContent = '最長 8 字';
+      errEl.classList.add('show');
+      setTimeout(() => { errEl.classList.remove('show'); errEl.textContent = ''; }, 2000);
+    }
+    return;
+  }
+  // 收工:input 隱藏、span 與按鈕顯示
+  input.style.display = 'none';
+  teamSpan.style.display = '';
+  if (renameBtn && G.canRenameTeam) renameBtn.style.display = '';
+  input.onkeydown = null;
+  input.onblur = null;
+  input.oninput = null;
+  if (!newName || newName === oldName) return;
+  // 廣播
+  if (window.PartyBus) {
+    PartyBus.emit('team_rename', {
+      oldName: oldName,
+      newName: newName,
+      by: G.name || '匿名',
+    });
+  }
+}
+
+function cancelEditTeamNameInBar() {
+  const input = document.getElementById('gs-rename-input');
+  const teamSpan = document.getElementById('gs-team');
+  const renameBtn = document.getElementById('gs-rename-btn');
+  if (!input || !teamSpan) return;
+  input.style.display = 'none';
+  teamSpan.style.display = '';
+  if (renameBtn && G.canRenameTeam) renameBtn.style.display = '';
+  input.onkeydown = null;
+  input.onblur = null;
+  input.oninput = null;
+}
+
+/* ── 邀請朋友 modal(QR Code + 短網址) ───────── */
+let _inviteQRRendered = false;
+function openInviteModal() {
+  const modal = document.getElementById('invite-modal');
+  if (!modal) return;
+  // 填入文字
+  const urlEl = document.getElementById('invite-url-pt');
+  const codeEl = document.getElementById('invite-code-pt');
+  if (urlEl) urlEl.textContent = (typeof PGG_JOIN_URL !== 'undefined') ? PGG_JOIN_URL.replace(/^https?:\/\//, '') : 'pgg.app/DEMO01';
+  if (codeEl) codeEl.textContent = (typeof PGG_ROOM_CODE !== 'undefined') ? PGG_ROOM_CODE : 'DEMO01';
+  // 渲染 QR(只渲染一次,避免重複疊加)
+  if (!_inviteQRRendered) {
+    const qrBox = document.getElementById('invite-qr-pt');
+    if (qrBox && typeof QRCode !== 'undefined') {
+      qrBox.innerHTML = '';
+      new QRCode(qrBox, {
+        text: PGG_JOIN_URL,
+        width: 196,
+        height: 196,
+        correctLevel: QRCode.CorrectLevel.H,
+      });
+      _inviteQRRendered = true;
+    }
+  }
+  modal.classList.add('show');
+}
+function closeInviteModal() {
+  const modal = document.getElementById('invite-modal');
+  if (modal) modal.classList.remove('show');
+}
+function copyInviteUrlPt() {
+  const text = (typeof PGG_JOIN_URL !== 'undefined') ? PGG_JOIN_URL : 'https://pgg.app/DEMO01';
+  const btn = document.getElementById('invite-copy-btn');
+  navigator.clipboard.writeText(text).then(() => {
+    if (!btn) return;
+    btn.classList.add('copied');
+    btn.textContent = '已複製';
+    setTimeout(() => { btn.classList.remove('copied'); btn.textContent = '複製'; }, 1500);
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    if (btn) {
+      btn.classList.add('copied');
+      btn.textContent = '已複製';
+      setTimeout(() => { btn.classList.remove('copied'); btn.textContent = '複製'; }, 1500);
+    }
+  });
+}
+window.startEditTeamNameInBar = startEditTeamNameInBar;
+window.commitEditTeamNameInBar = commitEditTeamNameInBar;
+window.cancelEditTeamNameInBar = cancelEditTeamNameInBar;
+window.openInviteModal = openInviteModal;
+window.closeInviteModal = closeInviteModal;
+window.copyInviteUrlPt = copyInviteUrlPt;
+
+window.startEditTeamName = startEditTeamName;
+window.updateTeamRoster = updateTeamRoster;
+window.openTeamModal = openTeamModal;
+window.closeTeamModal = closeTeamModal;
+
+/* ══ 分數長條(由 PartyKit 廣播計分時呼叫) ══
+   updateScoreBar(scores, myGroupIdx)
+   scores: [{name:'第一組', score:35}, ...]   (支援任意組數,建議 ≤ 8)
+   myGroupIdx: 0~N-1 (本機玩家所屬組別索引;-1 或省略表示尚未分組)
+
+   設計原則:
+   - 長條寬度按「最高分」歸一化(差距用條長度直接表達)
+   - 全部 0 分時所有條歸一化到 30%(避免完全空白看起來壞掉)
+   - 自己的組別會凸出,領先組別會閃光
+*/
+function updateScoreBar(scores, myGroupIdx) {
+  if (!Array.isArray(scores) || scores.length === 0) return;
+  const list    = document.getElementById('sb-list');
+  const lead    = document.getElementById('sb-lead');
+  const summary = document.getElementById('sb-summary');
+  if (!list) return;
+
+  // 找最高分 + 領先組
+  let maxScore = 0, leadIdx = -1;
+  scores.forEach((s, i) => {
+    const sc = s.score || 0;
+    if (sc > maxScore) { maxScore = sc; leadIdx = i; }
+  });
+  const allZero = maxScore === 0;
+
+  // 重建長條列表
+  list.innerHTML = scores.map((s, i) => {
+    const sc = s.score || 0;
+    const pct = allZero ? 0 : Math.max(2, (sc / maxScore) * 100);
+    const cls = [];
+    if (i === myGroupIdx) cls.push('mine');
+    if (i === leadIdx && !allZero) cls.push('lead');
+    return `<div class="sb-row ${cls.join(' ')}" data-g="${i % 8}">
+      <span class="sb-row-name">${s.name}</span>
+      <span class="sb-row-track"><span class="sb-row-fill" style="width:${pct}%"></span></span>
+      <span class="sb-row-val">${sc}</span>
+    </div>`;
+  }).join('');
+
+  // 展開時的右側 LEAD 標籤
+  if (lead) lead.textContent = !allZero ? `LEAD · ${scores[leadIdx].name}` : '—';
+
+  // 折疊時的摘要列(我的分數 + 領先組)
+  if (summary) {
+    const me = (myGroupIdx >= 0 && myGroupIdx < scores.length) ? scores[myGroupIdx] : null;
+    const parts = [];
+    if (me)       parts.push(`<span class="sb-sm-mine">我方 ${me.score} 分</span>`);
+    if (!allZero) parts.push(`<span class="sb-sm-lead">領先 <span class="nm">${scores[leadIdx].name} ${maxScore} 分</span></span>`);
+    summary.innerHTML = parts.length ? parts.join('<span class="sb-sm-sep"> · </span>') : '尚未開始';
+  }
+}
+function toggleScoreBar() {
+  document.getElementById('score-bar')?.classList.toggle('collapsed');
+}
+window.updateScoreBar = updateScoreBar;
+window.toggleScoreBar = toggleScoreBar;
+
+/* DEMO 預設值(實際由 PartyKit 廣播覆蓋) */
+updateScoreBar([
+  { name: '第一組', score: 0 },
+  { name: '第二組', score: 0 },
+  { name: '第三組', score: 0 },
+  { name: '第四組', score: 0 },
+], -1);
+
+/* DEMO 預設 totalQ(正式版由 PartyKit 從助理端設定帶入) */
+G.totalQ = 20;
+
+/* DEMO console 用 */
+window.mockScores = function(myIdx = 2) {
+  updateScoreBar([
+    { name: '第一組', score: 35 },
+    { name: '第二組', score: 28 },
+    { name: '第三組', score: 22 },
+    { name: '第四組', score: 18 },
+  ], myIdx);
+};
+window.mockScores8 = function(myIdx = 4) {
+  updateScoreBar([
+    { name: '第一組', score: 42 },
+    { name: '第二組', score: 35 },
+    { name: '第三組', score: 31 },
+    { name: '第四組', score: 28 },
+    { name: '第五組', score: 24 },
+    { name: '第六組', score: 18 },
+    { name: '第七組', score: 12 },
+    { name: '第八組', score: 8 },
+  ], myIdx);
+};
+
+/* ════════════════════════════════════════════════════════════════════
+   題庫 BANK 對接(從助理端透過 PartyBus 收 question_pick 事件取題目)
+   ════════════════════════════════════════════════════════════════════ */
+const BANK_SCHEMA_P = {
+  difficulties: [
+    { id:'easy',      label:'簡單', prefix:'E' },
+    { id:'medium',    label:'中等', prefix:'M' },
+    { id:'hard',      label:'困難', prefix:'H' },
+    { id:'hell',      label:'地獄', prefix:'X' },
+    { id:'purgatory', label:'煉獄', prefix:'P' },
+  ],
+  frameworksA: [
+    { id:'f1_insurance_basics',  shortId:'F1', label:'保險基礎與法規' },
+    { id:'f2_contract_terms',    shortId:'F2', label:'契約條款與效力' },
+    { id:'f3_underwriting',      shortId:'F3', label:'核保與健康告知' },
+    { id:'f4_claims',            shortId:'F4', label:'理賠實務與爭議' },
+    { id:'f5_product_planning',  shortId:'F5', label:'險種規劃與商品' },
+    { id:'f6_actuarial',         shortId:'F6', label:'精算、財務與監理' },
+    { id:'f7_wealth_tax',        shortId:'F7', label:'高資產與稅務傳承' },
+    { id:'f8_ethics_compliance', shortId:'F8', label:'業務倫理與合規' },
+    { id:'f9_premium_calc',      shortId:'F9', label:'保費、保單運用與計算' },
+  ],
+  frameworksB: [
+    { id:'l1_cross_dept', shortId:'L1', label:'跨部門溝通' },
+    { id:'l2_customer',   shortId:'L2', label:'客戶溝通' },
+    { id:'l3_ethics',     shortId:'L3', label:'道德判斷' },
+    { id:'l4_time_scale', shortId:'L4', label:'時間尺度' },
+  ],
+};
+const BANK_STORAGE_KEY_P = 'pgg_quiz_bank_v1';
+const BANK_P = { easy:null, medium:null, hard:null, hell:null, purgatory:null };
+
+function loadBankP() {
+  try {
+    const raw = localStorage.getItem(BANK_STORAGE_KEY_P);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    BANK_SCHEMA_P.difficulties.forEach(d => { if (data[d.id]) BANK_P[d.id] = data[d.id]; });
+  } catch (e) {}
+}
+loadBankP();
+window.addEventListener('storage', e => {
+  if (e.key === BANK_STORAGE_KEY_P) {
+    Object.keys(BANK_P).forEach(k => BANK_P[k] = null);
+    loadBankP();
+  }
+});
+
+function getQuestionByIdP(id) {
+  if (!id) return null;
+  const dSpec = BANK_SCHEMA_P.difficulties.find(d => d.prefix === id[0]);
+  if (!dSpec) return null;
+  const bank = BANK_P[dSpec.id];
+  if (!bank?.questions) return null;
+  return bank.questions.find(q => q.id === id) || null;
+}
+function getDifficultyLabelP(d) {
+  return BANK_SCHEMA_P.difficulties.find(x => x.id === d)?.label || d;
+}
+function getFrameworkLabelP(fwIdOrTopic) {
+  if (!fwIdOrTopic) return '—';
+  const all = [...BANK_SCHEMA_P.frameworksA, ...BANK_SCHEMA_P.frameworksB];
+  const fw = all.find(f => f.id === fwIdOrTopic || f.label === fwIdOrTopic || f.shortId === fwIdOrTopic);
+  return fw ? `${fw.shortId} ${fw.label}` : fwIdOrTopic;
+}
+const TYPE_LABELS_P = {
+  multiple_choice: '選擇題',
+  short_answer:    '簡答題',
+  essay:           '申論題',
+  calculation:     '計算題',
+  word_game:       '一字千金',
+};
+
+/* ════════════════════════════════════════════════════════════════════
+   PartyBus · 跨分頁事件總線(BroadcastChannel + storage 雙保險)
+   ════════════════════════════════════════════════════════════════════ */
+const PARTY_BUS_KEY_P = 'pgg_party_event';
+const PARTY_BUS_CHANNEL_P = 'pgg_bus';
+const PartyBus = {
+  _listeners: {},
+  _channel: null,
+  _seenTs: new Set(),
+  emit(type, payload) {
+    const event = { type, payload, ts: Date.now() + Math.random() };
+    if (this._channel) { try { this._channel.postMessage(event); } catch (e) {} }
+    try { localStorage.setItem(PARTY_BUS_KEY_P, JSON.stringify(event)); } catch (e) {}
+    this._seenTs.add(event.ts);
+    this._dispatch(type, payload);
+    if (this._seenTs.size > 100) this._seenTs = new Set(Array.from(this._seenTs).slice(-50));
+  },
+  on(type, cb) {
+    if (!this._listeners[type]) this._listeners[type] = [];
+    this._listeners[type].push(cb);
+  },
+  _dispatch(type, payload) {
+    (this._listeners[type] || []).forEach(cb => {
+      try { cb(payload); } catch (e) { console.error(`PartyBus[${type}]`, e); }
+    });
+  },
+  _handleEvent(ev) {
+    if (!ev || !ev.type) return;
+    if (this._seenTs.has(ev.ts)) return;
+    this._seenTs.add(ev.ts);
+    if (this._seenTs.size > 100) this._seenTs = new Set(Array.from(this._seenTs).slice(-50));
+    this._dispatch(ev.type, ev.payload);
+  },
+  _init() {
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        this._channel = new BroadcastChannel(PARTY_BUS_CHANNEL_P);
+        this._channel.addEventListener('message', e => this._handleEvent(e.data));
+      } catch (e) {}
+    }
+    window.addEventListener('storage', e => {
+      if (e.key !== PARTY_BUS_KEY_P || !e.newValue) return;
+      try { this._handleEvent(JSON.parse(e.newValue)); } catch (err) {}
+    });
+  },
+};
+PartyBus._init();
+window.PartyBus = PartyBus;
+
+/* 診斷工具 */
+window.PGG = window.PGG || {};
+window.PGG.ping = function(msg) {
+  PartyBus.emit('__ping__', { from: 'participant', msg: msg || 'hello', t: new Date().toLocaleTimeString() });
+  console.log('[PGG] ping sent from participant');
+};
+PartyBus.on('__ping__', p => console.log(`[PGG] PING from ${p.from} @ ${p.t}: ${p.msg}`));
+
+/* ════════════════════════════════════════════════════════════════════
+   題目渲染(從 BANK 撈題目,顯示題幹 + 選項;答案區用 hidden 暫藏,reveal 才顯示)
+   ════════════════════════════════════════════════════════════════════ */
+function renderQuestionFromBank(q, difficulty, framework) {
+  G.currentQ = q;
+  G.currentBankQ = { q, difficulty, framework };
+  G.revealed = false;
+  G.round++;
+  document.getElementById('gs-round').textContent = G.totalQ > 0
+    ? `${String(G.round).padStart(2,'0')} / ${String(G.totalQ).padStart(2,'0')}`
+    : `${String(G.round).padStart(2,'0')}`;
+  document.getElementById('q-wait').style.display = 'none';
+  const body = document.getElementById('q-body');
+  body.style.display = 'block';
+  body.innerHTML = buildQFromBank(q, difficulty, framework);
+  document.getElementById('q-zone').scrollTop = 0;
+  // 進入答題狀態:搶答鈕鎖住(這輪已搶完)
+  lockBuzz();
+  document.getElementById('btn-status').textContent = '答題中';
+  document.getElementById('btn-status').className = 'btn-status';
+}
+
+function buildQFromBank(q, difficulty, framework) {
+  const diffLabel = getDifficultyLabelP(difficulty);
+  const fwLabel   = getFrameworkLabelP(framework);
+  const typeLabel = TYPE_LABELS_P[q.type] || q.type;
+  let h = `<div class="q-tags">
+    <span class="q-tag hi">${diffLabel}</span>
+    <span class="q-tag">${fwLabel}</span>
+    <span class="q-tag">${typeLabel}</span>
+  </div>`;
+
+  if (q.type === 'multiple_choice') {
+    const opts = Object.entries(q.options || {});
+    h += `<div class="q-stem">${q.question}</div>
+      <div class="opts">${opts.map(([letter, text]) => `
+        <div class="opt" data-letter="${letter}">
+          <span class="ol">${letter}</span>
+          <span class="ot">${text}</span>
+        </div>`).join('')}
+      </div>`;
+  } else if (q.type === 'word_game') {
+    const opts = q.options || [];
+    h += `<div style="text-align:center;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.24em;color:var(--ink-3);text-transform:uppercase;margin-bottom:4px">請選出正確讀音</div>
+      <span class="word-char">${q.word}</span>
+      <div class="word-opts">${opts.map((p, i) => `
+        <div class="word-opt" data-phonetic="${p}">
+          <div class="wl">${['A','B','C','D'][i]}</div>
+          <div class="wp">${p}</div>
+        </div>`).join('')}
+      </div>`;
+  } else if (q.type === 'short_answer') {
+    h += `<div class="q-stem">${q.question}</div>`;
+  } else if (q.type === 'essay') {
+    h += `<div class="q-stem">${q.question}</div>`;
+  } else if (q.type === 'calculation') {
+    const givenHtml = Object.entries(q.given || {}).map(([k,v]) => `<div><strong>${k}：</strong>${v}</div>`).join('');
+    h += `<div class="q-stem">${q.question}</div>
+      ${givenHtml ? `<div style="margin-top:10px;padding:10px 14px;background:rgba(0,0,0,.18);border-left:2px solid var(--accent-l);font-size:13px;line-height:1.65">${givenHtml}</div>` : ''}`;
+  }
+
+  // 答案區(預設不顯示;reveal 時填入)
+  h += `<div class="ans-block" id="ans-block" style="display:none">
+    <div class="ans-lbl">解答</div>
+    <div class="ans-text" id="ans-text"></div>
+  </div>`;
+  return h;
+}
+
+/* 公佈答案:標記正解 + 顯示答案區 */
+function revealCurrentAnswer() {
+  if (!G.currentQ || G.revealed) return;
+  G.revealed = true;
+  const q = G.currentQ;
+
+  if (q.type === 'multiple_choice') {
+    document.querySelectorAll('#q-body .opt').forEach(o => {
+      const isCorr = o.dataset.letter === q.correct;
+      o.classList.add(isCorr ? 'ok' : 'ng');
+    });
+  } else if (q.type === 'word_game') {
+    document.querySelectorAll('#q-body .word-opt').forEach(o => {
+      const isCorr = o.dataset.phonetic === q.correct;
+      o.classList.add(isCorr ? 'ok' : 'ng');
+    });
+  }
+
+  // 答案文字
+  const ansText = document.getElementById('ans-text');
+  const ansBlock = document.getElementById('ans-block');
+  if (ansText && ansBlock) {
+    let text = '';
+    if (q.type === 'multiple_choice')   text = `${q.correct}. ${q.options?.[q.correct] || ''}\n${q.explanation || ''}`;
+    else if (q.type === 'short_answer') text = q.answer || '';
+    else if (q.type === 'essay')        text = (q.key_points || []).map(p => `· ${p}`).join('\n');
+    else if (q.type === 'calculation')  text = `${q.answer || ''} ${q.unit || ''}`;
+    else if (q.type === 'word_game')    text = `${q.correct} · ${q.meaning || q.context_phrase || ''}`;
+    ansText.innerHTML = text.replace(/\n/g, '<br>');
+    ansBlock.style.display = 'block';
+  }
+}
+
+/* 進入下一題:回等待狀態 */
+function resetForNextQuestion() {
+  G.revealed = false;
+  G.currentQ = null;
+  document.getElementById('q-body').style.display = 'none';
+  document.getElementById('q-body').innerHTML = '';
+  document.getElementById('q-wait').style.display = 'flex';
+  if (typeof resetWaitToIdle === 'function') resetWaitToIdle();
+  lockBuzz();
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   PartyBus 事件監聽
+   ════════════════════════════════════════════════════════════════════ */
+PartyBus.on('mode_preview', payload => {
+  // 助理在設定頁切模式:跟隨切換主題色
+  if (!payload?.mode) return;
+  G.mode = payload.mode;
+  // body class:tm-ordinary / tm-hell / tm-paradise / tm-custom
+  document.body.classList.remove('tm-ordinary','tm-hell','tm-paradise','tm-custom');
+  document.body.classList.add('tm-' + payload.mode);
+});
+
+PartyBus.on('game_start', payload => {
+  // 助理開始遊戲
+  G.mode = payload.mode;
+  G.totalQ = payload.totalQ || 0;
+  G.round = 0;
+  G.revealed = false;
+  G.currentQ = null;
+  G.buzzed = false;
+  G.rushMode = payload.rushMode || 'speed';
+  document.body.classList.remove('tm-ordinary','tm-hell','tm-paradise','tm-custom');
+  document.body.classList.add('tm-' + G.mode);
+  // 開始遊戲那一刻立刻鎖死組名,不能再改
+  G.canRenameTeam = false;
+  setTeamNameEditable(false);
+  // 標記遊戲已開始(若參賽者還沒輸入名字,要等他輸完才補跑進 game)
+  G._gameStarted = true;
+  if (!G.name) {
+    // 還沒登入:停在 login 頁,改提示文字
+    const note = document.querySelector('#stage-login .login-note');
+    if (note) {
+      note.textContent = '遊戲已開始 · 請輸入名字加入';
+      note.style.color = 'var(--accent)';
+      note.style.display = 'block';
+    }
+    return;
+  }
+  // 已登入:正常進遊戲
+  enterGameStage();
+});
+
+/* 從 login 進入 game 的共用流程(doLogin 與 game_start 都會呼叫) */
+function enterGameStage() {
+  goStage('game');
+  document.getElementById('gs-round').textContent = G.totalQ > 0
+    ? `00 / ${String(G.totalQ).padStart(2,'0')}` : '00';
+  document.getElementById('q-wait').style.display = 'flex';
+  document.getElementById('q-body').style.display = 'none';
+  resetWaitToIdle();
+  lockBuzz();
+}
+
+/* 重置 q-wait 上方提示到「等待主持人開始搶答」狀態 + 預告下一輪搶答模式 */
+function resetWaitToIdle() {
+  const setShow = (id, show) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = show ? '' : 'none';
+  };
+  setShow('qw-glyph', true);
+  document.getElementById('qw-glyph').textContent = '⋯';
+  setShow('qw-title', true);
+  document.getElementById('qw-title').textContent = '等待主持人開始搶答';
+  setShow('qw-countdown', false);
+  setShow('qw-count-panel', false);
+  setShow('qw-allhands-panel', false);
+  setShow('qw-reveal', false);
+  setShow('qw-result', false);
+  setShow('qw-hint', true);
+  document.getElementById('qw-hint').textContent = '下一輪搶答模式';
+  // 顯示模式 chip + 規則(從 G.rushMode 讀,若還沒收到就用 'speed' 預設)
+  const m = G.rushMode || 'speed';
+  const meta = (m === 'random')
+    ? { label: '隨機', rule: '本輪由系統決定 · 開始搶答時揭曉' }
+    : (RUSH_MODE_META[m] || { label: '搶答', rule: '' });
+  const modeEl = document.getElementById('qw-mode');
+  const ruleEl = document.getElementById('qw-rule');
+  if (modeEl) {
+    modeEl.textContent = meta.label;
+    modeEl.style.display = 'inline-block';
+  }
+  if (ruleEl) {
+    ruleEl.textContent = meta.rule;
+    ruleEl.style.display = 'block';
+  }
+  const status = document.getElementById('btn-status');
+  if (status) {
+    status.textContent = '';
+    status.className = 'btn-status';
+  }
+}
+window.resetWaitToIdle = resetWaitToIdle;
+
+/* 搶答模式 metadata(label + 規則簡介,顯示在 q-wait) */
+/* 搶答模式 metadata(已在 G 附近定義 RUSH_MODE_META) */
+
+/* 隨機模式揭曉:5 秒大字「本輪 · 〔實際模式〕」+ 規則 + 進度條 */
+PartyBus.on('rush_reveal', payload => {
+  if (!payload?.rushMode) return;
+  G.rushMode = payload.rushMode;
+  const meta = RUSH_MODE_META[payload.rushMode] || { label: '搶答', rule: '' };
+  // 確保 q-wait 顯示中、其他元素隱藏
+  document.getElementById('q-body').style.display = 'none';
+  const wait = document.getElementById('q-wait');
+  wait.style.display = 'flex';
+  const setShow = (id, show) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = show ? '' : 'none';
+  };
+  setShow('qw-glyph', false);
+  setShow('qw-title', false);
+  setShow('qw-mode', false);
+  setShow('qw-rule', false);
+  setShow('qw-countdown', false);
+  setShow('qw-count-panel', false);
+  setShow('qw-allhands-panel', false);
+  setShow('qw-hint', false);
+  // 顯示揭曉區塊
+  document.getElementById('qw-rev-name').textContent = meta.label;
+  document.getElementById('qw-rev-rule').textContent = meta.rule;
+  setShow('qw-reveal', true);
+  // 重啟進度條動畫
+  const prog = document.getElementById('qw-rev-progress');
+  if (prog) {
+    prog.classList.remove('run');
+    void prog.offsetWidth;
+    prog.classList.add('run');
+  }
+  // btn-status
+  const status = document.getElementById('btn-status');
+  if (status) {
+    status.textContent = '準備中…';
+    status.className = 'btn-status active-mid';
+  }
+  lockBuzz();
+});
+
+PartyBus.on('start_rush', payload => {
+  // 助理開搶答(或重新搶答):紅鈕脈動
+  G.buzzed = false;
+  G.currentQ = null;
+  G.revealed = false;
+  G.rushMode = payload?.rushMode || 'speed';
+  document.getElementById('q-body').style.display = 'none';
+  const wait = document.getElementById('q-wait');
+  wait.style.display = 'flex';
+
+  // 關掉揭曉區塊(若上一階段在跑)
+  const reveal = document.getElementById('qw-reveal');
+  if (reveal) reveal.style.display = 'none';
+  const prog = document.getElementById('qw-rev-progress');
+  if (prog) prog.classList.remove('run');
+
+  // 取出此模式的中文名與規則
+  const meta = RUSH_MODE_META[G.rushMode] || { label: '搶答', rule: '' };
+
+  // 上方提示元素切到「搶答倒數」狀態
+  document.getElementById('qw-glyph').style.display = 'none';
+  document.getElementById('qw-title').textContent = '搶答倒數';
+  document.getElementById('qw-title').style.display = 'block';
+  document.getElementById('qw-hint').style.display = 'none';
+  // 模式 chip
+  const modeEl = document.getElementById('qw-mode');
+  modeEl.textContent = meta.label;
+  modeEl.style.display = 'inline-block';
+  // 規則文字
+  const ruleEl = document.getElementById('qw-rule');
+  ruleEl.textContent = meta.rule;
+  ruleEl.style.display = 'block';
+  // 大倒數數字
+  const cdEl = document.getElementById('qw-countdown');
+  cdEl.style.display = 'block';
+  // 隱藏狂點面板(若上輪殘留)
+  const cpanel = document.getElementById('qw-count-panel');
+  if (cpanel) cpanel.style.display = 'none';
+  // 隱藏 allhands 面板(若上輪殘留)
+  const ahPanelInit = document.getElementById('qw-allhands-panel');
+  if (ahPanelInit) ahPanelInit.style.display = 'none';
+
+  // 底部 btn-status 也短訊
+  const status = document.getElementById('btn-status');
+  status.className = 'btn-status active-mid';
+  status.textContent = '請等待倒數結束';
+
+  // 倒數
+  let count = 3;
+  cdEl.textContent = count;
+  const tick = setInterval(() => {
+    count--;
+    if (count > 0) {
+      cdEl.textContent = count;
+    } else {
+      clearInterval(tick);
+      // 開始搶答 — 依模式進入不同 UI 狀態
+      cdEl.style.display = 'none';
+      document.getElementById('qw-title').textContent = meta.label;
+      armBuzz();
+      const ahPanel = document.getElementById('qw-allhands-panel');
+      if (G.rushMode === 'count') {
+        // 狂點奪魁:模式 chip + 規則保留;開啟計數面板;紅鈕進「可狂點」狀態
+        if (cpanel) cpanel.style.display = 'flex';
+        // 規則文字改為動態行動文案
+        ruleEl.textContent = '猛點搶答鈕!分數會即時上升';
+        status.textContent = '狂點 5 秒!';
+        status.className = 'btn-status active-ok';
+      } else if (G.rushMode === 'allhands') {
+        // 全組到位:開啟進度面板
+        if (ahPanel) ahPanel.style.display = 'flex';
+        ruleEl.textContent = '按一下搶答鈕,讓全組到位';
+        status.textContent = '5 秒內全組過半到位!';
+        status.className = 'btn-status active-ok';
+      } else if (G.rushMode === 'lightning') {
+        // 閃電一按:armed 後 0~3 秒按下淘汰、3 秒後第一個按到的贏
+        G.lightningArmedAt = Date.now();
+        G.lightningEliminated = false;
+        ruleEl.textContent = '3 秒前不要按!';
+        status.textContent = '危險 · 暫勿按下';
+        status.className = 'btn-status active-err';
+        // 3 秒後切到「可按」狀態(視覺與底部訊息)
+        setTimeout(() => {
+          // 若已被淘汰或已 unarmed → 不更新
+          if (G.lightningEliminated) return;
+          const wait = document.getElementById('q-wait');
+          if (!wait || wait.style.display === 'none') return;  // 已切到結果頁
+          ruleEl.textContent = '可以按了 · 最快搶到!';
+          status.textContent = '搶答開放中';
+          status.className = 'btn-status active-ok';
+        }, 3000);
+      } else {
+        status.textContent = '搶答開放中';
+      }
+    }
+  }, 1000);
+});
+
+/* 狂點奪魁 tick:即時更新各組計數 + 剩餘秒數 */
+PartyBus.on('rush_tick', payload => {
+  if (payload?.mode !== 'count') return;
+  const cpanel = document.getElementById('qw-count-panel');
+  if (!cpanel || cpanel.style.display === 'none') return;
+  // 更新剩餘秒數
+  const remainNum = document.getElementById('qcp-remain-num');
+  if (remainNum) {
+    const sec = (payload.remainingMs / 1000).toFixed(1);
+    remainNum.textContent = sec;
+  }
+  // 更新各組列(從高到低排序)
+  const list = document.getElementById('qcp-list');
+  if (list && Array.isArray(payload.teamCounts)) {
+    const sorted = [...payload.teamCounts].sort((a, b) => b.count - a.count);
+    list.innerHTML = sorted.map(t => {
+      const mine = t.name === G.team ? ' mine' : '';
+      return `<div class="qcp-row${mine}"><span class="qcp-name">${t.name}</span><span class="qcp-count">${t.count}</span></div>`;
+    }).join('');
+  }
+});
+
+/* 全組到位 progress:即時更新各組進度 + 剩餘秒數
+   teamProgress[] = { idx, name, currentCluster, bestCluster, total }
+*/
+/* 閃電一按:有人(可能是自己組或別組)被淘汰 → 簡短狀態列訊息 */
+PartyBus.on('lightning_disqualify', payload => {
+  if (!payload?.name) return;
+  // 自己組的人被淘汰才顯示(避免狀態列被別組訊息洗) - 自己被淘汰已在 handleBuzz 設過 status,這裡不覆蓋
+  if (payload.team !== G.team) return;
+  if (payload.name === G.name) return;  // 自己 - 已處理
+  const status = document.getElementById('btn-status');
+  if (!status) return;
+  // 別人(同組)淘汰 → 短暫提示後恢復
+  const sec = ((payload.elapsedMs || 0) / 1000).toFixed(2);
+  const old = status.textContent;
+  const oldCls = status.className;
+  status.textContent = `${payload.name} 太快了 · 已淘汰`;
+  status.className = 'btn-status active-err';
+  setTimeout(() => {
+    // 若狀態還是這個訊息(沒被別的覆蓋)才還原
+    if (status.textContent.includes('已淘汰') && status.textContent.includes(payload.name)) {
+      status.textContent = old;
+      status.className = oldCls;
+    }
+  }, 1800);
+});
+
+PartyBus.on('allhands_progress', payload => {
+  const ahPanel = document.getElementById('qw-allhands-panel');
+  if (!ahPanel || ahPanel.style.display === 'none') return;
+  // 更新剩餘秒數
+  const remainNum = document.getElementById('qah-remain-num');
+  if (remainNum) {
+    const sec = (payload.remainingMs / 1000).toFixed(1);
+    remainNum.textContent = sec;
+  }
+  const list = document.getElementById('qah-list');
+  if (list && Array.isArray(payload.teamProgress)) {
+    const maxBest = Math.max(0, ...payload.teamProgress.map(t => t.bestCluster || 0));
+    const sorted = [...payload.teamProgress].sort((a, b) => {
+      if (b.bestCluster !== a.bestCluster) return b.bestCluster - a.bestCluster;
+      return (b.total || 0) - (a.total || 0);
+    });
+    list.innerHTML = sorted.map(t => {
+      const isMine = t.name === G.team;
+      const isLeader = t.bestCluster === maxBest && t.bestCluster > 0;
+      const cls = (isLeader ? ' leader' : '') + (isMine ? ' mine' : '');
+      return `<div class="qah-row${cls}">
+        <span class="qah-name">${t.name}</span>
+        <span class="qah-frac">${t.bestCluster}/${t.total || 0}<span class="qah-now"> · 當下 ${t.currentCluster}</span></span>
+      </div>`;
+    }).join('');
+  }
+});
+
+/* 助理改搶答模式 → 參賽者只記下,等下一輪搶答開始時用 */
+/* 助理改搶答模式 → 立刻更新「下一輪搶答模式」預告 */
+PartyBus.on('rush_mode_changed', payload => {
+  if (!payload?.mode) return;
+  G.rushMode = payload.mode;
+  // 若當前在等待態(q-wait 顯示中、未開始倒數),即時刷新預告
+  const wait = document.getElementById('q-wait');
+  const cdEl = document.getElementById('qw-countdown');
+  const isCountingDown = cdEl && cdEl.style.display !== 'none';
+  if (wait && wait.style.display !== 'none' && !isCountingDown) {
+    if (typeof resetWaitToIdle === 'function') resetWaitToIdle();
+  }
+});
+
+PartyBus.on('rush_winner', payload => {
+  if (!payload) return;
+  lockBuzz();
+  // 收到搶答結果 → 切換 q-wait 內所有區塊到「結果頁」
+  const setShow = (id, show) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = show ? '' : 'none';
+  };
+  setShow('qw-glyph', false);
+  setShow('qw-title', false);
+  setShow('qw-mode', false);
+  setShow('qw-rule', false);
+  setShow('qw-countdown', false);
+  setShow('qw-count-panel', false);
+  setShow('qw-allhands-panel', false);
+  setShow('qw-reveal', false);
+  setShow('qw-hint', false);
+  // 結果頁
+  const resultEl = document.getElementById('qw-result');
+  if (!resultEl) return;
+  // 確認 q-wait 顯示
+  document.getElementById('q-wait').style.display = 'flex';
+  document.getElementById('q-body').style.display = 'none';
+
+  const group = payload.groupName || `第${payload.groupIdx + 1}組`;
+  const myWin = (payload.groupName && G.team === payload.groupName);
+  resultEl.classList.toggle('mine', myWin);
+
+  const badge = document.getElementById('qwr-badge');
+  const groupEl = document.getElementById('qwr-group');
+  const subEl = document.getElementById('qwr-sub');
+  const runnerUpEl = document.getElementById('qwr-runnerup');
+
+  groupEl.textContent = group;
+  if (runnerUpEl) runnerUpEl.style.display = 'none';
+
+  const mode = payload.rushMode || 'speed';
+  const person = payload.personName || '';
+
+  if (mode === 'speed') {
+    if (badge) badge.textContent = '電光石火';
+    const sec = ((payload.elapsedMs || 0) / 1000).toFixed(3);
+    subEl.innerHTML = `<span class="person">${person}</span> 搶答耗時<br><span class="ms">${sec}</span> 秒`;
+  } else if (mode === 'lightning') {
+    if (badge) badge.textContent = '閃電一按';
+    const sec = (payload.pressedAtSec || 0).toFixed(3);
+    subEl.innerHTML = `<span class="person">${person}</span> 在第<br><span class="ms">${sec}</span> 秒搶到`;
+  } else if (mode === 'count') {
+    if (badge) badge.textContent = '狂點奪魁';
+    const total = payload.teamTotalClicks || 0;
+    const mvp = payload.mvpClicks || 0;
+    subEl.innerHTML = `<span class="person">${person}</span> 個人 <span class="ms">${mvp}</span> 次<br>全組共 <span class="ms">${total}</span> 次 · 全場最多`;
+    if (payload.runnerUp && runnerUpEl) {
+      document.getElementById('qwru-name').textContent = payload.runnerUp.name || '';
+      document.getElementById('qwru-count').textContent = payload.runnerUp.count || 0;
+      runnerUpEl.style.display = 'flex';
+    }
+  } else if (mode === 'allhands') {
+    if (badge) badge.textContent = '全組到位';
+    const cluster = payload.clusterCount || 0;
+    const total = payload.totalCount || 0;
+    const sec = (payload.endAtSec || 0).toFixed(2);
+    subEl.innerHTML = `共 <span class="ms">${cluster} / ${total}</span> 人<br>在 0.5 秒內同時按下<br>第 <span class="ms">${sec}</span> 秒達成`;
+  } else {
+    if (badge) badge.textContent = '搶答成功';
+    subEl.innerHTML = `<span class="person">${person}</span>`;
+  }
+
+  resultEl.style.display = 'flex';
+
+  // btn-status
+  const status = document.getElementById('btn-status');
+  if (status) {
+    if (myWin) {
+      status.textContent = '你們組搶到了!';
+      status.className = 'btn-status active-ok';
+    } else {
+      status.textContent = `${group} 搶到了`;
+      status.className = 'btn-status active-err';
+    }
+  }
+});
+
+PartyBus.on('question_pick', payload => {
+  if (!payload?.id) return;
+  const q = getQuestionByIdP(payload.id);
+  if (!q) {
+    console.warn('題目不在 BANK:', payload.id);
+    return;
+  }
+  renderQuestionFromBank(q, payload.difficulty, payload.framework);
+});
+
+PartyBus.on('reveal_answer', () => {
+  revealCurrentAnswer();
+});
+
+PartyBus.on('next_question', () => {
+  resetForNextQuestion();
+});
+
+PartyBus.on('skip_question', () => {
+  resetForNextQuestion();
+});
+
+PartyBus.on('category_reset', () => {
+  // 助理進新一輪等待態(主持人投影回 standby)
+  // 參賽者不需特別動作,但確保按鈕 lock
+  if (!G.currentQ) lockBuzz();
+});
+
+PartyBus.on('purgatory_summon', () => {
+  if (typeof summonPurgatory === 'function') summonPurgatory();
+});
+
+PartyBus.on('purgatory_end', () => {
+  if (typeof endPurgatory === 'function') endPurgatory();
+});
+
+/* 助理加減分 → 全組分數即時更新到戰況長條 */
+PartyBus.on('score_update', payload => {
+  if (!payload?.scores) return;
+  // 找出我這組的 index(用 G.team 與 score.name 比對)
+  let myIdx = payload.scores.findIndex(s => s.name === G.team);
+  if (myIdx < 0) myIdx = 0;
+  updateScoreBar(payload.scores, myIdx);
+});
+
+/* 同組組員改名(包括我自己改完從助理回廣播):同步更新 G.team + UI */
+PartyBus.on('team_rename', payload => {
+  if (!payload?.oldName || !payload?.newName) return;
+  // 我所在的組被改名了 → 更新 G.team + 頂部 banner + 浮窗標題
+  if (G.team === payload.oldName) {
+    G.team = payload.newName;
+    const gsTeam = document.getElementById('gs-team');
+    const tmName = document.getElementById('tm-team-name');
+    if (gsTeam) gsTeam.textContent = payload.newName;
+    if (tmName) tmName.textContent = payload.newName;
+  }
+});
+
+/* 助理匯出結果 → 跳出「是否觀看結果」浮窗(按確定才切到 stage-end) */
+PartyBus.on('export_result', payload => {
+  if (!payload) return;
+  // 暫存 payload 等使用者按確定才渲染
+  G._pendingResult = payload;
+  // 跳出 modal
+  document.getElementById('result-modal')?.classList.add('show');
+});
+
+function confirmViewResult() {
+  closeResultModal();
+  if (G._pendingResult) {
+    renderEndStage(G._pendingResult);
+  }
+}
+
+function closeResultModal() {
+  document.getElementById('result-modal')?.classList.remove('show');
+  // 不清掉 _pendingResult — 萬一將來有「再次觀看」按鈕可重用
+}
+
+window.confirmViewResult = confirmViewResult;
+window.closeResultModal = closeResultModal;
+
+/* 助理按重新開始 → 回到「已輸入完姓名的等待頁」(stage-game 等待態)
+   參賽者保留 G.name / G.team,但題目進度全清 */
+PartyBus.on('game_restart', () => {
+  // 關掉可能還開著的結果 modal,清掉暫存
+  document.getElementById('result-modal')?.classList.remove('show');
+  G._pendingResult = null;
+  // 清遊戲進行中狀態
+  G.round = 0;
+  G.revealed = false;
+  G.currentQ = null;
+  G.buzzed = false;
+  G._gameStarted = false;
+  // 重新開放組名編輯(因為遊戲還沒按開始)
+  G.canRenameTeam = true;
+  if (typeof setTeamNameEditable === 'function') setTeamNameEditable(true);
+  // 清主題色 — 因為還沒選定模式
+  document.body.classList.remove('tm-ordinary','tm-hell','tm-paradise','tm-custom');
+  // 清題目殘留
+  const qBody = document.getElementById('q-body');
+  if (qBody) qBody.style.display = 'none';
+  const qWait = document.getElementById('q-wait');
+  if (qWait) qWait.style.display = 'flex';
+  if (typeof lockBuzz === 'function') lockBuzz();
+  // status 文字
+  const btnStatus = document.getElementById('btn-status');
+  if (btnStatus) btnStatus.textContent = '等待主持人開始搶答';
+  // round 顯示重置
+  const gsRound = document.getElementById('gs-round');
+  if (gsRound) gsRound.textContent = G.totalQ > 0 ? `00 / ${String(G.totalQ).padStart(2,'0')}` : '00';
+  // 若已登入(G.name 有值) → 切到 stage-game 等待態
+  // 若還沒登入 → 留在 stage-login,並把 login-note 文字復原
+  if (G.name) {
+    goStage('game');
+  } else {
+    goStage('login');
+    const note = document.querySelector('#stage-login .login-note');
+    if (note) {
+      note.style.display = '';
+      note.textContent = '等待遊戲開始';
+      note.style.color = '';
+    }
+  }
+});
+
+function renderEndStage(payload) {
+  // 找出我所在的組(用 G.team 比對 payload.groups)
+  const myTeam = payload.groups.find(g => g.name === G.team)
+              || payload.groups[0]
+              || { name: '—', score: 0, members: [] };
+  // 算名次:在 sortedGroups 中我的位置
+  const myRank = (payload.sortedGroups || []).findIndex(g => g.name === myTeam.name) + 1;
+
+  // 我的成績卡
+  const setText = (id, t) => { const el = document.getElementById(id); if (el) el.textContent = t; };
+  setText('end-name', G.name || '（未登入）');
+  setText('end-group', myTeam.name);
+  // 組員 — 用 payload 帶的成員;若空則顯示「—」
+  const members = (myTeam.members || []).filter(n => n !== G.name);
+  if (G.name) members.unshift(G.name);  // 自己排第一
+  setText('end-members', '組員:' + (members.length ? members.join('、') : '—'));
+  setText('end-rank', myRank > 0 ? myRank : '—');
+  setText('end-score', myTeam.score || 0);
+  setText('end-q', payload.actualQ || (payload.askedQuestions?.length || 0));
+
+  // 各組長條圖排行
+  const sorted = payload.sortedGroups || payload.groups || [];
+  const maxScore = Math.max(...sorted.map(g => g.score || 0), 0);
+  const barChart = document.getElementById('bar-chart');
+  if (barChart) {
+    barChart.innerHTML = sorted.map((g, r) => {
+      const pct = maxScore > 0 ? Math.round((g.score / maxScore) * 100) : 0;
+      const isMe = g.name === myTeam.name;
+      const isTop = r === 0;
+      return `
+        <div class="bar-row ${isMe ? 'my-row' : ''}">
+          <div class="bar-name">${g.name}${isMe ? ' ★' : ''}</div>
+          <div class="bar-track">
+            <div class="bar-fill ${isTop && !isMe ? 'top' : ''}" style="width:0%" data-pct="${pct}"></div>
+          </div>
+          <div class="bar-val">${g.score || 0}</div>
+        </div>`;
+    }).join('');
+  }
+
+  // 題目回顧(收折式 — 點擊展開答案)
+  const qaList = document.getElementById('qa-list');
+  if (qaList) {
+    const askedQs = payload.askedQuestions || [];
+    if (askedQs.length === 0) {
+      qaList.innerHTML = '<div class="qa-item" style="cursor:default"><div class="qa-q" style="opacity:.5">本場無題目記錄</div></div>';
+    } else {
+      qaList.innerHTML = askedQs.map((q, i) => {
+        const stem = (q.question || '').trim();
+        const meta = [
+          getDifficultyLabelP(q._difficulty),
+          getFrameworkLabelP(q._framework || q.topic),
+          TYPE_LABELS_P[q.type] || q.type,
+        ].filter(Boolean).join(' · ');
+        return `
+          <div class="qa-item" onclick="toggleQa(this)">
+            <div class="qa-num">
+              <span>Q${String(i+1).padStart(2,'0')} · ${q.id || ''}</span>
+              <span class="qa-toggle">▾</span>
+            </div>
+            <div class="qa-q">${stem || '—'}</div>
+            <div class="qa-answer-wrap">
+              <div class="qa-meta">${meta}</div>
+              ${renderQaAnswerBody(q)}
+            </div>
+          </div>`;
+      }).join('');
+    }
+  }
+
+  // 切到 stage-end
+  goStage('end');
+
+  // 長條圖動畫
+  setTimeout(() => {
+    document.querySelectorAll('.bar-fill').forEach(el => {
+      el.style.width = (el.dataset.pct || 0) + '%';
+    });
+  }, 80);
+}
+window.renderEndStage = renderEndStage;
+
+/* ── 結果頁:題目卡片收折切換 ─────────────────────── */
+function toggleQa(el) {
+  if (!el) return;
+  el.classList.toggle('expanded');
+}
+window.toggleQa = toggleQa;
+
+/* ── 結果頁:依題型渲染答案區塊 ────────────────────── */
+function renderQaAnswerBody(q) {
+  if (!q || !q.type) return '';
+  const t = q.type;
+
+  if (t === 'multiple_choice') {
+    const opts = q.options || {};
+    const correct = q.correct;
+    const optsHtml = ['A','B','C','D'].filter(L => opts[L] !== undefined).map(L => {
+      const cls = (L === correct) ? 'qa-opt correct' : 'qa-opt';
+      return `<div class="${cls}"><span class="qa-opt-letter">${L}.</span>${opts[L] || ''}</div>`;
+    }).join('');
+    const explanation = (q.explanation || '').trim();
+    return `
+      <div class="qa-options">${optsHtml}</div>
+      ${explanation ? `
+        <div class="qa-section">
+          <div class="qa-section-lbl">解析</div>
+          <div class="qa-section-body">${explanation}</div>
+        </div>` : ''}
+    `;
+  }
+
+  if (t === 'short_answer') {
+    const ans = (q.model_answer || '').trim();
+    return ans ? `
+      <div class="qa-section">
+        <div class="qa-section-lbl">參考答案</div>
+        <div class="qa-section-body">${ans}</div>
+      </div>` : '<div class="qa-section-body">—</div>';
+  }
+
+  if (t === 'essay') {
+    const keypoints = Array.isArray(q.key_points) ? q.key_points : [];
+    const ans = (q.model_answer || '').trim();
+    return `
+      ${keypoints.length ? `
+        <div class="qa-section">
+          <div class="qa-section-lbl">關鍵要點</div>
+          <ul class="qa-keypts">${keypoints.map(k => `<li>${k}</li>`).join('')}</ul>
+        </div>` : ''}
+      ${ans ? `
+        <div class="qa-section">
+          <div class="qa-section-lbl">參考答案</div>
+          <div class="qa-section-body">${ans}</div>
+        </div>` : ''}
+    `;
+  }
+
+  if (t === 'calculation') {
+    const ans = (q.answer || q.final_answer || q.model_answer || '').toString().trim();
+    const sol = (q.solution || '').trim();
+    return `
+      ${ans ? `
+        <div class="qa-section">
+          <div class="qa-section-lbl">最終答案</div>
+          <div class="qa-section-body">${ans}</div>
+        </div>` : ''}
+      ${sol ? `
+        <div class="qa-section">
+          <div class="qa-section-lbl">解題過程</div>
+          <div class="qa-section-body">${sol}</div>
+        </div>` : ''}
+    `;
+  }
+
+  if (t === 'word_game') {
+    // word_game 是注音選擇:character 是字、correct 是注音、options 是注音陣列、meaning 是字義
+    const correct = q.correct;
+    const options = Array.isArray(q.options) ? q.options : [];
+    const optsHtml = options.map(opt => {
+      const cls = (opt === correct) ? 'qa-word-opt correct' : 'qa-word-opt';
+      return `<div class="${cls}">${opt}</div>`;
+    }).join('');
+    const meaning = (q.meaning || '').trim();
+    return `
+      ${q.character ? `<div class="qa-section"><div class="qa-section-lbl">字</div><div class="qa-section-body" style="font-size:18px;font-weight:700;font-family:'Noto Serif TC'">${q.character}</div></div>` : ''}
+      ${optsHtml ? `<div class="qa-section"><div class="qa-section-lbl">注音選項</div><div class="qa-word-grid">${optsHtml}</div></div>` : ''}
+      ${meaning ? `<div class="qa-section"><div class="qa-section-lbl">字義</div><div class="qa-section-body">${meaning}</div></div>` : ''}
+    `;
+  }
+
+  // 未知題型 fallback
+  const fallback = q.model_answer || q.answer || '';
+  return fallback ? `<div class="qa-section-body">${fallback}</div>` : '';
+}
+window.renderQaAnswerBody = renderQaAnswerBody;
+</script>
+</body>
+</html>
