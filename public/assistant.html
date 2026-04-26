@@ -1073,13 +1073,17 @@ input::placeholder{color:var(--ink-3)}
 /* ═══════════════════════════════════════════════════════════════
    房號 / 短網址 / PartyKit host
    - PGG_ROOM_CODE  房間 ID(同時是 PartyKit room name + UI 顯示的房號)
+                    URL 可用 ?room=XYZ 覆寫(未來開多房不用改 code)
    - PGG_JOIN_URL   QR Code 中的參賽者邀請連結
-   - PGG_PARTY_HOST PartyKit server host(本機 dev 用 localhost:1999;
-                    Phase 5 部署時改成 policy-gogogo.<account>.partykit.dev)
+   - PGG_PARTY_HOST PartyKit server host
+                    URL 可用 ?host=localhost:9988 覆寫(partykit 預設 1999;
+                    若 1999 被佔住會落到 2000/9988 等,這時可用 ?host= 救急)
+                    Phase 5 部署時把預設改成 policy-gogogo.<account>.partykit.dev
    ═══════════════════════════════════════════════════════════════ */
-const PGG_ROOM_CODE = 'DEMO01';
+const _PGG_QS = new URLSearchParams(window.location.search);
+const PGG_ROOM_CODE = _PGG_QS.get('room') || 'DEMO01';
 const PGG_JOIN_URL = 'https://pgg.app/' + PGG_ROOM_CODE;
-const PGG_PARTY_HOST = 'localhost:1999';
+const PGG_PARTY_HOST = _PGG_QS.get('host') || 'localhost:1999';
 
 const S={
   mode:null,totalQ:20,spq:5,groups:[],currQ:0,

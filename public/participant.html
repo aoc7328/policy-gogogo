@@ -1189,13 +1189,15 @@ body:has(#stage-login.active) .host-login-btn{display:flex}
 
 /* ═══════════════════════════════════════════════════════════════
    房號 / 短網址 / PartyKit host(三端共用同一組常數命名)
-   - PGG_ROOM_CODE  房間 ID(同時是 PartyKit room name + UI 顯示)
-   - PGG_JOIN_URL   QR Code 中的參賽者邀請連結
-   - PGG_PARTY_HOST PartyKit server host(本機 dev / Phase 5 部署改)
+   - 三端 URL 都可用 ?room=XYZ 跟 ?host=localhost:9988 覆寫預設
+   - 本機 partykit dev 預設 1999,1999 被佔時會落到其他 port,
+     這時把實際 port 寫進 ?host= 救急
+   - Phase 5 部署時把預設 host 改成 policy-gogogo.<account>.partykit.dev
    ═══════════════════════════════════════════════════════════════ */
-const PGG_ROOM_CODE = 'DEMO01';
+const _PGG_QS = new URLSearchParams(window.location.search);
+const PGG_ROOM_CODE = _PGG_QS.get('room') || 'DEMO01';
 const PGG_JOIN_URL = 'https://pgg.app/' + PGG_ROOM_CODE;
-const PGG_PARTY_HOST = 'localhost:1999';
+const PGG_PARTY_HOST = _PGG_QS.get('host') || 'localhost:1999';
 
 /* ══ 全域狀態 ══ */
 const G = {
