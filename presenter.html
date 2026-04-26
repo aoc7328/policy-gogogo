@@ -1,0 +1,2496 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>保險知識星攻略 · 主持人端</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&family=Noto+Serif+TC:wght@400;600;700;900&family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root { --font-sans: "Noto Sans TC", system-ui, sans-serif; --font-serif: "Noto Serif TC", serif; --font-mono: "JetBrains Mono", monospace; --ease: cubic-bezier(0.2,0.7,0.2,1); --ease-q: cubic-bezier(0.15,0.7,0.2,1); --ease-shake: cubic-bezier(0.4,0,0.6,1); }
+html, body { background: #080A10; font-family: var(--font-sans); -webkit-font-smoothing: antialiased; min-height: 100vh; letter-spacing: 0.01em; color: #F2EDE1; overflow-x: hidden; }
+.demo-chrome { min-height: 100vh; display: flex; flex-direction: column; padding: 18px; gap: 12px; }
+.demo-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+.demo-brand { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.18em; color: #5C6480; text-transform: uppercase; }
+.demo-brand .tag { color: #D4A34B; margin-left: 8px; }
+.demo-tips { font-family: var(--font-mono); font-size: 10px; color: #5C6480; letter-spacing: 0.14em; text-transform: uppercase; }
+.demo-tips .dot { color: #D4A34B; }
+.stage-wrap { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; }
+.stage { width: 100%; max-width: 1024px; aspect-ratio: 4 / 3; position: relative; overflow: hidden; box-shadow: 0 0 0 1px var(--line, rgba(155,163,181,0.16)), 0 24px 72px -12px rgba(0,0,0,0.9); transition: background 900ms var(--ease), color 900ms var(--ease); background: radial-gradient(ellipse at 20% 15%, var(--glow, rgba(212,163,75,0.2)) 0%, transparent 55%), radial-gradient(ellipse at 85% 90%, var(--glow, rgba(212,163,75,0.2)) 0%, transparent 50%), var(--bg-deep, #0B1020); color: var(--ink-1, #F2EDE1); }
+.stage[data-mode="select"] { --bg-void: #050912; --bg-deep: #0B1020; --bg-surface: #141B2E; --bg-raised: #1C2540; --ink-1: #F2EDE1; --ink-2: #9BA3B5; --ink-3: #5C6480; --accent: #D4A34B; --accent-bright: #E8BD5E; --accent-deep: #8B6820; --line: rgba(155,163,181,0.16); --line-strong: rgba(155,163,181,0.32); --glow: rgba(212,163,75,0.2); }
+.stage[data-mode="ordinary"] { --bg-void: #14100A; --bg-deep: #1E1810; --bg-surface: #2A2116; --bg-raised: #362A1C; --ink-1: #F0E4C9; --ink-2: #BFA781; --ink-3: #8B7552; --accent: #D4A34B; --accent-bright: #EDC266; --accent-deep: #8B6F3D; --line: rgba(212,163,75,0.18); --line-strong: rgba(212,163,75,0.4); --glow: rgba(212,163,75,0.25); }
+.stage[data-mode="hell"] { --bg-void: #040812; --bg-deep: #0A0F26; --bg-surface: #121B3A; --bg-raised: #1A2648; --ink-1: #E8E4D8; --ink-2: #8BA0C4; --ink-3: #556A88; --accent: #D8344A; --accent-bright: #EC5068; --accent-deep: #8B2030; --secondary: #D4A34B; --line: rgba(216,52,74,0.18); --line-strong: rgba(216,52,74,0.45); --glow: rgba(216,52,74,0.3); }
+.stage[data-mode="paradise"] { --bg-void: #070614; --bg-deep: #0E0B22; --bg-surface: #1A1438; --bg-raised: #251D4E; --ink-1: #F0E8D0; --ink-2: #B8A8D8; --ink-3: #7D6A9C; --accent: #D4A34B; --accent-bright: #F0C060; --accent-deep: #8B6820; --secondary: #B48DD8; --tertiary: #7DABD8; --line: rgba(212,163,75,0.18); --line-strong: rgba(212,163,75,0.4); --glow: rgba(180,141,216,0.35); }
+.stage[data-mode="custom"] { --bg-void: #E8E4DC; --bg-deep: #F2EFE8; --bg-surface: #FAFAF7; --bg-raised: #ECEAE3; --ink-1: #1A1410; --ink-2: #4A3F32; --ink-3: #7A6E60; --ink-4: #B0A898; --accent: #7A5C30; --accent-bright: #A07A42; --accent-deep: #523D1C; --seal-red: #A83228; --seal-red-deep: #7C2018; --line: rgba(26,20,16,0.10); --line-strong: rgba(26,20,16,0.22); --line-paper: rgba(26,20,16,0.042); --glow: rgba(122,92,48,0.2); }
+.stage[data-mode="custom"] { background: linear-gradient(var(--line-paper) 1px, transparent 1px) 0 0 / 28px 28px, linear-gradient(90deg, var(--line-paper) 1px, transparent 1px) 0 0 / 28px 28px, #F2EFE8; }
+/* ═══════════════════════════════════════════════
+   煉獄模式 (機率性事件;主持人介面在 scr-purg-arrival 啟用)
+   觸發方式:summonPurgatory(),由主持人端透過 PartyKit 廣播給三端
+   ═══════════════════════════════════════════════ */
+.stage[data-mode="purgatory"] { --bg-void: #0A0303; --bg-deep: #1A0806; --bg-surface: #2A100A; --bg-raised: #3A1810; --ink-1: #FFE8CC; --ink-2: #E0A080; --ink-3: #A06050; --ink-4: #6A3020; --accent: #FF7A1A; --accent-bright: #FFB347; --accent-deep: #C4102B; --line: rgba(255,122,26,0.2); --line-strong: rgba(255,122,26,0.5); --glow: rgba(255,107,26,0.45); }
+.stage[data-mode="purgatory"] { background: radial-gradient(ellipse at 50% 120%, var(--accent-deep) 0%, transparent 55%), radial-gradient(ellipse at 30% 100%, rgba(196,16,43,0.4) 0%, transparent 50%), var(--bg-void); }
+#scr-purg-arrival { padding: 0; align-items: center; justify-content: center; }
+.purg-arr-bg { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 120%, #C4102B 0%, transparent 55%), radial-gradient(ellipse at 30% 100%, rgba(196,16,43,0.6) 0%, transparent 50%), radial-gradient(ellipse at 70% 100%, rgba(255,107,26,0.5) 0%, transparent 50%), #0A0303; z-index: 1; animation: purgBgPulse 2.8s ease-in-out infinite; }
+@keyframes purgBgPulse { 0%,100% { filter: brightness(1) saturate(1); } 50% { filter: brightness(1.25) saturate(1.3); } }
+.purg-fire { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+.fire-blob { position: absolute; bottom: -60px; width: 320px; height: 480px; background: radial-gradient(ellipse at 50% 100%, #FFB347 0%, #FF6B1A 25%, #C4102B 55%, transparent 80%); filter: blur(32px); mix-blend-mode: screen; opacity: 0.9; animation: flameWave 2.4s ease-in-out infinite; }
+.fire-blob:nth-child(1) { left: 0%; animation-delay: 0s; }
+.fire-blob:nth-child(2) { left: 25%; animation-delay: -0.6s; width: 280px; height: 420px; }
+.fire-blob:nth-child(3) { left: 50%; animation-delay: -1.2s; width: 360px; height: 520px; }
+.fire-blob:nth-child(4) { left: 75%; animation-delay: -1.8s; width: 300px; height: 440px; }
+.fire-blob:nth-child(5) { left: -10%; animation-delay: -0.3s; width: 200px; height: 380px; opacity: 0.7; }
+.fire-blob:nth-child(6) { left: 90%; animation-delay: -1.5s; width: 220px; height: 400px; opacity: 0.7; }
+@keyframes flameWave { 0%,100% { transform: translateY(0) scaleY(1) scaleX(1); opacity: 0.85; } 25% { transform: translateY(-30px) scaleY(1.1) scaleX(0.95); opacity: 1; } 50% { transform: translateY(-10px) scaleY(0.9) scaleX(1.05); opacity: 0.75; } 75% { transform: translateY(-40px) scaleY(1.15) scaleX(0.9); opacity: 0.95; } }
+.purg-embers-c { position: absolute; inset: 0; z-index: 3; pointer-events: none; overflow: hidden; }
+.purg-embers-c .ember { position: absolute; bottom: -10px; width: 3px; height: 3px; background: #FF8A3D; border-radius: 50%; box-shadow: 0 0 6px #FFB347, 0 0 12px #FF6B1A; animation: emberRise linear infinite; }
+@keyframes emberRise { 0% { transform: translateY(0) translateX(0); opacity: 1; } 70% { opacity: 1; } 100% { transform: translateY(-800px) translateX(var(--drift, 40px)); opacity: 0; } }
+.purg-haze { position: absolute; inset: 0; z-index: 4; pointer-events: none; background: linear-gradient(to top, rgba(255,107,26,0.12) 0%, transparent 40%); animation: heatShimmer 3.6s ease-in-out infinite; }
+@keyframes heatShimmer { 0%,100% { opacity: 0.6; transform: translateY(0); } 50% { opacity: 0.9; transform: translateY(-4px); } }
+.purg-arr-content { position: relative; z-index: 5; text-align: center; animation: purgTextRise 1400ms var(--ease); }
+@keyframes purgTextRise { from { opacity: 0; transform: translateY(30px) scale(0.92); letter-spacing: 0.6em; filter: blur(8px); } 60% { opacity: 1; filter: blur(0); } to { opacity: 1; transform: translateY(0) scale(1); letter-spacing: 0.22em; } }
+.purg-arr-omen { font-family: var(--font-mono); font-size: 12px; color: rgba(255,200,160,0.55); letter-spacing: 0.5em; margin-bottom: 28px; text-transform: uppercase; text-shadow: 0 0 8px rgba(255,100,0,0.6); }
+.purg-arr-title { font-family: var(--font-serif); font-weight: 900; font-size: 140px; color: #FFF4E0; letter-spacing: 0.22em; line-height: 1; text-shadow: 0 0 20px rgba(255,180,100,0.9), 0 0 40px rgba(255,107,26,0.8), 0 0 80px rgba(196,16,43,0.6), 0 0 120px rgba(196,16,43,0.4); animation: purgTitleGlow 2.4s ease-in-out infinite; }
+@keyframes purgTitleGlow { 0%,100% { text-shadow: 0 0 20px rgba(255,180,100,0.9), 0 0 40px rgba(255,107,26,0.8), 0 0 80px rgba(196,16,43,0.6), 0 0 120px rgba(196,16,43,0.4); } 50% { text-shadow: 0 0 30px rgba(255,210,140,1), 0 0 60px rgba(255,140,60,0.95), 0 0 110px rgba(220,40,60,0.8), 0 0 160px rgba(220,40,60,0.5); } }
+.purg-arr-sub { font-size: 14px; color: rgba(255,220,180,0.6); letter-spacing: 0.4em; margin-top: 36px; }
+@media (max-width: 720px) { .purg-arr-title { font-size: 60px; letter-spacing: 0.15em; } }
+.stage[data-mode="hell"] { background: radial-gradient(ellipse at 20% 15%, var(--glow) 0%, transparent 55%), radial-gradient(ellipse at 85% 85%, rgba(212,163,75,0.12) 0%, transparent 55%), linear-gradient(135deg, var(--bg-void) 0%, var(--bg-deep) 100%); }
+.stage[data-mode="paradise"] { background: radial-gradient(ellipse at 50% 50%, var(--glow) 0%, transparent 60%), radial-gradient(ellipse at 20% 20%, rgba(125,171,216,0.1) 0%, transparent 50%), linear-gradient(180deg, var(--bg-void) 0%, var(--bg-deep) 100%); }
+.stage[data-mode="ordinary"]::before { content: ''; position: absolute; inset: 24px; border: 1px solid var(--line); pointer-events: none; z-index: 1; background-repeat: no-repeat; background-position: 0 0, 100% 0; background-size: 2px 100%, 2px 100%; }
+.stage[data-mode="hell"]::before { content: ''; position: absolute; inset: 0; background-image: linear-gradient(135deg, transparent 96%, var(--line-strong) 96.5%, transparent 97%), linear-gradient(45deg, transparent 96%, var(--line-strong) 96.5%, transparent 97%); background-size: 180px 180px; pointer-events: none; z-index: 1; opacity: 0.5; }
+.stage[data-mode="paradise"]::before { content: ''; position: absolute; inset: 0; background-image: radial-gradient(1.5px 1.5px at 10% 15%, rgba(240,232,208,0.8), transparent 50%), radial-gradient(1px 1px at 22% 55%, rgba(180,141,216,0.6), transparent 50%), radial-gradient(1.5px 1.5px at 40% 25%, rgba(125,171,216,0.7), transparent 50%), radial-gradient(1px 1px at 65% 45%, rgba(240,232,208,0.5), transparent 50%), radial-gradient(2px 2px at 80% 70%, rgba(212,163,75,0.7), transparent 50%), radial-gradient(1px 1px at 15% 85%, rgba(180,141,216,0.6), transparent 50%), radial-gradient(1.5px 1.5px at 50% 92%, rgba(240,232,208,0.5), transparent 50%), radial-gradient(1px 1px at 90% 30%, rgba(125,171,216,0.7), transparent 50%), radial-gradient(1.5px 1.5px at 35% 75%, rgba(212,163,75,0.6), transparent 50%); animation: starBreathe 5s ease-in-out infinite; pointer-events: none; z-index: 1; }
+@keyframes starBreathe { 0%,100%{opacity:0.65;} 50%{opacity:1;} }
+.stage::after { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,0.45) 100%); pointer-events: none; z-index: 2; }
+.stage[data-mode="custom"]::after { display: none; }
+.bg-layer { position: absolute; inset: 0; opacity: 0; transition: opacity 900ms var(--ease); pointer-events: none; z-index: 0; }
+.bg-layer.active { opacity: 1; }
+#bg-select { background: radial-gradient(ellipse 100% 70% at 50% 0%, rgba(30,50,80,0.6) 0%, transparent 65%), #080E1C; opacity: 1; }
+#bg-ordinary { background: radial-gradient(ellipse 80% 60% at 20% 100%, rgba(212,163,75,0.28) 0%, transparent 60%), radial-gradient(ellipse 60% 50% at 90% 10%, rgba(212,163,75,0.12) 0%, transparent 55%), radial-gradient(ellipse 100% 50% at 50% 0%, rgba(30,24,16,0.8) 0%, transparent 80%), #1E1810; }
+#bg-hell { background: radial-gradient(ellipse 70% 60% at 10% 0%, rgba(216,52,74,0.32) 0%, transparent 60%), radial-gradient(ellipse 50% 40% at 90% 100%, rgba(60,90,180,0.18) 0%, transparent 55%), radial-gradient(ellipse 80% 40% at 50% 50%, rgba(30,40,100,0.5) 0%, transparent 70%), #050B1E; }
+#bg-hell::before { content: ''; position: absolute; top: -80px; left: -60px; width: 500px; height: 500px; background: radial-gradient(ellipse, rgba(216,52,74,0.25) 0%, transparent 70%); animation: hellPulse 3s ease-in-out infinite; }
+@keyframes hellPulse { 0%,100%{transform:scale(1);opacity:1;} 50%{transform:scale(1.1);opacity:0.7;} }
+#bg-paradise { background: radial-gradient(ellipse 130% 70% at 50% -15%, rgba(20,65,110,0.95) 0%, transparent 65%), #050F20; }
+#bg-paradise::before { content: ''; position: absolute; top: -200px; left: 50%; transform: translateX(-50%); width: 800px; height: 500px; background: radial-gradient(ellipse, rgba(208,238,248,0.45) 0%, rgba(160,203,232,0.20) 35%, rgba(74,138,174,0.06) 65%, transparent 85%); animation: skyPulse 5s ease-in-out infinite; }
+#bg-paradise::after { content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 480px; height: 100%; background: linear-gradient(to bottom, rgba(160,203,232,0.20) 0%, rgba(160,203,232,0.08) 30%, rgba(160,203,232,0.03) 60%, transparent 80%); animation: pillarBreath 6s ease-in-out infinite; }
+@keyframes skyPulse { 0%,100%{opacity:1;transform:translateX(-50%) scaleY(1);} 50%{opacity:0.8;transform:translateX(-50%) scaleY(1.08);} }
+@keyframes pillarBreath { 0%,100%{opacity:1;} 50%{opacity:0.65;} }
+#bg-custom { background: linear-gradient(rgba(26,20,16,0.042) 1px, transparent 1px) 0 0 / 28px 28px, linear-gradient(90deg, rgba(26,20,16,0.042) 1px, transparent 1px) 0 0 / 28px 28px, #F2EFE8; }
+#bg-custom::before { content: ''; position: absolute; top: 48px; bottom: 88px; left: 30px; width: 1px; background: linear-gradient(to bottom, transparent, rgba(184,172,149,0.5) 15%, rgba(184,172,149,0.5) 85%, transparent); }
+#bg-custom::after { content: ''; position: absolute; top: 48px; bottom: 88px; right: 30px; width: 1px; background: linear-gradient(to bottom, transparent, rgba(184,172,149,0.5) 15%, rgba(184,172,149,0.5) 85%, transparent); }
+.paradise-particles { position: absolute; inset: 0; z-index: 1; pointer-events: none; opacity: 0; transition: opacity 900ms var(--ease); }
+.paradise-particles.active { opacity: 1; }
+.pt { position: absolute; border-radius: 50%; animation: floatUp linear infinite; }
+.pt-1 { width:2px;height:2px;left:14%;bottom:18%;animation-duration:9s; animation-delay:0s; background:rgba(208,238,248,0.8); }
+.pt-2 { width:1px;height:1px;left:27%;bottom:33%;animation-duration:12s;animation-delay:2s; background:rgba(208,238,248,0.7); }
+.pt-3 { width:2px;height:2px;left:41%;bottom:9%; animation-duration:10s;animation-delay:1s; background:rgba(208,238,248,0.8); }
+.pt-4 { width:1px;height:1px;left:56%;bottom:24%;animation-duration:14s;animation-delay:3s; background:rgba(208,238,248,0.6); }
+.pt-5 { width:2px;height:2px;left:70%;bottom:14%;animation-duration:11s;animation-delay:0.5s; background:rgba(208,238,248,0.8); }
+.pt-6 { width:1px;height:1px;left:82%;bottom:38%;animation-duration:13s;animation-delay:4s; background:rgba(208,238,248,0.6); }
+.pt-g1 { width:2px;height:2px;left:48%;bottom:11%;animation-duration:11s;animation-delay:1s; background:rgba(240,192,96,0.7); }
+.pt-g2 { width:1px;height:1px;left:33%;bottom:22%;animation-duration:14s;animation-delay:2.5s; background:rgba(240,192,96,0.6); }
+@keyframes floatUp {
+ 0% { transform: translateY(0) translateX(0); opacity: 0; }
+ 10% { opacity: 1; }
+ 90% { opacity: 1; }
+ 100%{ transform: translateY(-480px) translateX(15px); opacity: 0; }
+}
+#flash-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 100; opacity: 0; transition: opacity 80ms ease-out; }
+#flash-overlay.gold { background: radial-gradient(ellipse at center, rgba(212,163,75,0.28) 0%, rgba(212,163,75,0.1) 100%); }
+#flash-overlay.red { background: radial-gradient(ellipse at center, rgba(216,52,74,0.22) 0%, rgba(216,52,74,0.08) 100%); }
+#vignette-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 99; opacity: 0; transition: opacity 80ms ease-out; background: radial-gradient(ellipse at center, transparent 45%, rgba(216,52,74,0.4) 100%); }
+.screen { position: absolute; inset: 0; display: none; flex-direction: column; padding: 36px 52px 80px; z-index: 3; }
+.screen.active { display: flex; animation: screenIn 600ms var(--ease); }
+@keyframes screenIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+#scr-select { padding: 0; }
+/* 右上角:JOIN ROOM QR Code(觀眾掃描用,1 分鐘自動消失) */
+.join-qr-box { position: absolute; top: 28px; right: 28px; z-index: 8; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px; background: rgba(0,0,0,0.55); border: 1px solid rgba(255,255,255,0.15); backdrop-filter: blur(8px); animation: fadeUp 700ms var(--ease) 200ms backwards; transition: opacity 600ms var(--ease), transform 600ms var(--ease); }
+.join-qr-box.hidden { opacity: 0; transform: translateY(-8px) scale(0.96); pointer-events: none; }
+.stage.is-custom .join-qr-box { background: rgba(255,255,255,0.85); border-color: rgba(26,20,16,0.18); }
+.join-qr-box .jq-eyebrow { font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.32em; color: var(--accent); text-transform: uppercase; }
+.join-qr-box .jq-qr { width: 140px; height: 140px; background: #fff; padding: 8px; display: flex; align-items: center; justify-content: center; }
+.join-qr-box .jq-qr canvas, .join-qr-box .jq-qr img { display: block; max-width: 100%; height: auto; }
+.join-qr-box .jq-url { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; color: var(--ink-2); }
+.stage.is-custom .join-qr-box .jq-url { color: #4A3D2A; }
+.join-qr-box .jq-room-code { font-family: var(--font-mono); font-weight: 700; font-size: 14px; letter-spacing: 0.18em; color: var(--ink-1); }
+.stage.is-custom .join-qr-box .jq-room-code { color: #1A1410; }
+.join-qr-box .jq-timer { font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.16em; color: var(--ink-3); margin-top: 2px; }
+#scr-select .crown { position: relative; z-index: 5; text-align: center; padding: 56px 56px 0; transition: color 900ms var(--ease); }
+#scr-select .crown-rule { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 10px; }
+#scr-select .cr-line { height: 1px; width: 70px; background: linear-gradient(to right, transparent, currentColor); opacity: 0.35; }
+#scr-select .cr-line.r { background: linear-gradient(to left, transparent, currentColor); }
+#scr-select .cr-diamond { width: 5px; height: 5px; background: currentColor; transform: rotate(45deg); opacity: 0.7; }
+#scr-select .crown-sub { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.42em; opacity: 0.45; text-transform: uppercase; margin-bottom: 6px; }
+#scr-select .crown-logo { font-family: var(--font-serif); font-weight: 900; font-size: 50px; letter-spacing: 0.12em; line-height: 1; margin-bottom: 6px; }
+.logo-accent { transition: color 900ms var(--ease); color: #D4A34B; }
+.stage.is-custom .logo-accent { color: #7A5C30; }
+.stage.is-custom #scr-select .crown { color: #1A1410; }
+#scr-select .crown-tagline { font-family: var(--font-serif); font-style: italic; font-size: 13px; opacity: 0.45; letter-spacing: 0.08em; }
+#scr-select .modes { position: relative; z-index: 5; flex: 1; display: flex; align-items: center; justify-content: center; gap: 14px; padding: 14px 40px 0; }
+#scr-select .player-pool { position: relative; z-index: 5; margin: 14px 56px 0; height: 144px; border: 1px solid var(--line-strong); border-radius: 12px; background: rgba(155,163,181,0.04); display: flex; flex-direction: column; padding: 12px 16px 8px; transition: border-color 900ms var(--ease), background 900ms var(--ease); animation: fadeUp 500ms var(--ease) 140ms backwards; }
+.stage.is-custom #scr-select .player-pool { border-color: rgba(26,20,16,0.22); background: rgba(26,20,16,0.03); }
+
+/* 自由模式次選項 inline 區塊 — 預設隱藏,is-custom 才顯示 */
+#scr-select .custom-inline {
+  position: relative; z-index: 5;
+  margin: 12px 56px 0;
+  display: none;
+  animation: fadeUp 500ms var(--ease) backwards;
+}
+.stage.is-custom #scr-select .custom-inline { display: block; }
+#scr-select .ci-row { display: flex; gap: 28px; align-items: flex-start; flex-wrap: wrap; }
+#scr-select .ci-group { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+#scr-select .ci-title {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.28em;
+  text-transform: uppercase; color: #7A6E60;
+  padding-right: 4px; border-right: 1px solid rgba(26,20,16,0.18);
+  margin-right: 4px;
+}
+#scr-select .ci-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+#scr-select .ci-chip {
+  font-family: var(--font-serif); font-size: 13px; letter-spacing: 0.06em;
+  padding: 5px 12px; border: 1px solid rgba(26,20,16,0.2);
+  background: rgba(255,255,255,0.5); color: #7A6E60;
+  transition: all 240ms var(--ease);
+}
+#scr-select .ci-chip.active {
+  background: #7A5C30; color: #FAFAF7;
+  border-color: #523D1C;
+  box-shadow: 0 0 0 1px rgba(122,92,48,0.3);
+}
+#scr-select .ci-chip.purg.active {
+  background: #A83228; color: #FAFAF7;
+  border-color: #7C2018;
+  box-shadow: 0 0 12px rgba(168,50,40,0.3);
+}
+#scr-select .pp-eyebrow { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.4em; opacity: 0.45; text-transform: uppercase; text-align: center; margin-bottom: 8px; flex-shrink: 0; }
+#scr-select .pp-list { flex: 1; overflow-y: auto; display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start; justify-content: center; padding-right: 4px; }
+#scr-select .pp-empty { width: 100%; text-align: center; font-family: var(--font-serif); font-style: italic; font-size: 13px; opacity: 0.4; letter-spacing: 0.1em; padding-top: 24px; }
+#scr-select .pp-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border: 1px solid var(--line); border-radius: 14px; background: rgba(155,163,181,0.06); font-family: var(--font-sans); font-size: 12px; color: var(--ink-2); user-select: none; transition: all 900ms var(--ease); animation: ppPop 320ms cubic-bezier(.34,1.56,.64,1); }
+@keyframes ppPop { 0%{opacity:0;transform:scale(.6) translateY(4px)} 60%{opacity:1;transform:scale(1.06) translateY(0)} 100%{opacity:1;transform:scale(1) translateY(0)} }
+.stage.is-custom #scr-select .pp-chip { border-color: rgba(26,20,16,0.14); background: rgba(26,20,16,0.04); }
+/* 通用滾動條 — 跟著各 mode 的 line-strong 走 */
+.pp-list, .q-essay-right, .q-calc-solution { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+.pp-list::-webkit-scrollbar, .q-essay-right::-webkit-scrollbar, .q-calc-solution::-webkit-scrollbar { width: 5px; height: 5px; }
+.pp-list::-webkit-scrollbar-track, .q-essay-right::-webkit-scrollbar-track, .q-calc-solution::-webkit-scrollbar-track { background: transparent; }
+.pp-list::-webkit-scrollbar-thumb, .q-essay-right::-webkit-scrollbar-thumb, .q-calc-solution::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 3px; transition: background 200ms; }
+.pp-list::-webkit-scrollbar-thumb:hover, .q-essay-right::-webkit-scrollbar-thumb:hover, .q-calc-solution::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+.mode-card { width: 200px; height: 210px; flex-shrink: 0; border: 1.5px solid transparent; padding: 18px 16px 16px; cursor: pointer; position: relative; overflow: hidden; display: flex; flex-direction: column; transition: transform 240ms var(--ease), border-color 240ms, box-shadow 240ms; border-radius: 0; user-select: none; }
+.mode-card[data-mode="ordinary"] { background: rgba(26,20,12,0.72); border-color: rgba(212,163,75,0.22); }
+.mode-card[data-mode="hell"] { background: rgba(8,12,32,0.78); border-color: rgba(216,52,74,0.22); }
+.mode-card[data-mode="paradise"] { background: rgba(4,10,28,0.78); border-color: rgba(160,203,232,0.18); }
+.mode-card[data-mode="custom"] { background: rgba(250,247,240,0.88); border-color: rgba(122,92,48,0.28); }
+.mode-card:hover { transform: translateY(-3px); }
+.mode-card.selected[data-mode="ordinary"] { border-color: #D4A34B; box-shadow: 0 0 0 1px #D4A34B, 0 0 30px rgba(212,163,75,0.30); }
+.mode-card.selected[data-mode="hell"] { border-color: #D8344A; box-shadow: 0 0 0 1px #D8344A, 0 0 30px rgba(216,52,74,0.30); }
+.mode-card.selected[data-mode="paradise"] { border-color: #A0CBE8; box-shadow: 0 0 0 1px #A0CBE8, 0 0 30px rgba(160,203,232,0.30); }
+.mode-card.selected[data-mode="custom"] { border-color: #7A5C30; box-shadow: 0 0 0 1px #7A5C30, 0 0 20px rgba(122,92,48,0.20); }
+.card-num { position: absolute; top: 9px; right: 11px; font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.2em; opacity: 0.38; }
+.mode-card[data-mode="custom"] .card-num { color: #8B7C66; }
+.mode-card:not([data-mode="custom"]) .card-num { color: #9BA3B5; }
+.card-emblem { font-family: var(--font-serif); font-weight: 900; font-size: 44px; line-height: 1; letter-spacing: 0.08em; margin-bottom: 8px; }
+.mode-card[data-mode="ordinary"] .card-emblem { color: #D4A34B; text-shadow: 0 0 24px rgba(212,163,75,0.5); }
+.mode-card[data-mode="hell"] .card-emblem { color: #D8344A; text-shadow: 0 0 24px rgba(216,52,74,0.5); }
+.mode-card[data-mode="paradise"] .card-emblem { background: linear-gradient(135deg, #F0C060 0%, #D0EEF8 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; filter: drop-shadow(0 0 10px rgba(160,203,232,0.5)); }
+.mode-card[data-mode="custom"] .card-emblem { color: #1A1410; text-shadow: none; }
+.card-western { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.3em; margin-bottom: 12px; text-transform: uppercase; opacity: 0.5; }
+.mode-card:not([data-mode="custom"]) .card-western { color: #9BA3B5; }
+.mode-card[data-mode="custom"] .card-western { color: #8B7C66; }
+.card-poem { font-family: var(--font-serif); font-size: 12.5px; line-height: 1.75; font-style: italic; flex: 1; margin-bottom: 14px; }
+.mode-card:not([data-mode="custom"]) .card-poem { color: #9BA3B5; }
+.mode-card[data-mode="custom"] .card-poem { color: #5C4F3D; }
+.card-tiers { display: flex; flex-wrap: wrap; gap: 4px; padding-top: 10px; border-top: 1px solid; }
+.mode-card[data-mode="ordinary"] .card-tiers { border-color: rgba(212,163,75,0.20); }
+.mode-card[data-mode="hell"] .card-tiers { border-color: rgba(216,52,74,0.20); }
+.mode-card[data-mode="paradise"] .card-tiers { border-color: rgba(160,203,232,0.18); }
+.mode-card[data-mode="custom"] .card-tiers { border-color: rgba(26,20,16,0.14); }
+.tier-chip { font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.1em; padding: 2px 6px; border: 1px solid; text-transform: uppercase; }
+.mode-card[data-mode="ordinary"] .tier-chip { color: rgba(212,163,75,0.7); border-color: rgba(212,163,75,0.25); }
+.mode-card[data-mode="hell"] .tier-chip { color: rgba(216,52,74,0.7); border-color: rgba(216,52,74,0.25); }
+.mode-card[data-mode="paradise"] .tier-chip { color: rgba(160,203,232,0.8); border-color: rgba(160,203,232,0.25); }
+.mode-card[data-mode="custom"] .tier-chip { color: #8B6F3D; border-color: rgba(139,111,61,0.35); }
+#scr-select .host-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 76px; display: flex; align-items: center; padding: 0 56px; gap: 14px; z-index: 10; border-top: 1px solid rgba(155,163,181,0.14); background: rgba(0,0,0,0.35); backdrop-filter: blur(6px); transition: background 900ms var(--ease), border-color 900ms; }
+.stage.is-custom #scr-select .host-bar { background: rgba(242,239,232,0.88); border-top-color: rgba(26,20,16,0.14); }
+.btn-enter { font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.22em; padding: 11px 24px; border-radius: 2px; cursor: pointer; text-transform: uppercase; background: rgba(155,163,181,0.12); color: rgba(155,163,181,0.5); border: 1px solid rgba(155,163,181,0.2); transition: all 500ms var(--ease); }
+.btn-enter:disabled { cursor: not-allowed; }
+.stage[data-selected="ordinary"] .btn-enter { background: #D4A34B; border-color: #8B6820; color: #100C04; }
+.stage[data-selected="hell"] .btn-enter { background: #D8344A; border-color: #8B2030; color: #F2EDE1; }
+.stage[data-selected="paradise"] .btn-enter { background: #A0CBE8; border-color: #4A8AAE; color: #05101E; }
+.stage[data-selected="custom"] .btn-enter { background: #7A5C30; border-color: #523D1C; color: #F5F2EC; }
+.btn-enter:not(:disabled):hover { filter: brightness(1.12); }
+#scr-select .crown { animation: fadeUp 500ms var(--ease) 80ms backwards; }
+.mode-card:nth-child(1) { animation: fadeUp 500ms var(--ease) 200ms backwards; }
+.mode-card:nth-child(2) { animation: fadeUp 500ms var(--ease) 260ms backwards; }
+.mode-card:nth-child(3) { animation: fadeUp 500ms var(--ease) 320ms backwards; }
+.mode-card:nth-child(4) { animation: fadeUp 500ms var(--ease) 380ms backwards; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+#scr-custom { padding: 0; }
+#scr-custom .spine { position: absolute; top: 48px; bottom: 88px; width: 1px; z-index: 2; background: linear-gradient(to bottom, transparent, rgba(176,168,152,0.55) 12%, rgba(176,168,152,0.55) 88%, transparent); }
+#scr-custom .spine::after { content: ''; position: absolute; top: 0; left: -1px; width: 3px; height: 100%; background: radial-gradient(circle at 50% 0, rgba(176,168,152,0.55) 1.5px, transparent 2px) 0 0 / 3px 14px; opacity: 0.5; }
+#scr-custom .spine.left { left: 32px; }
+#scr-custom .spine.right { right: 32px; }
+#scr-custom .seal { position: absolute; right: 80px; bottom: 100px; font-family: var(--font-serif); font-weight: 900; font-size: 42px; color: var(--seal-red); border: 2.5px solid var(--seal-red); padding: 12px 16px; letter-spacing: 0.06em; transform: rotate(-8deg); opacity: 0.75; background: rgba(168,50,40,0.04); pointer-events: none; z-index: 4; animation: sealIn 700ms var(--ease) 400ms backwards; }
+@keyframes sealIn {
+ 0% { transform: rotate(-8deg) scale(1.5); opacity: 0; }
+ 65% { transform: rotate(-8deg) scale(0.94); opacity: 0.8; }
+ 100% { transform: rotate(-8deg) scale(1); opacity: 0.75; }
+}
+.custom-main { flex: 1; padding: 40px 72px 0; display: flex; flex-direction: column; position: relative; z-index: 3; }
+.custom-eyebrow { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.45em; color: var(--ink-4, #B0A898); text-align: center; margin-bottom: 10px; text-transform: uppercase; animation: fadeUp 480ms var(--ease) 0ms backwards; }
+.custom-main-title { font-family: var(--font-serif); font-weight: 900; font-size: 118px; line-height: 1; letter-spacing: 0.35em; color: var(--ink-1); text-align: center; margin-bottom: 0; padding-left: 0.35em; animation: fadeUp 480ms var(--ease) 60ms backwards; }
+.custom-title-rule { width: 100%; height: 1px; margin: 14px 0; background: linear-gradient(to right, transparent, var(--line-strong) 20%, var(--line-strong) 80%, transparent); animation: fadeUp 480ms var(--ease) 120ms backwards; }
+.custom-subtitle { font-family: var(--font-serif); font-style: italic; font-size: 16px; color: var(--ink-3); text-align: center; letter-spacing: 0.18em; margin-bottom: 12px; animation: fadeUp 480ms var(--ease) 160ms backwards; }
+.custom-description { font-size: 13px; line-height: 1.85; color: var(--ink-2); text-align: center; max-width: 680px; margin: 0 auto 20px; animation: fadeUp 480ms var(--ease) 200ms backwards; }
+.custom-section-rule { height: 1px; background: var(--line-strong); margin: 0 0 18px; opacity: 0.45; animation: fadeUp 480ms var(--ease) 240ms backwards; }
+.selector-row { display: flex; gap: 32px; margin-bottom: 18px; animation: fadeUp 480ms var(--ease) 300ms backwards; }
+.selector-group { flex: 1; }
+.group-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+.group-title { font-family: var(--font-serif); font-weight: 700; font-size: 16px; color: var(--ink-1); letter-spacing: 0.04em; }
+.group-hint { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.2em; color: var(--ink-4, #B0A898); text-transform: uppercase; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { font-family: var(--font-sans); font-size: 13px; font-weight: 500; padding: 10px 18px; border-radius: 0; background: var(--bg-surface); color: var(--ink-2); border: 1px solid var(--line-strong); cursor: pointer; transition: all 160ms ease-out; user-select: none; letter-spacing: 0.04em; }
+.chip:hover { background: var(--bg-raised); border-color: var(--accent); color: var(--ink-1); }
+.chip.active { background: var(--accent); color: var(--bg-deep); border-color: var(--accent-deep); }
+.chip.purgatory.active { background: var(--seal-red); border-color: var(--seal-red-deep); color: #FAF7F0; }
+.pool-bar { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 12px 0 0; border-top: 1px solid var(--line-strong); margin-top: auto; opacity: 0.85; animation: fadeUp 480ms var(--ease) 360ms backwards; }
+.pool-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.3em; color: var(--ink-3); text-transform: uppercase; }
+.pool-value { font-family: var(--font-serif); font-weight: 900; font-size: 26px; color: var(--ink-1); letter-spacing: 0.05em; transition: all 300ms var(--ease); }
+.pool-unit { font-family: var(--font-sans); font-size: 12px; color: var(--ink-3); }
+#scr-custom .host-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 76px; display: flex; align-items: center; padding: 0 72px; gap: 12px; z-index: 10; border-top: 1px solid var(--line-strong); background: rgba(242,239,232,0.92); backdrop-filter: blur(4px); }
+.host-bar { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; align-items: center; padding: 12px 30px; border-top: 1px solid var(--line); z-index: 10; gap: 12px; flex-wrap: wrap; }
+.host-bar::before { content: ''; position: absolute; inset: 0; background: linear-gradient(to top, var(--bg-void) 0%, rgba(0,0,0,0.7) 100%); backdrop-filter: blur(8px); z-index: -1; }
+.stage[data-mode="custom"] .host-bar::before { background: linear-gradient(to top, var(--bg-deep) 0%, transparent 100%); }
+.host-bar-left, .host-bar-right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.host-btn { background: transparent; border: 1px solid var(--line-strong); color: var(--ink-2); font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em; padding: 7px 12px; cursor: pointer; transition: all 180ms ease-out; text-transform: uppercase; white-space: nowrap; border-radius: 2px; }
+.host-btn:hover { border-color: var(--accent); color: var(--ink-1); background: var(--bg-raised); }
+.host-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--bg-void); font-weight: 700; padding: 9px 20px; letter-spacing: 0.16em; box-shadow: 0 0 16px var(--glow); }
+.host-btn.primary:hover { background: var(--accent-bright); border-color: var(--accent-bright); box-shadow: 0 0 24px var(--glow); }
+.host-btn.secondary { border-color: var(--line); color: var(--ink-3); }
+.host-btn.danger { border-color: rgba(255,107,26,0.5); color: #FF8A3D; }
+.host-btn.danger:hover { border-color: #FF7A1A; color: #FFB347; background: rgba(255,107,26,0.12); }
+.host-status { font-family: var(--font-mono); font-size: 10px; color: var(--ink-3); letter-spacing: 0.14em; text-transform: uppercase; }
+#scr-confirm { padding: 0; align-items: center; justify-content: center; }
+.confirm-bg-deco { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+[data-mode="ordinary"] .confirm-bg-deco { background: linear-gradient(to right, var(--accent) 0%, transparent 15%, transparent 85%, var(--accent) 100%) 0 20px / 100% 1px no-repeat, linear-gradient(to right, var(--accent) 0%, transparent 15%, transparent 85%, var(--accent) 100%) 0 calc(100% - 20px) / 100% 1px no-repeat; }
+[data-mode="ordinary"] .confirm-bg-deco::before,
+[data-mode="ordinary"] .confirm-bg-deco::after { content: ''; position: absolute; width: 50px; height: 50px; border: 1px solid var(--accent); }
+[data-mode="ordinary"] .confirm-bg-deco::before { top: 30px; left: 30px; border-right: none; border-bottom: none; }
+[data-mode="ordinary"] .confirm-bg-deco::after { bottom: 30px; right: 30px; border-left: none; border-top: none; }
+[data-mode="hell"] .confirm-bg-deco { background: linear-gradient(135deg, transparent 48%, var(--accent) 49%, var(--accent) 50%, transparent 51%) 0 0 / 400px 400px no-repeat, linear-gradient(-135deg, transparent 48%, var(--accent) 49%, var(--accent) 50%, transparent 51%) 100% 100% / 400px 400px no-repeat; opacity: 0.5; animation: hellGlow 3s ease-in-out infinite; }
+@keyframes hellGlow { 0%,100%{opacity:0.4;} 50%{opacity:0.75;} }
+[data-mode="hell"] .confirm-bg-deco::before { content: ''; position: absolute; top: 20%; left: -20px; width: 60%; height: 1px; background: linear-gradient(to right, var(--accent), transparent); box-shadow: 0 0 8px var(--accent); }
+[data-mode="hell"] .confirm-bg-deco::after { content: ''; position: absolute; bottom: 20%; right: -20px; width: 60%; height: 1px; background: linear-gradient(to left, var(--accent), transparent); box-shadow: 0 0 8px var(--accent); }
+[data-mode="paradise"] .confirm-bg-deco::before { content: ''; position: absolute; top: 50%; left: 50%; width: 620px; height: 620px; border: 1px solid rgba(212,163,75,0.25); border-radius: 50%; transform: translate(-50%,-50%); animation: rotateSlow 40s linear infinite; }
+[data-mode="paradise"] .confirm-bg-deco::after { content: ''; position: absolute; top: 50%; left: 50%; width: 480px; height: 480px; border: 1px dashed rgba(180,141,216,0.25); border-radius: 50%; transform: translate(-50%,-50%); animation: rotateSlow 60s linear infinite reverse; }
+@keyframes rotateSlow { from{transform:translate(-50%,-50%) rotate(0);} to{transform:translate(-50%,-50%) rotate(360deg);} }
+.confirm-mid-orbit { position: absolute; top: 50%; left: 50%; width: 560px; height: 560px; transform: translate(-50%,-50%); pointer-events: none; }
+.confirm-content { text-align: center; position: relative; z-index: 5; max-width: 720px; padding: 40px; animation: confirmRise 1000ms var(--ease); }
+@keyframes confirmRise {
+ from { opacity: 0; transform: translateY(20px) scale(0.96); filter: blur(6px); letter-spacing: 0.4em; }
+ to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+.confirm-index { font-family: var(--font-mono); font-size: 11px; color: var(--accent); letter-spacing: 0.4em; margin-bottom: 20px; text-transform: uppercase; }
+.confirm-name { font-family: var(--font-serif); font-weight: 900; font-size: 128px; line-height: 1; color: var(--ink-1); letter-spacing: 0.22em; margin-bottom: 16px; }
+[data-mode="ordinary"] .confirm-name { text-shadow: 0 0 30px rgba(212,163,75,0.5), 0 0 60px rgba(212,163,75,0.3); }
+[data-mode="hell"] .confirm-name { color: #F2EAD8; text-shadow: 0 0 30px rgba(216,52,74,0.6), 0 0 60px rgba(100,50,180,0.4), 2px 0 0 rgba(216,52,74,0.3), -2px 0 0 rgba(80,120,220,0.25); }
+[data-mode="paradise"] .confirm-name { background: linear-gradient(135deg, #F0C060 0%, #F0E8D0 35%, #B48DD8 70%, #7DABD8 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; filter: drop-shadow(0 0 40px rgba(212,163,75,0.4)); }
+.confirm-subtitle { font-family: var(--font-serif); font-size: 18px; color: var(--ink-2); letter-spacing: 0.3em; margin-bottom: 26px; font-style: italic; }
+.confirm-description { font-size: 14px; color: var(--ink-2); line-height: 1.9; max-width: 520px; margin: 0 auto 32px; }
+.confirm-stats { display: flex; justify-content: center; gap: 48px; padding: 18px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin-bottom: 32px; }
+.confirm-stats .cs-item { text-align: center; }
+.confirm-stats .cs-value { font-family: var(--font-mono); font-size: 26px; font-weight: 300; color: var(--ink-1); }
+.confirm-stats .cs-label { font-family: var(--font-mono); font-size: 10px; color: var(--ink-3); letter-spacing: 0.22em; margin-top: 4px; text-transform: uppercase; }
+.screen-header { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.stage-title { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.22em; color: var(--ink-3); text-transform: uppercase; }
+.stage-meta { font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); letter-spacing: 0.1em; }
+.stage-meta .sep { margin: 0 8px; opacity: 0.5; }
+.stage-meta .accent { color: var(--accent); }
+#scr-standby .standby-core { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 14px; }
+.standby-mode-tag { font-family: var(--font-mono); font-size: 11px; color: var(--accent); letter-spacing: 0.28em; padding: 5px 12px; border: 1px solid var(--line-strong); }
+.standby-title { font-family: var(--font-serif); font-weight: 700; font-size: 52px; color: var(--ink-1); line-height: 1.2; margin-top: 8px; }
+.standby-hint { font-size: 14px; color: var(--ink-3); letter-spacing: 0.1em; }
+.standby-stats { display: flex; gap: 56px; margin-top: 30px; padding: 20px 40px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+
+/* 搶答模式預告(在 scr-standby 中) */
+.standby-rush-preview { margin-top: 20px; padding: 18px 32px; border: 1px solid var(--line-strong); display: flex; flex-direction: column; align-items: center; gap: 6px; background: rgba(212,163,75,0.04); }
+.standby-rush-preview .srp-eyebrow { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.32em; color: var(--ink-3); text-transform: uppercase; }
+.standby-rush-preview .srp-name { font-family: var(--font-serif); font-weight: 700; font-size: 28px; color: var(--accent); letter-spacing: 0.06em; text-shadow: 0 0 24px var(--glow); }
+.standby-rush-preview .srp-rule { font-size: 14px; color: var(--ink-2); line-height: 1.6; max-width: 560px; text-align: center; }
+.stat-item { text-align: center; }
+.stat-value { font-family: var(--font-mono); font-size: 32px; font-weight: 300; color: var(--ink-1); }
+.stat-value .unit { font-size: 13px; color: var(--ink-3); margin-left: 3px; }
+.stat-label { font-family: var(--font-mono); font-size: 10px; color: var(--ink-3); letter-spacing: 0.2em; margin-top: 4px; text-transform: uppercase; }
+#scr-countdown { padding: 0; align-items: center; justify-content: center; }
+#scr-countdown.active { display: flex; }
+.cd-rings { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+.cd-ring { position: absolute; top: 50%; left: 50%; border-radius: 50%; opacity: 0; transform: translate(-50%,-50%) scale(0.2); }
+.cd-ring-a { width: 280px; height: 280px; border: 1px solid rgba(212,163,75,.55); }
+.cd-ring-b { width: 420px; height: 420px; border: 1px solid rgba(212,163,75,.28); }
+.cd-ring-c { width: 560px; height: 560px; border: 1px solid rgba(212,163,75,.14); }
+.cd-ring.burst { animation: ringBurst 900ms var(--ease-q) forwards; }
+@keyframes ringBurst { 0%{transform:translate(-50%,-50%) scale(0.2);opacity:0.9;} 100%{transform:translate(-50%,-50%) scale(1);opacity:0;} }
+.cd-core { position: relative; z-index: 2; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.cd-eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.38em; color: var(--ink-3); text-transform: uppercase; }
+.cd-num { font-family: var(--font-serif); font-weight: 900; font-size: 220px; line-height: 1; letter-spacing: -0.02em; color: var(--ink-1); text-shadow: 0 0 60px rgba(212,163,75,.25); }
+.cd-num.tick { animation: numTick 750ms var(--ease-q); }
+@keyframes numTick { 0%{opacity:0;transform:scale(1.5);filter:blur(14px);} 45%{opacity:1;filter:blur(0);} 100%{opacity:1;transform:scale(1);} }
+.cd-num.go-flash { color: #D4A34B; text-shadow: 0 0 40px rgba(212,163,75,.9), 0 0 90px rgba(212,163,75,.5); animation: goFlash 650ms var(--ease-q); }
+@keyframes goFlash { 0%{opacity:0;transform:scale(0.5);letter-spacing:0.3em;filter:blur(10px);} 60%{opacity:1;filter:blur(0);} 100%{transform:scale(1);letter-spacing:-0.02em;} }
+#scr-buzzing { padding: 0; align-items: center; justify-content: center; }
+#scr-buzzing.active { display: flex; }
+.buzz-core { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 24px; animation: screenIn 400ms ease-out; }
+.buzz-eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.38em; color: var(--ink-3); text-transform: uppercase; }
+.buzz-title { font-family: var(--font-serif); font-weight: 900; font-size: 72px; color: var(--ink-1); letter-spacing: 0.08em; line-height: 1; }
+.buzz-dots { display: flex; gap: 12px; align-items: center; }
+.buzz-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); animation: bDot 0.8s ease-in-out infinite; }
+.buzz-dot:nth-child(2) { animation-delay: 0.15s; }
+.buzz-dot:nth-child(3) { animation-delay: 0.30s; }
+@keyframes bDot { 0%,100%{transform:scale(0.55);opacity:0.3;} 50%{transform:scale(1.2);opacity:1;} }
+
+/* 隨機揭曉畫面(scr-reveal):隨機模式按開始搶答時,5 秒揭曉本輪實際模式 */
+#scr-reveal { padding: 0; align-items: center; justify-content: center; }
+#scr-reveal.active { display: flex; }
+.reveal-core { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 22px; animation: revealIn 600ms cubic-bezier(.2,.7,.2,1); padding: 60px; max-width: 900px; }
+@keyframes revealIn { from { opacity: 0; transform: translateY(12px) scale(.96); } to { opacity: 1; transform: none; } }
+.reveal-eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.4em; color: var(--ink-3); text-transform: uppercase; }
+.reveal-rolling { font-family: var(--font-mono); font-size: 13px; letter-spacing: 0.32em; color: var(--accent); animation: rollPulse 600ms ease-in-out infinite; }
+@keyframes rollPulse { 0%,100%{opacity:.4;} 50%{opacity:1;} }
+.reveal-mode-name { font-family: var(--font-serif); font-weight: 900; font-size: 96px; color: var(--accent); letter-spacing: 0.08em; line-height: 1; text-shadow: 0 0 50px var(--glow), 0 0 100px rgba(212,163,75,.4); animation: nameGlow 1800ms ease-in-out infinite; }
+@keyframes nameGlow { 0%,100%{filter:brightness(1)} 50%{filter:brightness(1.18)} }
+.reveal-rule { font-size: 22px; color: var(--ink-1); line-height: 1.65; max-width: 640px; margin-top: 4px; }
+.reveal-prep { font-family: var(--font-serif); font-weight: 700; font-size: 26px; color: var(--ink-2); margin-top: 10px; letter-spacing: 0.08em; }
+.reveal-progress { width: 380px; height: 4px; background: rgba(155,163,181,0.1); border: 1px solid var(--line); margin-top: 18px; overflow: hidden; position: relative; }
+.reveal-progress-fill { position: absolute; inset: 0; background: linear-gradient(90deg, var(--accent), var(--accent-b)); transform-origin: left; transform: scaleX(0); box-shadow: 0 0 20px var(--glow); }
+.reveal-progress.run .reveal-progress-fill { animation: revealCountdown 5s linear forwards; }
+@keyframes revealCountdown { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* 狂點奪魁:主持人投影計數面板 */
+.buzz-count-panel { display: none; flex-direction: column; align-items: center; gap: 28px; width: 100%; max-width: 720px; padding: 40px; animation: screenIn 400ms ease-out; }
+#scr-buzzing.is-count .buzz-core { display: none; }
+#scr-buzzing.is-count .buzz-count-panel { display: flex; }
+
+/* 全組到位 panel */
+.buzz-allhands-panel { display: none; flex-direction: column; align-items: center; gap: 24px; width: 100%; max-width: 760px; padding: 40px; animation: screenIn 400ms ease-out; }
+#scr-buzzing.is-allhands .buzz-core { display: none; }
+#scr-buzzing.is-allhands .buzz-allhands-panel { display: flex; }
+.bah-eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.4em; color: var(--accent); text-transform: uppercase; }
+.bah-title { font-family: var(--font-serif); font-weight: 900; font-size: 32px; color: var(--ink-1); letter-spacing: 0.06em; line-height: 1.2; text-align: center; }
+.bah-remain { font-family: var(--font-mono); font-weight: 900; font-size: 96px; color: var(--accent); line-height: 1; text-shadow: 0 0 50px var(--glow), 0 0 90px rgba(212,163,75,.4); }
+.bah-remain .bah-unit { font-size: 36px; color: var(--ink-3); margin-left: 8px; font-weight: 500; }
+.bah-bars { width: 100%; display: flex; flex-direction: column; gap: 14px; margin-top: 4px; }
+.bah-bar-row { display: flex; align-items: center; gap: 16px; transition: opacity 200ms; }
+.bah-bar-row.leader .bah-bar-name { color: var(--accent); }
+.bah-bar-row.leader .bah-bar-best-frac { color: var(--accent); font-weight: 900; }
+.bah-bar-name { font-family: var(--font-serif); font-weight: 700; font-size: 18px; color: var(--ink-2); min-width: 110px; text-align: right; }
+.bah-bar-track { flex: 1; height: 32px; background: rgba(155,163,181,0.06); border: 1px solid var(--line); position: relative; overflow: hidden; }
+/* 底色 fill = 當下 0.5 秒同步集群人數,即時跳動,稀薄 */
+.bah-bar-fill-current { position: absolute; top: 0; left: 0; bottom: 0; background: rgba(212,163,75,0.18); transition: width 100ms linear; }
+/* 上面實心線條 = 該組目前為止最佳集群,只增不減 */
+.bah-bar-fill-best { position: absolute; top: 0; left: 0; bottom: 0; background: linear-gradient(90deg, rgba(212,163,75,.7), var(--accent)); transition: width 220ms cubic-bezier(.2,.7,.2,1); box-shadow: 0 0 18px var(--glow); }
+.bah-bar-row.leader .bah-bar-fill-best { background: linear-gradient(90deg, #F0C988, var(--accent)); box-shadow: 0 0 26px rgba(240,201,136,.65); }
+/* 右側資料:best / total + 當下小字 */
+.bah-bar-stats { display: flex; flex-direction: column; align-items: flex-start; min-width: 96px; gap: 1px; }
+.bah-bar-best-frac { font-family: var(--font-mono); font-weight: 700; font-size: 18px; color: var(--ink-1); }
+.bah-bar-now { font-family: var(--font-mono); font-size: 10px; letter-spacing: .12em; color: var(--ink-3); }
+.bah-bar-now .now-num { color: var(--ink-2); font-weight: 700; }
+
+/* 閃電一按 panel */
+.buzz-lightning-panel { display: none; flex-direction: column; align-items: center; gap: 28px; width: 100%; max-width: 720px; padding: 40px; animation: screenIn 400ms ease-out; }
+#scr-buzzing.is-lightning .buzz-core { display: none; }
+#scr-buzzing.is-lightning .buzz-lightning-panel { display: flex; }
+.bli-eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.4em; color: var(--accent); text-transform: uppercase; }
+.bli-title { font-family: var(--font-serif); font-weight: 900; font-size: 36px; color: var(--ink-1); letter-spacing: 0.08em; line-height: 1.1; text-align: center; }
+.bli-phase { font-family: var(--font-serif); font-weight: 900; font-size: 64px; line-height: 1; letter-spacing: 0.08em; transition: color 300ms; }
+.bli-phase.danger { color: #C4202E; text-shadow: 0 0 30px rgba(196,32,46,.5); animation: dangerPulse 700ms ease-in-out infinite; }
+.bli-phase.go { color: var(--accent); text-shadow: 0 0 50px var(--glow), 0 0 100px rgba(212,163,75,.5); animation: goPulse 800ms ease-in-out infinite; }
+@keyframes dangerPulse { 0%,100%{filter:brightness(1)} 50%{filter:brightness(1.3)} }
+@keyframes goPulse { 0%,100%{filter:brightness(1)} 50%{filter:brightness(1.4)} }
+.bli-progress { width: 480px; height: 6px; background: rgba(155,163,181,0.08); border: 1px solid var(--line); position: relative; overflow: hidden; }
+.bli-progress-fill { position: absolute; inset: 0; transform-origin: left; transform: scaleX(0); transition: transform 100ms linear; }
+.bli-progress-fill.danger { background: linear-gradient(90deg, rgba(196,32,46,.4), #C4202E); box-shadow: 0 0 18px rgba(196,32,46,.5); }
+.bli-progress-fill.go { background: linear-gradient(90deg, rgba(212,163,75,.5), var(--accent)); box-shadow: 0 0 18px var(--glow); }
+.bli-disq-list { width: 100%; max-height: 220px; overflow: hidden; display: flex; flex-direction: column; gap: 8px; }
+.bli-disq-eyebrow { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.3em; color: var(--ink-3); text-transform: uppercase; text-align: center; margin-bottom: 4px; }
+.bli-disq-row { display: flex; gap: 12px; align-items: center; justify-content: center; font-family: var(--font-serif); font-size: 16px; padding: 8px 16px; border: 1px solid rgba(196,32,46,.35); background: rgba(196,32,46,.08); animation: disqIn 400ms ease-out; }
+@keyframes disqIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+.bli-disq-row .disq-team { color: var(--ink-3); font-size: 13px; }
+.bli-disq-row .disq-name { color: #E97484; font-weight: 700; }
+.bli-disq-row .disq-tag { font-family: var(--font-mono); font-size: 10px; letter-spacing: .2em; color: #C4202E; padding: 2px 8px; border: 1px solid rgba(196,32,46,.5); }
+.bcp-eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.4em; color: var(--accent); text-transform: uppercase; }
+.bcp-title { font-family: var(--font-serif); font-weight: 900; font-size: 48px; color: var(--ink-1); letter-spacing: 0.08em; line-height: 1; }
+.bcp-remain { font-family: var(--font-mono); font-weight: 900; font-size: 96px; color: var(--accent); line-height: 1; text-shadow: 0 0 50px var(--glow), 0 0 90px rgba(212,163,75,.4); }
+.bcp-remain .bcp-unit { font-size: 36px; color: var(--ink-3); margin-left: 8px; font-weight: 500; }
+.bcp-bars { width: 100%; display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+.bcp-bar-row { display: flex; align-items: center; gap: 16px; }
+.bcp-bar-name { font-family: var(--font-serif); font-weight: 700; font-size: 18px; color: var(--ink-2); min-width: 100px; text-align: right; }
+.bcp-bar-track { flex: 1; height: 28px; background: rgba(155,163,181,0.06); border: 1px solid var(--line); position: relative; overflow: hidden; }
+.bcp-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-b)); transition: width 100ms linear; box-shadow: 0 0 20px var(--glow); }
+.bcp-bar-row.leader .bcp-bar-fill { background: linear-gradient(90deg, #F0C988, var(--accent)); box-shadow: 0 0 30px rgba(240,201,136,.7); }
+.bcp-bar-count { font-family: var(--font-mono); font-weight: 700; font-size: 22px; color: var(--ink-1); min-width: 60px; text-align: left; }
+.bcp-bar-row.leader .bcp-bar-count { color: var(--accent); }
+#scr-winner { padding: 0; align-items: center; justify-content: center; }
+#scr-winner.active { display: flex; }
+.win-flash { position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(212,163,75,.38) 0%, transparent 68%); z-index: 1; pointer-events: none; animation: winFlash 1400ms ease-out forwards; }
+@keyframes winFlash { 0%{opacity:1} 100%{opacity:0} }
+.win-core { position: relative; z-index: 2; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 14px; animation: screenIn 700ms var(--ease-q); }
+.win-badge { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.36em; color: var(--accent); padding: 5px 16px; border: 1px solid rgba(212,163,75,.38); text-transform: uppercase; }
+.win-group { font-family: var(--font-serif); font-weight: 900; font-size: 96px; line-height: 1.05; color: var(--ink-1); letter-spacing: 0.06em; text-shadow: 0 0 30px rgba(212,163,75,.45), 0 0 70px rgba(212,163,75,.2); }
+.win-rule { width: 180px; height: 1px; background: linear-gradient(to right, transparent, rgba(212,163,75,.45), transparent); }
+.win-sub { font-size: 17px; color: var(--ink-2); line-height: 1.65; }
+.win-sub .person { color: var(--ink-1); font-weight: 700; }
+.win-sub .ms { font-family: var(--font-mono); color: var(--accent); font-size: 20px; font-weight: 500; }
+.win-next-hint { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.24em; color: var(--ink-3); text-transform: uppercase; margin-top: 6px; }
+
+/* count 模式:第二名小卡 */
+.win-runnerup { margin-top: 4px; padding: 14px 28px; border: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; gap: 4px; animation: screenIn 800ms var(--ease-q) 200ms backwards; }
+.win-runnerup .wru-eyebrow { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.32em; color: var(--ink-3); text-transform: uppercase; }
+.win-runnerup .wru-line { font-family: var(--font-serif); font-size: 18px; color: var(--ink-2); }
+.win-runnerup .wru-name { color: var(--ink-1); font-weight: 700; }
+.win-runnerup .wru-count { font-family: var(--font-mono); color: var(--accent); font-weight: 700; }
+#scr-category .category-grid { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 14px; }
+.cat-card { background: var(--bg-surface); border: 1px solid var(--line); padding: 16px 18px; cursor: pointer; transition: all 240ms var(--ease); display: flex; flex-direction: column; justify-content: space-between; min-height: 92px; position: relative; overflow: hidden; border-radius: 12px; }
+.cat-card::after { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at bottom, var(--glow) 0%, transparent 70%); opacity: 0; transition: opacity 280ms ease-out; pointer-events: none; }
+.cat-card:hover { background: var(--bg-raised); border-color: var(--line-strong); transform: translateY(-2px); }
+.cat-card:hover::after { opacity: 1; }
+.cat-card .cat-id { font-family: var(--font-mono); font-size: 10px; color: var(--ink-3); letter-spacing: 0.2em; margin-bottom: 6px; }
+.cat-card .cat-name { font-size: 15px; font-weight: 500; color: var(--ink-1); line-height: 1.4; }
+.cat-card .cat-count { font-family: var(--font-mono); font-size: 10px; color: var(--ink-3); margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); letter-spacing: 0.08em; }
+.cat-card .cat-count .num { color: var(--ink-2); font-size: 12px; font-weight: 500; }
+/* 預覽中(助理在切但還沒拍板):柔和呼吸光暈,暗示尚未確定 */
+.cat-card.preview {
+  border-color: var(--accent);
+  background: var(--bg-raised);
+  transform: translateY(-2px);
+  animation: catCardPreview 1.6s ease-in-out infinite;
+}
+.cat-card.preview::after { opacity: 1; }
+@keyframes catCardPreview {
+  0%,100% { box-shadow: 0 0 0 1px var(--accent), 0 0 24px var(--glow); }
+  50%     { box-shadow: 0 0 0 1px var(--accent-bright), 0 0 48px var(--accent-bright); }
+}
+/* 拍板:強烈閃光進場 + 持續金光 + 其他卡灰掉 */
+.cat-card.locked {
+  border-color: var(--accent-bright);
+  background: linear-gradient(135deg, var(--bg-raised), var(--bg-surface));
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 0 0 2px var(--accent-bright), 0 0 60px var(--accent), 0 12px 32px rgba(0,0,0,0.5);
+  animation: catCardLock 600ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  z-index: 5;
+}
+.cat-card.locked::after {
+  opacity: 1;
+  background: radial-gradient(ellipse at center, var(--glow) 0%, transparent 75%);
+}
+@keyframes catCardLock {
+  0%   { transform: translateY(-2px) scale(1.06); box-shadow: 0 0 0 4px var(--accent-bright), 0 0 120px var(--accent-bright), 0 12px 32px rgba(0,0,0,0.6); filter: brightness(1.4); }
+  100% { transform: translateY(-2px) scale(1.03); box-shadow: 0 0 0 2px var(--accent-bright), 0 0 60px var(--accent), 0 12px 32px rgba(0,0,0,0.5); filter: brightness(1); }
+}
+.cat-card.locked .cat-name { color: var(--accent-bright); font-weight: 700; }
+.cat-card.locked .cat-id { color: var(--accent); }
+/* 拍板後其他卡淡出 */
+#scr-category.has-locked .cat-card:not(.locked) { opacity: 0.25; filter: grayscale(0.5); transition: opacity 600ms, filter 600ms; }
+/* 該模式下無題目的格子(灰色,完全不能點) */
+.cat-card.empty { opacity: 0.22; filter: grayscale(0.7); pointer-events: none; cursor: not-allowed; }
+.cat-card.empty .cat-name, .cat-card.empty .cat-id, .cat-card.empty .cat-count { color: var(--ink-4); }
+.winner-banner { display: flex; align-items: baseline; gap: 12px; margin-top: 12px; }
+.winner-banner .winner-label { font-family: var(--font-mono); font-size: 10px; color: var(--ink-3); letter-spacing: 0.22em; }
+.winner-banner .winner-name { font-size: 20px; font-weight: 700; color: var(--accent); }
+.winner-banner .winner-group { font-family: var(--font-mono); font-size: 10px; color: var(--ink-3); letter-spacing: 0.1em; }
+.question-pane { flex: 1; display: flex; flex-direction: column; padding-top: 16px; min-height: 0; }
+.q-breadcrumb { display: flex; gap: 10px; align-items: center; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.14em; color: var(--ink-3); margin-bottom: 16px; text-transform: uppercase; flex-shrink: 0; }
+.q-breadcrumb .dot { opacity: 0.5; }
+.q-breadcrumb .difficulty-mark { color: var(--accent); font-weight: 700; }
+.q-stem { font-weight: 500; font-size: 22px; line-height: 1.55; color: var(--ink-1); max-width: 860px; margin-bottom: 22px; }
+.q-stem strong { color: var(--accent); font-weight: 700; }
+.q-options { display: flex; flex-direction: column; gap: 9px; max-width: 820px; }
+.q-option { display: flex; align-items: flex-start; gap: 16px; padding: 14px 20px; background: var(--bg-surface); border: 1px solid var(--line); transition: all 300ms var(--ease); cursor: pointer; user-select: none; }
+.q-option:hover { background: var(--bg-raised); border-color: var(--line-strong); transform: translateX(4px); }
+.q-option .opt-letter { font-family: var(--font-mono); font-size: 13px; font-weight: 500; color: var(--ink-3); letter-spacing: 0.08em; width: 18px; flex-shrink: 0; transition: color 400ms; padding-top: 2px; }
+.q-option .opt-text { font-size: 16px; line-height: 1.6; color: var(--ink-1); transition: color 400ms; }
+.q-option .opt-badge { margin-left: auto; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.2em; padding: 3px 8px; border: 1px solid; align-self: center; flex-shrink: 0; opacity: 0; transition: opacity 360ms ease-out 200ms; text-transform: uppercase; }
+.q-option .opt-badge.badge-correct { color: var(--bg-void); border-color: rgba(10,10,10,0.3); background: rgba(255,255,255,0.15); }
+.q-option .opt-badge.badge-incorrect { color: #EC5068; border-color: rgba(216,52,74,0.5); background: rgba(216,52,74,0.1); }
+.q-option.selected { background: var(--bg-raised); border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 20px var(--glow); }
+.q-option.selected .opt-letter { color: var(--accent); font-weight: 700; }
+.q-option.revealed-incorrect { opacity: 0.26; box-shadow: none; border-color: var(--line); background: var(--bg-surface); }
+.q-option.revealed-correct { background: var(--accent) !important; border-color: var(--accent) !important; box-shadow: 0 0 0 4px var(--glow), 0 0 40px var(--glow) !important; transform: translateX(6px) !important; opacity: 1 !important; }
+.q-option.revealed-correct .opt-letter, .q-option.revealed-correct .opt-text { color: var(--bg-void) !important; font-weight: 700 !important; }
+.q-option.revealed-correct .opt-text { font-weight: 600 !important; }
+.q-option.revealed-player-correct { animation: correctCelebrate 900ms var(--ease) forwards; }
+@keyframes correctCelebrate { 0%{transform:translateX(6px) scale(1);} 18%{transform:translateX(6px) scale(1.08);box-shadow:0 0 0 22px transparent, 0 0 100px var(--glow), 0 0 60px var(--accent);} 45%{transform:translateX(6px) scale(1.04);} 100%{transform:translateX(6px) scale(1);} }
+.q-option.revealed-player-incorrect { background: var(--bg-surface) !important; border-color: #D8344A !important; box-shadow: 0 0 0 2px rgba(216,52,74,0.5), 0 0 32px rgba(216,52,74,0.35) !important; opacity: 0.72 !important; animation: incorrectShake 560ms var(--ease-shake); transform: translateX(0) !important; }
+.q-option.revealed-player-incorrect .opt-letter { color: #EC5068 !important; font-weight: 700 !important; }
+.q-option.revealed-player-incorrect .opt-text { color: var(--ink-2) !important; text-decoration: line-through; text-decoration-color: rgba(216,52,74,0.6); text-decoration-thickness: 1.5px; }
+.q-option.revealed-correct .opt-badge, .q-option.revealed-player-incorrect .opt-badge { opacity: 1; }
+@keyframes incorrectShake { 0%,100%{transform:translateX(0);} 8%{transform:translateX(-10px);} 18%{transform:translateX(10px);} 28%{transform:translateX(-9px);} 38%{transform:translateX(9px);} 48%{transform:translateX(-7px);} 58%{transform:translateX(7px);} 68%{transform:translateX(-4px);} 78%{transform:translateX(4px);} 88%{transform:translateX(-2px);} }
+.q-explanation { margin-top: 18px; padding: 14px 20px 14px 22px; border-left: 2px solid var(--accent); max-width: 820px; opacity: 0; transform: translateY(8px); transition: all 500ms ease-out 300ms; }
+.q-explanation.shown { opacity: 1; transform: translateY(0); }
+.q-explanation .exp-label { font-family: var(--font-mono); font-size: 10px; color: var(--accent); letter-spacing: 0.22em; margin-bottom: 6px; text-transform: uppercase; }
+.q-explanation .exp-text { font-size: 13px; line-height: 1.75; color: var(--ink-2); }
+.q-short-answer { margin-top: 4px; max-width: 860px; background: var(--bg-surface); border-left: 3px solid var(--accent); padding: 20px 24px; opacity: 0; transform: translateY(12px); transition: all 500ms var(--ease); }
+.q-short-answer.shown { opacity: 1; transform: translateY(0); }
+.q-short-answer .sa-label { font-family: var(--font-mono); font-size: 10px; color: var(--accent); letter-spacing: 0.24em; margin-bottom: 8px; text-transform: uppercase; }
+.q-short-answer .sa-text { font-size: 15px; line-height: 1.75; color: var(--ink-1); }
+.q-essay-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; flex: 1; min-height: 0; }
+.q-essay-left { overflow: hidden; display: flex; flex-direction: column; }
+.q-essay-left .q-stem { font-size: 17px; margin-bottom: 14px; }
+.q-essay-right { background: var(--bg-surface); border-left: 3px solid var(--accent); padding: 18px 20px; overflow-y: auto; opacity: 0; transform: translateX(16px); transition: all 600ms var(--ease); }
+.q-essay-right.shown { opacity: 1; transform: translateX(0); }
+.q-essay-right .ess-section-label { font-family: var(--font-mono); font-size: 10px; color: var(--accent); letter-spacing: 0.22em; margin-bottom: 8px; text-transform: uppercase; }
+.q-essay-right .ess-key-points { list-style: none; margin-bottom: 14px; }
+.q-essay-right .ess-key-points li { font-size: 13px; line-height: 1.65; color: var(--ink-1); padding-left: 16px; position: relative; margin-bottom: 6px; }
+.q-essay-right .ess-key-points li::before { content: ''; position: absolute; left: 0; top: 10px; width: 6px; height: 1px; background: var(--accent); }
+.q-essay-right .ess-model-label { padding-top: 12px; border-top: 1px solid var(--line); }
+.q-essay-right .ess-model-text { font-size: 12.5px; line-height: 1.8; color: var(--ink-2); font-family: var(--font-serif); }
+.q-essay-right .ess-model-text p { margin-bottom: 8px; }
+.q-essay-layout.stage-question .q-essay-right { display: none; }
+.q-essay-layout.stage-question { grid-template-columns: 1fr; }
+.q-calc-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; flex: 1; min-height: 0; }
+.q-calc-given { background: var(--bg-surface); border: 1px solid var(--line); padding: 16px 20px; align-self: flex-start; margin-bottom: 12px; }
+.q-calc-given .given-label { font-family: var(--font-mono); font-size: 10px; color: var(--ink-3); letter-spacing: 0.22em; margin-bottom: 8px; text-transform: uppercase; }
+.q-calc-given dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 16px; }
+.q-calc-given dt { font-size: 12px; color: var(--ink-3); font-family: var(--font-mono); }
+.q-calc-given dd { font-size: 13px; color: var(--ink-1); font-family: var(--font-mono); font-weight: 500; }
+.q-calc-solution { background: var(--bg-surface); border-left: 3px solid var(--accent); padding: 18px 20px; overflow-y: auto; opacity: 0; transform: translateX(16px); transition: all 600ms var(--ease); }
+.q-calc-solution.shown { opacity: 1; transform: translateX(0); }
+.q-calc-solution .sol-label { font-family: var(--font-mono); font-size: 10px; color: var(--accent); letter-spacing: 0.22em; margin-bottom: 10px; text-transform: uppercase; }
+.q-calc-solution .sol-steps { list-style: none; counter-reset: stepNum; margin-bottom: 14px; }
+.q-calc-solution .sol-steps li { counter-increment: stepNum; font-size: 13px; line-height: 1.7; color: var(--ink-1); padding-left: 28px; position: relative; margin-bottom: 6px; }
+.q-calc-solution .sol-steps li::before { content: counter(stepNum, decimal-leading-zero); position: absolute; left: 0; top: 1px; font-family: var(--font-mono); font-size: 11px; color: var(--accent); }
+.q-calc-solution .sol-final { padding-top: 12px; border-top: 1px solid var(--line); display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.q-calc-solution .sol-final-label { font-family: var(--font-mono); font-size: 10px; color: var(--ink-3); letter-spacing: 0.2em; text-transform: uppercase; }
+.q-calc-solution .sol-final-value { font-family: var(--font-mono); font-size: 30px; font-weight: 300; color: var(--accent); }
+.q-calc-solution .sol-final-unit { font-family: var(--font-mono); font-size: 12px; color: var(--ink-2); }
+.q-calc-layout.stage-question { grid-template-columns: 1fr; }
+.q-calc-layout.stage-question .q-calc-solution { display: none; }
+.q-word-stage { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 20px; }
+.q-word-prompt { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); letter-spacing: 0.3em; text-transform: uppercase; }
+.q-word-char { font-family: var(--font-serif); font-weight: 900; font-size: 150px; line-height: 1; color: var(--ink-1); letter-spacing: 0.02em; text-shadow: 0 0 40px var(--glow); }
+.q-word-options { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; width: 100%; max-width: 720px; }
+.q-word-option { background: var(--bg-surface); border: 1px solid var(--line); padding: 14px 10px; text-align: center; transition: all 300ms var(--ease); cursor: pointer; }
+.q-word-option:hover { background: var(--bg-raised); border-color: var(--line-strong); transform: translateY(-2px); }
+.q-word-option .wo-letter { font-family: var(--font-mono); font-size: 10px; color: var(--ink-3); letter-spacing: 0.14em; margin-bottom: 6px; }
+.q-word-option .wo-phonetic { font-size: 22px; font-weight: 500; color: var(--ink-1); }
+.q-word-option.selected { background: var(--bg-raised); border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 20px var(--glow); }
+.q-word-option.selected .wo-letter { color: var(--accent); font-weight: 700; }
+.q-word-option.revealed-incorrect { opacity: 0.25; }
+.q-word-option.revealed-correct { background: var(--accent) !important; border-color: var(--accent) !important; box-shadow: 0 0 0 4px var(--glow) !important; transform: translateY(-4px) !important; opacity: 1 !important; }
+.q-word-option.revealed-correct .wo-letter, .q-word-option.revealed-correct .wo-phonetic { color: var(--bg-void) !important; font-weight: 700 !important; }
+.q-word-option.revealed-player-correct { animation: wordCorrect 900ms var(--ease) forwards; }
+.q-word-option.revealed-player-incorrect { background: var(--bg-surface) !important; border-color: #D8344A !important; box-shadow: 0 0 0 2px rgba(216,52,74,0.5), 0 0 28px rgba(216,52,74,0.3) !important; opacity: 0.7 !important; animation: incorrectShake 560ms var(--ease-shake); transform: translateY(0) !important; }
+.q-word-option.revealed-player-incorrect .wo-letter { color: #EC5068 !important; font-weight: 700 !important; }
+.q-word-option.revealed-player-incorrect .wo-phonetic { color: var(--ink-2) !important; text-decoration: line-through; text-decoration-color: rgba(216,52,74,0.6); }
+@keyframes wordCorrect { 0%{transform:translateY(-4px) scale(1);} 18%{transform:translateY(-4px) scale(1.1);box-shadow:0 0 0 20px transparent, 0 0 80px var(--glow);} 50%{transform:translateY(-4px) scale(1.05);} 100%{transform:translateY(-4px) scale(1);} }
+.q-word-meaning { margin-top: 4px; opacity: 0; transform: translateY(8px); transition: all 500ms ease-out 320ms; max-width: 580px; padding: 12px 18px; background: var(--bg-surface); border-left: 2px solid var(--accent); text-align: left; }
+.q-word-meaning.shown { opacity: 1; transform: translateY(0); }
+.q-word-meaning .wm-label { font-family: var(--font-mono); font-size: 10px; color: var(--accent); letter-spacing: 0.22em; margin-bottom: 4px; text-transform: uppercase; }
+.q-word-meaning .wm-text { font-size: 14px; line-height: 1.7; color: var(--ink-1); }
+.footnote { text-align: center; padding: 4px; font-family: var(--font-mono); font-size: 10px; color: #3A4160; letter-spacing: 0.2em; text-transform: uppercase; }
+.footnote .pulse { display: inline-block; width: 5px; height: 5px; background: #D4A34B; border-radius: 50%; margin-right: 8px; vertical-align: middle; animation: dotPulse 2400ms ease-in-out infinite; }
+@keyframes dotPulse { 0%,100%{opacity:0.4;} 50%{opacity:1;} }
+@media (max-width: 720px) {
+ .demo-chrome { padding: 10px; }
+ .stage { aspect-ratio: auto; min-height: 88vh; }
+ .screen { padding: 18px 18px 90px; }
+ .confirm-name { font-size: 56px; letter-spacing: 0.15em; }
+ .category-grid { grid-template-columns: repeat(2,1fr) !important; gap: 8px !important; }
+ .q-stem { font-size: 16px; }
+ .q-option .opt-text { font-size: 13px; }
+ .q-essay-layout, .q-calc-layout { grid-template-columns: 1fr; gap: 10px; }
+ .standby-title { font-size: 30px; }
+ .standby-stats { gap: 18px; padding: 12px; flex-wrap: wrap; }
+  .q-word-char { font-size: 90px; }
+ .q-word-options { grid-template-columns: repeat(2,1fr); }
+ .host-btn { font-size: 9px; padding: 6px 9px; }
+ .demo-tips { display: none; }
+ #scr-select .modes { flex-wrap: wrap; }
+ .mode-card { width: 160px; height: auto; }
+ .custom-main-title { font-size: 72px; }
+}
+
+</style>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+
+<div class="demo-chrome">
+  <div class="demo-header">
+    <div class="demo-brand">保險知識星攻略 · 主持人端 <span class="tag">v1.0</span></div>
+    <div class="demo-tips"><span><span class="dot">●</span> 合併版 · 模式選擇 + 自由設定 + 遊戲流程</span></div>
+  </div>
+
+  <div class="stage-wrap">
+    <div class="stage" id="stage" data-mode="select" data-selected="">
+
+      <!-- 全屏對錯瞬閃 -->
+      <div id="flash-overlay"></div>
+      <div id="vignette-overlay"></div>
+
+      <!-- BG Layers (Mode Select 專用) -->
+      <div class="bg-layer active" id="bg-select"></div>
+      <div class="bg-layer" id="bg-ordinary"></div>
+      <div class="bg-layer" id="bg-hell"></div>
+      <div class="bg-layer" id="bg-paradise"></div>
+      <div class="bg-layer" id="bg-custom"></div>
+
+      <!-- 極樂光粒子 -->
+      <div class="paradise-particles" id="paradise-particles">
+        <div class="pt pt-1"></div><div class="pt pt-2"></div>
+        <div class="pt pt-3"></div><div class="pt pt-4"></div>
+        <div class="pt pt-5"></div><div class="pt pt-6"></div>
+        <div class="pt pt-g1"></div><div class="pt pt-g2"></div>
+      </div>
+
+      <!-- ============================================================
+           SCREEN A · 模式選擇 (mode_select_main.html 視覺)
+           ============================================================ -->
+      <div class="screen active" id="scr-select">
+
+        <!-- 右上角:加入 QR Code(觀眾掃描用,遊戲開始或 1 分鐘後消失) -->
+        <div class="join-qr-box" id="join-qr-box">
+          <div class="jq-eyebrow">JOIN ROOM</div>
+          <div class="jq-qr" id="join-qr"></div>
+          <div class="jq-url" id="join-url">pgg.app/DEMO01</div>
+          <div class="jq-room-code" id="join-room-code">DEMO01</div>
+          <div class="jq-timer" id="join-qr-timer">60s</div>
+        </div>
+
+        <div class="crown">
+          <div class="crown-rule">
+            <div class="cr-line"></div>
+            <div class="cr-diamond"></div>
+            <div class="cr-line r"></div>
+          </div>
+          <div class="crown-sub">Insurance Knowledge Arena</div>
+          <h1 class="crown-logo">保險知識<span class="logo-accent">星攻略</span></h1>
+          <div class="crown-tagline">四個世界 · 437 道試煉 · 命運隨機</div>
+        </div>
+
+        <div class="player-pool" id="player-pool">
+          <div class="pp-eyebrow">PLAYER POOL</div>
+          <div class="pp-list" id="pp-list">
+            <div class="pp-empty">等待玩家加入</div>
+          </div>
+        </div>
+
+        <!-- 自由模式次選項(只在 stage.is-custom 時顯示;同步助理勾選) -->
+        <div class="custom-inline" id="custom-inline">
+          <div class="ci-row">
+            <div class="ci-group">
+              <span class="ci-title">題庫難度</span>
+              <div class="ci-chips" id="inline-tier-chips">
+                <span class="ci-chip" data-val="easy">簡單</span>
+                <span class="ci-chip" data-val="medium">中等</span>
+                <span class="ci-chip" data-val="hard">困難</span>
+                <span class="ci-chip" data-val="hell">地獄</span>
+                <span class="ci-chip purg" data-val="purgatory">煉獄</span>
+              </div>
+            </div>
+            <div class="ci-group">
+              <span class="ci-title">題型</span>
+              <div class="ci-chips" id="inline-type-chips">
+                <span class="ci-chip" data-val="multiple_choice">選擇題</span>
+                <span class="ci-chip" data-val="short_answer">簡答</span>
+                <span class="ci-chip" data-val="essay">申論</span>
+                <span class="ci-chip" data-val="calculation">計算</span>
+                <span class="ci-chip" data-val="word_game">一字千金</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modes">
+
+          <div class="mode-card" data-mode="ordinary">
+            <div class="card-num">I</div>
+            <div class="card-emblem">普通</div>
+            <div class="card-western">Ordinary</div>
+            <div class="card-poem">學海初渡、鞏固基礎。從條款、險種到實務計算、穩健前行的戰場。</div>
+            <div class="card-tiers">
+              <span class="tier-chip">簡單</span>
+              <span class="tier-chip">中等</span>
+              <span class="tier-chip">困難</span>
+            </div>
+          </div>
+
+          <div class="mode-card" data-mode="hell">
+            <div class="card-num">II</div>
+            <div class="card-emblem">地獄</div>
+            <div class="card-western">Hell</div>
+            <div class="card-poem">試煉場、唯強者生還。進階挑戰與精算判斷——煉獄以命運之姿潛伏其中。</div>
+            <div class="card-tiers">
+              <span class="tier-chip">困難</span>
+              <span class="tier-chip">地獄</span>
+              <span class="tier-chip">煉獄</span>
+            </div>
+          </div>
+
+          <div class="mode-card" data-mode="paradise">
+            <div class="card-num">III</div>
+            <div class="card-emblem">極樂</div>
+            <div class="card-western">Paradise</div>
+            <div class="card-poem">聽命運擲出骰子、順逆皆緣。全難度混雜、下一題可能是順水、也可能是拷問。</div>
+            <div class="card-tiers">
+              <span class="tier-chip">全部五級</span>
+            </div>
+          </div>
+
+          <div class="mode-card" data-mode="custom">
+            <div class="card-num">IV</div>
+            <div class="card-emblem">自由</div>
+            <div class="card-western">Custom</div>
+            <div class="card-poem">執卷自選、由心而定。難度與題型由你決定，煉獄按比例自然分佈。</div>
+            <div class="card-tiers">
+              <span class="tier-chip">自訂難度</span>
+              <span class="tier-chip">自訂題型</span>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- ============================================================
+           SCREEN B · 自由設定 (custom_mode_visual.html 視覺)
+           ============================================================ -->
+      <div class="screen" id="scr-custom">
+
+        <div class="spine left"></div>
+        <div class="spine right"></div>
+        <div class="seal">自選</div>
+
+        <div class="custom-main">
+          <div class="custom-eyebrow">MODE · 04 · CUSTOM</div>
+          <h1 class="custom-main-title">自由設定</h1>
+          <div class="custom-title-rule"></div>
+          <div class="custom-subtitle">執卷自選 · 由心而定</div>
+          <div class="custom-description">
+            選擇本場戰役要納入的題庫難度與題型。煉獄題在自由模式中為一般題庫的一個分類、按比例自然分佈、不另外觸發降臨特效。
+          </div>
+          <div class="custom-section-rule"></div>
+
+          <div class="selector-row">
+            <div class="selector-group">
+              <div class="group-head">
+                <span class="group-title">題庫難度</span>
+                <span class="group-hint">至少勾一個</span>
+              </div>
+              <div class="chips" id="tier-chips">
+                <div class="chip active"    data-group="tier" data-val="easy">簡單</div>
+                <div class="chip"           data-group="tier" data-val="medium">中等</div>
+                <div class="chip"           data-group="tier" data-val="hard">困難</div>
+                <div class="chip"           data-group="tier" data-val="hell">地獄</div>
+                <div class="chip purgatory" data-group="tier" data-val="purgatory">煉獄</div>
+              </div>
+            </div>
+            <div class="selector-group">
+              <div class="group-head">
+                <span class="group-title">題型</span>
+                <span class="group-hint">至少勾一個</span>
+              </div>
+              <div class="chips" id="type-chips">
+                <div class="chip active" data-group="type" data-val="multiple_choice">選擇題</div>
+                <div class="chip"        data-group="type" data-val="short_answer">簡答</div>
+                <div class="chip"        data-group="type" data-val="essay">申論</div>
+                <div class="chip"        data-group="type" data-val="calculation">計算</div>
+                <div class="chip"        data-group="type" data-val="word_game">一字千金</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="pool-bar">
+            <span class="pool-label">本場題池</span>
+            <span class="pool-value" id="pool-num">—</span>
+            <span class="pool-unit">題</span>
+          </div>
+        </div>
+
+
+      </div>
+
+      <!-- ============================================================
+           SCREEN C · 模式確認震懾頁
+           ============================================================ -->
+      <div class="screen" id="scr-confirm">
+        <div class="confirm-bg-deco"></div>
+        <div class="confirm-mid-orbit"></div>
+        <div class="confirm-content">
+          <div class="confirm-index" id="confirm-index">MODE · 01</div>
+          <h2 class="confirm-name" id="confirm-name">普通</h2>
+          <div class="confirm-subtitle" id="confirm-subtitle">學海初渡 · 從基礎啟航</div>
+          <div class="confirm-description" id="confirm-description">這裡是保險業務員的入門殿堂。</div>
+          <div class="confirm-stats">
+            <div class="cs-item"><div class="cs-value" id="confirm-stat-q">261</div><div class="cs-label">Questions</div></div>
+            <div class="cs-item"><div class="cs-value" id="confirm-stat-t">3</div><div class="cs-label">Tiers</div></div>
+            <div class="cs-item"><div class="cs-value" id="confirm-stat-c">5</div><div class="cs-label">Categories</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================
+           SCREEN D · 待命
+           ============================================================ -->
+      <div class="screen" id="scr-standby">
+        <div class="screen-header">
+          <div class="stage-title">Standby</div>
+          <div class="stage-meta">
+            <span id="standby-round">ROUND 01</span><span class="sep">/</span>
+            <span class="accent" id="standby-mode-label">普通模式</span>
+          </div>
+        </div>
+        <div class="standby-core">
+          <div class="standby-mode-tag" id="standby-mode-tag">MODE · 普通</div>
+          <div class="standby-title">等待搶答</div>
+          <div class="standby-hint">主持人將開啟下一輪競速</div>
+          <div class="standby-rush-preview" id="standby-rush-preview">
+            <div class="srp-eyebrow">下一輪 · 搶答模式</div>
+            <div class="srp-name" id="srp-name">電光石火</div>
+            <div class="srp-rule" id="srp-rule">321 GO 後最快按下的組獲勝</div>
+          </div>
+          <div class="standby-stats">
+            <div class="stat-item"><div class="stat-value" id="stat-remaining">261<span class="unit">題</span></div><div class="stat-label">Remaining</div></div>
+            <div class="stat-item"><div class="stat-value" id="stat-round">01</div><div class="stat-label">Round</div></div>
+            <div class="stat-item"><div class="stat-value">04<span class="unit">組</span></div><div class="stat-label">Teams</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================
+           SCREEN E · 倒數
+           ============================================================ -->
+      <div class="screen" id="scr-countdown">
+        <div class="cd-rings">
+          <div class="cd-ring cd-ring-a" id="cr-a"></div>
+          <div class="cd-ring cd-ring-b" id="cr-b"></div>
+          <div class="cd-ring cd-ring-c" id="cr-c"></div>
+        </div>
+        <div class="cd-core">
+          <div class="cd-eyebrow">搶答準備</div>
+          <div class="cd-num" id="cd-num">3</div>
+        </div>
+      </div>
+
+      <!-- ============================================================
+           SCREEN F · 搶答中
+           ============================================================ -->
+      <div class="screen" id="scr-reveal">
+        <div class="reveal-core">
+          <div class="reveal-eyebrow">隨機模式 · 揭曉</div>
+          <div class="reveal-rolling">本輪搶答方式</div>
+          <div class="reveal-mode-name" id="reveal-mode-name">電光石火</div>
+          <div class="reveal-rule" id="reveal-rule">321 GO 後最快按下的組獲勝</div>
+          <div class="reveal-prep">準備你的手指</div>
+          <div class="reveal-progress" id="reveal-progress"><div class="reveal-progress-fill"></div></div>
+        </div>
+      </div>
+
+      <div class="screen" id="scr-buzzing">
+        <div class="buzz-core">
+          <div class="buzz-eyebrow">Buzzing Now</div>
+          <div class="buzz-title">搶答中</div>
+          <div class="buzz-dots">
+            <div class="buzz-dot"></div><div class="buzz-dot"></div><div class="buzz-dot"></div>
+          </div>
+        </div>
+        <!-- 狂點奪魁:scr-buzzing 套上 .is-count 時顯示這個面板 -->
+        <div class="buzz-count-panel">
+          <div class="bcp-eyebrow">狂點奪魁 · COUNT</div>
+          <div class="bcp-title">5 秒內按最多次的組獲勝</div>
+          <div class="bcp-remain"><span id="bcp-remain-num">5.0</span><span class="bcp-unit">s</span></div>
+          <div class="bcp-bars" id="bcp-bars"></div>
+        </div>
+        <!-- 全組到位:scr-buzzing 套上 .is-allhands 時顯示 -->
+        <div class="buzz-allhands-panel">
+          <div class="bah-eyebrow">全組到位 · ALL HANDS</div>
+          <div class="bah-title">8 秒內 · 0.5 秒同步集群最大者勝</div>
+          <div class="bah-remain"><span id="bah-remain-num">8.0</span><span class="bah-unit">s</span></div>
+          <div class="bah-bars" id="bah-bars"></div>
+        </div>
+        <!-- 閃電一按:scr-buzzing 套上 .is-lightning 時顯示 -->
+        <div class="buzz-lightning-panel">
+          <div class="bli-eyebrow">閃電一按 · LIGHTNING</div>
+          <div class="bli-title" id="bli-title">3 秒前不要按!</div>
+          <div class="bli-phase danger" id="bli-phase">DANGER ZONE</div>
+          <div class="bli-progress" id="bli-progress"><div class="bli-progress-fill danger" id="bli-progress-fill"></div></div>
+          <div class="bli-disq-eyebrow">已淘汰</div>
+          <div class="bli-disq-list" id="bli-disq-list"></div>
+        </div>
+      </div>
+
+      <!-- ============================================================
+           SCREEN G · 搶到了
+           ============================================================ -->
+      <div class="screen" id="scr-winner">
+        <div class="win-flash" id="win-flash"></div>
+        <div class="win-core">
+          <div class="win-badge" id="win-badge">搶答成功</div>
+          <div class="win-group" id="win-group">第三組</div>
+          <div class="win-rule"></div>
+          <div class="win-sub" id="win-sub">
+            <span class="person" id="win-person">小熊蜂蜜</span>
+            &nbsp;搶答耗時&nbsp;<span class="ms" id="win-ms">0.003</span>&nbsp;秒
+          </div>
+          <!-- count 模式專用:第二名與點擊統計 -->
+          <div class="win-runnerup" id="win-runnerup" style="display:none">
+            <div class="wru-eyebrow">本輪第二名</div>
+            <div class="wru-line"><span class="wru-name" id="wru-name">第二組</span> · <span class="wru-count" id="wru-count">0</span> 次</div>
+          </div>
+          <div class="win-next-hint">進入分類選題</div>
+        </div>
+      </div>
+
+      <!-- ============================================================
+           SCREEN H · 分類選題
+           ============================================================ -->
+      <div class="screen" id="scr-category">
+        <div class="screen-header">
+          <div class="stage-title">Category Selection</div>
+          <div class="stage-meta">
+            <span id="cat-round">ROUND 01</span><span class="sep">/</span><span class="accent">搶答勝出</span>
+          </div>
+        </div>
+        <div class="winner-banner">
+          <span class="winner-label">SELECTED</span>
+          <span class="winner-name" id="winner-name">陳冠瑋</span>
+          <span class="winner-group" id="winner-group">· 第三組</span>
+        </div>
+        <div class="category-grid">
+          <div class="cat-card" data-fid="F1"><div class="cat-id">F1</div><div class="cat-name">保險基礎與法規</div><div class="cat-count">剩 <span class="num">22</span> 題</div></div>
+          <div class="cat-card" data-fid="F2"><div class="cat-id">F2</div><div class="cat-name">契約條款與效力</div><div class="cat-count">剩 <span class="num">26</span> 題</div></div>
+          <div class="cat-card" data-fid="F3"><div class="cat-id">F3</div><div class="cat-name">核保與健康告知</div><div class="cat-count">剩 <span class="num">18</span> 題</div></div>
+          <div class="cat-card" data-fid="F4"><div class="cat-id">F4</div><div class="cat-name">理賠實務與爭議</div><div class="cat-count">剩 <span class="num">30</span> 題</div></div>
+          <div class="cat-card" data-fid="F5"><div class="cat-id">F5</div><div class="cat-name">險種規劃與商品</div><div class="cat-count">剩 <span class="num">97</span> 題</div></div>
+          <div class="cat-card" data-fid="F6"><div class="cat-id">F6</div><div class="cat-name">精算、財務與監理</div><div class="cat-count">剩 <span class="num">53</span> 題</div></div>
+          <div class="cat-card" data-fid="F7"><div class="cat-id">F7</div><div class="cat-name">高資產與稅務傳承</div><div class="cat-count">剩 <span class="num">31</span> 題</div></div>
+          <div class="cat-card" data-fid="F8"><div class="cat-id">F8</div><div class="cat-name">業務倫理與合規</div><div class="cat-count">剩 <span class="num">21</span> 題</div></div>
+          <div class="cat-card" data-fid="F9"><div class="cat-id">F9</div><div class="cat-name">保費、保單運用與計算</div><div class="cat-count">剩 <span class="num">46</span> 題</div></div>
+        </div>
+      </div>
+
+      <!-- ============================================================
+           SCREEN I · 題目
+           ============================================================ -->
+      <div class="screen" id="scr-question">
+        <div class="screen-header">
+          <div class="stage-title" id="q-id-label">Question</div>
+          <div class="stage-meta">
+            <span id="q-round">ROUND 01</span><span class="sep">/</span><span id="q-diff">困難</span>
+          </div>
+        </div>
+        <div class="question-pane" id="q-body"></div>
+      </div>
+
+      <!-- ============================================================
+           SCREEN J · 煉獄降臨 (機率性事件,不需 UI 觸發)
+           觸發方式:summonPurgatory(),由主持人端透過 PartyKit 廣播
+           ============================================================ -->
+      <div class="screen" id="scr-purg-arrival">
+        <div class="purg-arr-bg"></div>
+        <div class="purg-fire">
+          <div class="fire-blob"></div><div class="fire-blob"></div><div class="fire-blob"></div>
+          <div class="fire-blob"></div><div class="fire-blob"></div><div class="fire-blob"></div>
+        </div>
+        <div class="purg-embers-c" id="purg-embers-arr"></div>
+        <div class="purg-haze"></div>
+        <div class="purg-arr-content">
+          <div class="purg-arr-omen">Fate Has Chosen</div>
+          <div class="purg-arr-title">煉獄</div>
+          <div class="purg-arr-sub">Purgatory · 命運降臨</div>
+        </div>
+      </div>
+
+    </div><!-- .stage -->
+  </div><!-- .stage-wrap -->
+
+  <div class="footnote"><span class="pulse"></span>v1.0 · 主選介面 · 自由設定 · 遊戲流程 · 音效合成</div>
+</div><!-- .demo-chrome -->
+
+<script>
+
+/* ═══════════════════════════════════════════════════════════════
+   房號 / 短網址 (DEMO 階段寫死,實裝時由 PartyKit server 提供)
+   ═══════════════════════════════════════════════════════════════ */
+const PGG_ROOM_CODE = 'DEMO01';
+const PGG_JOIN_URL = 'https://pgg.app/' + PGG_ROOM_CODE;
+
+const stage = document.getElementById('stage');
+let currentMode   = null;  // 正式進入的模式
+let selectedMode  = null;  // 在主選頁選中的模式(尚未確認)
+let pendingMode   = null;  // 確認頁待確認的模式
+let round         = 1;
+let isRevealed    = false;
+let currentQuestionIndex = 0;
+const modeConfig = {
+  ordinary: {
+    name: '普通', index: 'MODE · 01',
+    subtitle: '學海初渡 · 從基礎啟航',
+    description: '保險業務員的入門殿堂。題目聚焦條款解讀、險種認識、基礎保費計算、以及新人常見實務問題——是鞏固本職學能最穩健的戰場。',
+    stats: { q: 261, t: 3, c: 5 }, remaining: 261
+  },
+  hell: {
+    name: '地獄', index: 'MODE · 02',
+    subtitle: '試煉場 · 唯強者生還',
+    description: '進階挑戰、涵蓋精算、財務、高資產與倫理判斷。煉獄的命運在此潛伏、可能於任何時刻以雷霆之姿降臨——無人倖免。',
+    stats: { q: 281, t: 3, c: 9 }, remaining: 281
+  },
+  paradise: {
+    name: '極樂', index: 'MODE · 03',
+    subtitle: '聽命運擲出骰子',
+    description: '全難度混雜、純粹命運。你可能連抽五題簡單題順風順水、也可能一開場就遇到煉獄拷問。這裡沒有規律、只有緣份。',
+    stats: { q: 437, t: 5, c: 9 }, remaining: 437
+  },
+  custom: {
+    name: '自由', index: 'MODE · 04',
+    subtitle: '執卷自選 · 由心而定',
+    description: '難度與題型由你決定，煉獄按比例自然分佈，不另外觸發降臨特效。',
+    stats: { q: 0, t: 0, c: 9 }, remaining: 0
+  }
+};
+const DEMO_WINNERS = [
+  { group: '第三組', person: '小熊蜂蜜', ms: '0.003' },
+  { group: '第一組', person: '陳冠瑋',   ms: '0.127' },
+  { group: '第四組', person: '許家豪',   ms: '0.041' },
+  { group: '第二組', person: '吳珮瑜',   ms: '0.089' },
+];
+let lastWinner = DEMO_WINNERS[0];
+function goto(screenId) {
+  // 切離 scr-select 時清掉 QR 倒數 timer(避免殘留)
+  if (screenId !== 'scr-select' && typeof clearJoinQRTimers === 'function') {
+    clearJoinQRTimers();
+  }
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(screenId).classList.add('active');
+}
+function selectMode(mode) {
+  if (selectedMode === mode) return;
+  selectedMode = mode;
+  document.querySelectorAll('.bg-layer').forEach(el => el.classList.remove('active'));
+  document.getElementById('bg-' + mode).classList.add('active');
+  document.getElementById('paradise-particles').classList.toggle('active', mode === 'paradise');
+  stage.classList.toggle('is-custom', mode === 'custom');
+  stage.dataset.selected = mode;
+  document.querySelectorAll('.mode-card').forEach(c => {
+    c.classList.toggle('selected', c.dataset.mode === mode);
+  });
+  const btn = document.getElementById('btn-enter');
+  if (btn) btn.disabled = false;
+  const labels = { ordinary: '普通模式', hell: '地獄模式', paradise: '極樂模式', custom: '自由模式' };
+  const hostStatus = document.getElementById('host-status');
+  if (hostStatus) hostStatus.textContent = `主持人 · 已選擇 ${labels[mode]}`;
+}
+function enterFromSelect() {
+  if (!selectedMode) return;
+  // 不關 bg-layer 與粒子 — 主視覺延續到所有內頁
+  stage.classList.remove('is-custom');
+  if (selectedMode === 'custom') {
+    stage.dataset.mode = 'custom';
+    updatePool(); // 重新計算題池
+    goto('scr-custom');
+  } else {
+    pendingMode = selectedMode;
+    const cfg = modeConfig[selectedMode];
+    stage.dataset.mode = selectedMode;
+    document.getElementById('confirm-index').textContent       = cfg.index;
+    document.getElementById('confirm-name').textContent        = cfg.name;
+    document.getElementById('confirm-subtitle').textContent    = cfg.subtitle;
+    document.getElementById('confirm-description').textContent = cfg.description;
+    document.getElementById('confirm-stat-q').textContent      = cfg.stats.q;
+    document.getElementById('confirm-stat-t').textContent      = cfg.stats.t;
+    document.getElementById('confirm-stat-c').textContent      = cfg.stats.c;
+    goto('scr-confirm');
+  }
+}
+const tierCounts = { '簡單': 68, '中等': 84, '困難': 109, '地獄': 108, '煉獄': 68 };
+const typeMulti  = { '選擇題': 0.55, '簡答': 0.18, '申論': 0.10, '計算': 0.10, '一字千金': 0.07 };
+function updatePool() {
+  const tiers = [...document.querySelectorAll('[data-group="tier"].active')].map(c => c.textContent.trim());
+  const types = [...document.querySelectorAll('[data-group="type"].active')].map(c => c.textContent.trim());
+  const hasMin = tiers.length > 0 && types.length > 0;
+  document.getElementById('custom-enter-btn').disabled = !hasMin;
+  if (!hasMin) { document.getElementById('pool-num').textContent = '—'; return; }
+  const totalTier = tiers.reduce((s, t) => s + (tierCounts[t] || 0), 0);
+  const typeRatio = types.reduce((s, t) => s + (typeMulti[t] || 0), 0);
+  const est = Math.round(totalTier * Math.min(typeRatio / 0.55, 1));
+  document.getElementById('pool-num').textContent = est;
+}
+document.querySelectorAll('.chip').forEach(chip => {
+  chip.addEventListener('click', () => { chip.classList.toggle('active'); updatePool(); });
+});
+function enterFromCustom() {
+  currentMode = 'custom';
+  enterStandby();
+}
+function enterFromConfirm() {
+  currentMode = pendingMode;
+  enterStandby();
+}
+function enterStandby() {
+  const cfg = modeConfig[currentMode];
+  document.getElementById('standby-mode-tag').textContent   = `MODE · ${cfg.name}`;
+  document.getElementById('standby-mode-label').textContent = `${cfg.name}模式`;
+  document.getElementById('stat-remaining').innerHTML       = `${cfg.remaining}<span class="unit">題</span>`;
+  document.getElementById('stat-round').textContent         = String(round).padStart(2, '0');
+  goto('scr-standby');
+}
+function goHome() {
+  currentMode = null; pendingMode = null; selectedMode = null;
+  round = 1; isRevealed = false;
+  stage.dataset.mode     = 'select';
+  stage.dataset.selected = '';
+  stage.classList.remove('is-custom');
+  document.querySelectorAll('.bg-layer').forEach(el => el.classList.remove('active'));
+  document.getElementById('bg-select').classList.add('active');
+  document.getElementById('paradise-particles').classList.remove('active');
+  document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('btn-enter').disabled = true;
+  document.getElementById('host-status').textContent = '主持人 · 請選擇模式';
+  goto('scr-select');
+}
+function backToSelect() {
+  currentMode = null; pendingMode = null;
+  stage.dataset.mode     = 'select';
+  stage.dataset.selected = selectedMode || '';
+  document.querySelectorAll('.bg-layer').forEach(el => el.classList.remove('active'));
+  if (selectedMode) {
+    document.getElementById('bg-' + selectedMode).classList.add('active');
+    stage.classList.toggle('is-custom', selectedMode === 'custom');
+    document.getElementById('paradise-particles').classList.toggle('active', selectedMode === 'paradise');
+  } else {
+    document.getElementById('bg-select').classList.add('active');
+  }
+  goto('scr-select');
+}
+function startRush() { goto('scr-countdown'); runCD(3); }
+function runCD(n) {
+  const el = document.getElementById('cd-num');
+  if (n === 0) {
+    el.className = 'cd-num go-flash'; el.textContent = 'GO';
+    ['cr-a','cr-b','cr-c'].forEach((id, i) => {
+      const r = document.getElementById(id);
+      r.classList.remove('burst');
+      setTimeout(() => { void r.offsetWidth; r.classList.add('burst'); }, i * 70);
+    });
+    setTimeout(() => {
+      // 進搶答畫面前,依當前 rushMode 切換 scr-buzzing 子畫面
+      const buzzScr = document.getElementById('scr-buzzing');
+      if (buzzScr) {
+        buzzScr.classList.toggle('is-count', presenterRushMode === 'count');
+        buzzScr.classList.toggle('is-allhands', presenterRushMode === 'allhands');
+        buzzScr.classList.toggle('is-lightning', presenterRushMode === 'lightning');
+      }
+      goto('scr-buzzing');
+      // 閃電一按:啟動 3 秒淘汰窗口進度條 → 切換到 GO 階段
+      if (presenterRushMode === 'lightning') {
+        _runLightningPresenterCountdown();
+      }
+    }, 800);
+    return;
+  }
+  el.className = 'cd-num'; void el.offsetWidth; el.classList.add('tick'); el.textContent = n;
+  ['cr-a','cr-b','cr-c'].forEach((id, i) => {
+    const r = document.getElementById(id);
+    r.classList.remove('burst');
+    setTimeout(() => { void r.offsetWidth; r.classList.add('burst'); }, i * 80);
+  });
+  setTimeout(() => runCD(n - 1), 1000);
+}
+function simulateWinner() {
+  lastWinner = DEMO_WINNERS[Math.floor(Math.random() * DEMO_WINNERS.length)];
+  document.getElementById('win-group').textContent  = lastWinner.group;
+  document.getElementById('win-person').textContent = lastWinner.person;
+  document.getElementById('win-ms').textContent     = lastWinner.ms;
+  const f = document.getElementById('win-flash');
+  f.style.animation = 'none'; void f.offsetWidth; f.style.animation = '';
+  goto('scr-winner');
+  try { playCorrectSound(); } catch(e) {}
+}
+function enterCategory() {
+  document.getElementById('winner-name').textContent  = lastWinner.person;
+  document.getElementById('winner-group').textContent = `· ${lastWinner.group}`;
+  document.getElementById('cat-round').textContent    = `ROUND ${String(round).padStart(2,'0')}`;
+  goto('scr-category');
+}
+/* ════════════════════════════════════════════════════════════════════
+   題庫資料結構 schema(五大題型)
+   ════════════════════════════════════════════════════════════════════
+   每題物件共用欄位:
+     id              · 題目唯一編號 (e.g. 'H-MC-008')
+     type            · 題型代號(見下方五種)
+     difficulty      · 難度代號 'easy' | 'medium' | 'hard' | 'hell' | 'purgatory'
+     difficultyLabel · 難度顯示文字 '簡單' | '中等' | '困難' | '地獄' | '煉獄'
+     framework       · 知識框架分類 (e.g. 'F6 精算、財務與監理')
+     stem            · 題幹文字(支援 <strong>...</strong> HTML)
+
+   ── 五大題型專屬欄位 ──
+   1. multiple_choice (選擇題)
+        options: { A: '...', B: '...', C: '...', D: '...' }
+        correct: 'A' | 'B' | 'C' | 'D'
+        explanation: '解析文字'
+
+   2. short_answer (簡答題)
+        answer: '參考答案文字(\\n 換行)'
+
+   3. essay (申論題)
+        keyPoints: ['評分要點 1', '評分要點 2', ...]
+        modelAnswer: '參考範文(\\n\\n 段落分隔, **粗體** 強調)'
+
+   4. calculation (計算題)
+        given:       { '已知條件 1': '值', ... }
+        steps:       ['步驟 1', '步驟 2', ...]
+        finalAnswer: '最終答案數字'
+        unit:        '單位說明'
+
+   5. word_game (一字千金)
+        word:      '羈'
+        phonetics: ['ㄐㄧ', 'ㄑㄧ', 'ㄐㄧˋ', 'ㄐㄩˋ']
+        correct:   0~3 (phonetics 陣列索引)
+        meaning:   '字義說明'
+
+   正式版題庫由助理端載入並透過 PartyKit 廣播 currentQ 給主持人介面顯示。
+   ════════════════════════════════════════════════════════════════════ */
+
+/* 預設空題庫(範例題目已清除,只保留五大題型骨架供載入時參考) */
+/* ════════════════════════════════════════════════════════════════════
+   題庫 BANK 對接(從助理端透過 PartyBus 收 question_pick 事件取題目)
+   ════════════════════════════════════════════════════════════════════
+   - 題庫 schema 與助理端一致(從 localStorage 讀,助理端寫)
+   - PartyBus 用 storage 事件跨分頁同步;同台電腦不同分頁自動聯動
+   - 正式版 PartyKit 接好後,把 PartyBus 換成 party.broadcast 即可
+   ════════════════════════════════════════════════════════════════════ */
+const BANK_SCHEMA = {
+  difficulties: [
+    { id:'easy',      label:'簡單', prefix:'E', framework:'A' },
+    { id:'medium',    label:'中等', prefix:'M', framework:'A' },
+    { id:'hard',      label:'困難', prefix:'H', framework:'A' },
+    { id:'hell',      label:'地獄', prefix:'X', framework:'A' },
+    { id:'purgatory', label:'煉獄', prefix:'P', framework:'B' },
+  ],
+  modePool: {
+    ordinary: ['easy', 'medium', 'hard'],
+    hell:     ['hard', 'hell', 'purgatory'],
+    paradise: ['easy', 'medium', 'hard', 'hell', 'purgatory'],
+    custom:   null,
+  },
+  frameworksA: [
+    { id:'f1_insurance_basics',  shortId:'F1', label:'保險基礎與法規' },
+    { id:'f2_contract_terms',    shortId:'F2', label:'契約條款與效力' },
+    { id:'f3_underwriting',      shortId:'F3', label:'核保與健康告知' },
+    { id:'f4_claims',            shortId:'F4', label:'理賠實務與爭議' },
+    { id:'f5_product_planning',  shortId:'F5', label:'險種規劃與商品' },
+    { id:'f6_actuarial',         shortId:'F6', label:'精算、財務與監理' },
+    { id:'f7_wealth_tax',        shortId:'F7', label:'高資產與稅務傳承' },
+    { id:'f8_ethics_compliance', shortId:'F8', label:'業務倫理與合規' },
+    { id:'f9_premium_calc',      shortId:'F9', label:'保費、保單運用與計算' },
+  ],
+  frameworksB: [
+    { id:'l1_cross_dept', shortId:'L1', label:'跨部門溝通' },
+    { id:'l2_customer',   shortId:'L2', label:'客戶溝通' },
+    { id:'l3_ethics',     shortId:'L3', label:'道德判斷' },
+    { id:'l4_time_scale', shortId:'L4', label:'時間尺度' },
+  ],
+};
+const BANK_STORAGE_KEY = 'pgg_quiz_bank_v1';
+const BANK = { easy:null, medium:null, hard:null, hell:null, purgatory:null };
+
+function loadBank() {
+  try {
+    const raw = localStorage.getItem(BANK_STORAGE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    BANK_SCHEMA.difficulties.forEach(d => { if (data[d.id]) BANK[d.id] = data[d.id]; });
+  } catch (e) { console.warn('題庫載入失敗:', e); }
+}
+loadBank();
+
+/* 監聽其他分頁更新題庫(助理上傳後主持人自動 reload) */
+window.addEventListener('storage', e => {
+  if (e.key === BANK_STORAGE_KEY) {
+    Object.keys(BANK).forEach(k => BANK[k] = null);
+    loadBank();
+    updateCategoryGridPresenter();
+  }
+});
+
+/* 用 ID 取題目(從第一個字元 E/M/H/X/P 推難度) */
+function getQuestionById(id) {
+  if (!id) return null;
+  const dSpec = BANK_SCHEMA.difficulties.find(d => d.prefix === id[0]);
+  if (!dSpec) return null;
+  const bank = BANK[dSpec.id];
+  if (!bank?.questions) return null;
+  return bank.questions.find(q => q.id === id) || null;
+}
+
+/* 取 framework label(從 id 找到 shortId 與 label) */
+/* 依 topic 值(可能是 id/label/shortId)找對應 framework 物件 */
+function _findFwByTopic(topic) {
+  if (!topic) return null;
+  const all = [...BANK_SCHEMA.frameworksA, ...BANK_SCHEMA.frameworksB];
+  return all.find(fw =>
+    fw.id === topic
+    || fw.label === topic
+    || fw.shortId === topic
+  ) || null;
+}
+
+function getFrameworkLabel(fwIdOrTopic) {
+  // 可接受 id 或 label 或 shortId
+  const fw = _findFwByTopic(fwIdOrTopic);
+  return fw ? `${fw.shortId} ${fw.label}` : (fwIdOrTopic || '—');
+}
+
+/* 難度顯示文字 */
+function getDifficultyLabel(d) {
+  return BANK_SCHEMA.difficulties.find(x => x.id === d)?.label || d;
+}
+
+/* 題型顯示文字 */
+const TYPE_LABELS = {
+  multiple_choice: '選擇題',
+  short_answer:    '簡答題',
+  essay:           '申論題',
+  calculation:     '計算題',
+  word_game:       '一字千金',
+};
+
+/* ════════════════════════════════════════════════════════════════════
+   PartyBus · 跨分頁事件總線
+   ════════════════════════════════════════════════════════════════════ */
+const PARTY_BUS_KEY = 'pgg_party_event';
+const PARTY_BUS_CHANNEL = 'pgg_bus';
+const PartyBus = {
+  _listeners: {},
+  _channel: null,
+  _seenTs: new Set(),
+  emit(type, payload) {
+    const event = { type, payload, ts: Date.now() + Math.random() };
+    if (this._channel) {
+      try { this._channel.postMessage(event); } catch (e) {}
+    }
+    try { localStorage.setItem(PARTY_BUS_KEY, JSON.stringify(event)); } catch (e) {}
+    this._seenTs.add(event.ts);
+    this._dispatch(type, payload);
+    if (this._seenTs.size > 100) {
+      this._seenTs = new Set(Array.from(this._seenTs).slice(-50));
+    }
+  },
+  on(type, cb) {
+    if (!this._listeners[type]) this._listeners[type] = [];
+    this._listeners[type].push(cb);
+  },
+  _dispatch(type, payload) {
+    (this._listeners[type] || []).forEach(cb => {
+      try { cb(payload); } catch (e) { console.error(`PartyBus[${type}]`, e); }
+    });
+  },
+  _handleEvent(ev) {
+    if (!ev || !ev.type) return;
+    if (this._seenTs.has(ev.ts)) return;
+    this._seenTs.add(ev.ts);
+    if (this._seenTs.size > 100) {
+      this._seenTs = new Set(Array.from(this._seenTs).slice(-50));
+    }
+    this._dispatch(ev.type, ev.payload);
+  },
+  _init() {
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        this._channel = new BroadcastChannel(PARTY_BUS_CHANNEL);
+        this._channel.addEventListener('message', e => this._handleEvent(e.data));
+      } catch (e) {
+        console.warn('BroadcastChannel 不可用,改用 storage fallback');
+      }
+    }
+    window.addEventListener('storage', e => {
+      if (e.key !== PARTY_BUS_KEY || !e.newValue) return;
+      try { this._handleEvent(JSON.parse(e.newValue)); } catch (err) {}
+    });
+  },
+};
+PartyBus._init();
+window.PartyBus = PartyBus;
+
+/* 診斷工具:在 console 跑 PGG.ping() 測試聯動 */
+window.PGG = window.PGG || {};
+window.PGG.ping = function(msg) {
+  PartyBus.emit('__ping__', { from: 'presenter', msg: msg || 'hello', t: new Date().toLocaleTimeString() });
+  console.log('[PGG] ping sent from presenter');
+};
+PartyBus.on('__ping__', p => {
+  console.log(`[PGG] PING from ${p.from} @ ${p.t}: ${p.msg}`);
+});
+
+/* 當前題目快取(每收到 question_pick 就更新) */
+let currentQuestion = null;
+let currentDifficulty = null;
+let currentFramework = null;
+/* selectCategory:由 lockCategory 850ms 後呼叫(進入題目畫面)
+   實際題目內容由 question_pick 事件帶入 currentQuestion */
+function selectCategory() {
+  console.log('[PGG/presenter] selectCategory called, currentQuestion=', currentQuestion?.id || 'null');
+  if (currentMode) stage.dataset.mode = currentMode;
+  renderQuestion();
+  goto('scr-question');
+}
+
+/* switchType:demo 用,從當前載入的題庫中隨機切一題 */
+function switchType() {
+  // 從 BANK 隨機抽一題(僅 demo,正式版由助理控制)
+  const allQuestions = [];
+  BANK_SCHEMA.difficulties.forEach(d => {
+    const bank = BANK[d.id];
+    if (bank?.questions) allQuestions.push(...bank.questions);
+  });
+  if (!allQuestions.length) return;
+  const q = allQuestions[Math.floor(Math.random() * allQuestions.length)];
+  const dSpec = BANK_SCHEMA.difficulties.find(d => d.prefix === q.id[0]);
+  currentQuestion = q;
+  currentDifficulty = dSpec?.id;
+  currentFramework = q.topic;
+  renderQuestion();
+}
+
+/* 渲染題目(兩階段:此函式只渲染題幹/選項/條件,答案區用 hidden class 暫藏)
+   reveal 階段由 revealAnswer() 負責切換 hidden → shown */
+function renderQuestion() {
+  isRevealed = false;
+  const q = currentQuestion;
+  const body      = document.getElementById('q-body');
+  const qId       = document.getElementById('q-id-label');
+  const qDiff     = document.getElementById('q-diff');
+  const revealBtn = document.getElementById('reveal-btn');  // 合併版可能不存在
+  const status    = document.getElementById('q-status');    // 合併版可能不存在
+  const qRound    = document.getElementById('q-round');
+
+  if (!q) {
+    if (qId) qId.textContent      = 'Question · —';
+    if (qDiff) qDiff.textContent    = '—';
+    if (revealBtn) revealBtn.textContent= '公佈答案';
+    if (status) status.textContent = '等待抽題';
+    if (body) body.innerHTML = `<div class="q-stem" style="opacity:.5">等待助理抽題</div>`;
+    if (qRound) qRound.textContent = `ROUND ${String(round).padStart(2,'0')}`;
+    return;
+  }
+
+  if (qId) qId.textContent      = `Question · ${q.id}`;
+  if (qDiff) qDiff.textContent    = getDifficultyLabel(currentDifficulty);
+  if (revealBtn) revealBtn.textContent= '公佈答案';
+  if (status) status.textContent = '等待揭曉';
+  if (qRound) qRound.textContent = `ROUND ${String(round).padStart(2,'0')}`;
+
+  const bcDiff = getDifficultyLabel(currentDifficulty);
+  const bcFw   = getFrameworkLabel(currentFramework || q.topic);
+  const bcType = TYPE_LABELS[q.type] || q.type;
+  const breadcrumb = `<div class="q-breadcrumb"><span class="difficulty-mark">${bcDiff}</span><span class="dot">·</span><span>${bcFw}</span><span class="dot">·</span><span>${bcType}</span></div>`;
+
+  if (q.type === 'multiple_choice') {
+    body.innerHTML = `
+      ${breadcrumb}
+      <div class="q-stem">${q.question}</div>
+      <div class="q-options">
+        ${Object.entries(q.options).map(([l, t]) => `<div class="q-option" data-letter="${l}"><span class="opt-letter">${l}</span><span class="opt-text">${t}</span></div>`).join('')}
+      </div>
+      <div class="q-explanation"><div class="exp-label">解題要點</div><div class="exp-text">${q.explanation || ''}</div></div>`;
+
+  } else if (q.type === 'short_answer') {
+    body.innerHTML = `
+      ${breadcrumb}
+      <div class="q-stem">${q.question}</div>
+      <div class="q-short-answer"><div class="sa-label">範例解答</div><div class="sa-text">${(q.answer || '').replace(/\n/g,'<br><br>')}</div></div>`;
+
+  } else if (q.type === 'essay') {
+    const keyPoints = (q.key_points || []).map(p => `<li>${p}</li>`).join('');
+    const modelAns = (q.model_answer || '').split('\n\n').map(p =>
+      `<p>${p.replace(/\*\*(.+?)\*\*/g, '<strong style="color:var(--accent);font-weight:700;">$1</strong>')}</p>`
+    ).join('');
+    body.innerHTML = `
+      ${breadcrumb}
+      <div class="q-essay-layout stage-question">
+        <div class="q-essay-left"><div class="q-stem">${q.question}</div></div>
+        <div class="q-essay-right">
+          <div class="ess-section-label">評分要點</div>
+          <ul class="ess-key-points">${keyPoints}</ul>
+          <div class="ess-section-label ess-model-label">參考範文</div>
+          <div class="ess-model-text">${modelAns}</div>
+        </div>
+      </div>`;
+
+  } else if (q.type === 'calculation') {
+    const givenHtml = Object.entries(q.given || {}).map(([k,v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+    const stepsHtml = (q.steps || []).map(s => `<li>${s}</li>`).join('');
+    body.innerHTML = `
+      ${breadcrumb}
+      <div class="q-calc-layout stage-question">
+        <div class="q-essay-left">
+          <div class="q-stem">${q.question}</div>
+          <div class="q-calc-given"><div class="given-label">Given · 題目條件</div><dl>${givenHtml}</dl></div>
+        </div>
+        <div class="q-calc-solution">
+          <div class="sol-label">解題步驟</div>
+          <ol class="sol-steps">${stepsHtml}</ol>
+          <div class="sol-final"><span class="sol-final-label">最終答案</span><span class="sol-final-value">${q.answer || ''}</span><span class="sol-final-unit">${q.unit || ''}</span></div>
+        </div>
+      </div>`;
+
+  } else if (q.type === 'word_game') {
+    // word_game 的 options 是 4 個注音字串陣列;correct 是注音字串本身(不是位置索引)
+    const opts = q.options || [];
+    const optsHtml = opts.map((p, i) =>
+      `<div class="q-word-option" data-phonetic="${p}"><div class="wo-letter">${['A','B','C','D'][i]}</div><div class="wo-phonetic">${p}</div></div>`
+    ).join('');
+    const meaning = q.meaning || q.context_phrase || q.scenario || '';
+    body.innerHTML = `
+      ${breadcrumb}
+      <div class="q-word-stage">
+        <div class="q-word-prompt">請選出下列字的正確讀音</div>
+        <div class="q-word-char">${q.word}</div>
+        <div class="q-word-options">${optsHtml}</div>
+        <div class="q-word-meaning"><div class="wm-label">字義</div><div class="wm-text">${meaning}</div></div>
+      </div>`;
+  }
+}
+
+function toggleOption(el) {
+  if (isRevealed) return;
+  document.querySelectorAll('#q-body .q-option').forEach(o => { if (o !== el) o.classList.remove('selected'); });
+  el.classList.toggle('selected');
+}
+function toggleWordOption(el) {
+  if (isRevealed) return;
+  document.querySelectorAll('#q-body .q-word-option').forEach(o => { if (o !== el) o.classList.remove('selected'); });
+  el.classList.toggle('selected');
+}
+
+function revealAnswer() {
+  // 第二次按 = 下一題
+  if (isRevealed) {
+    round++;
+    goto('scr-standby');
+    document.getElementById('standby-round').textContent = `ROUND ${String(round).padStart(2,'0')}`;
+    document.getElementById('stat-round').textContent = String(round).padStart(2,'0');
+    return;
+  }
+  isRevealed = true;
+  const q = currentQuestion;
+  if (!q) return;
+  const revealBtn = document.getElementById('reveal-btn');
+  const status    = document.getElementById('q-status');
+
+  if (q.type === 'multiple_choice') {
+    const selected     = document.querySelector('#q-body .q-option.selected');
+    const playerChoice = selected ? selected.dataset.letter : null;
+    const playerCorrect= playerChoice === q.correct;
+    if (playerChoice) { playerCorrect ? (playCorrectSound(), flashScreen('gold')) : (playIncorrectSound(), flashScreen('red')); }
+    document.querySelectorAll('#q-body .q-option').forEach(opt => {
+      const letter = opt.dataset.letter;
+      const isCorr = letter === q.correct, isPick = letter === playerChoice;
+      if (isCorr) {
+        opt.classList.add('revealed-correct');
+        if (isPick) opt.classList.add('revealed-player-correct');
+        const b = document.createElement('span'); b.className = 'opt-badge badge-correct'; b.textContent = '正解'; opt.appendChild(b);
+      } else if (isPick) {
+        opt.classList.add('revealed-player-incorrect');
+        const b = document.createElement('span'); b.className = 'opt-badge badge-incorrect'; b.textContent = 'INCORRECT'; opt.appendChild(b);
+      } else { opt.classList.add('revealed-incorrect'); }
+    });
+    document.querySelector('#q-body .q-explanation').classList.add('shown');
+    if (status) status.textContent = playerChoice ? (playerCorrect ? '玩家答對 · 等待加分' : '玩家答錯 · 主持人定奪') : '已揭曉 · 等待評分';
+
+  } else if (q.type === 'short_answer') {
+    document.querySelector('#q-body .q-short-answer').classList.add('shown');
+    if (status) status.textContent = '已揭曉 · 等待評分';
+
+  } else if (q.type === 'essay') {
+    document.querySelector('#q-body .q-essay-layout').classList.remove('stage-question');
+    setTimeout(() => document.querySelector('#q-body .q-essay-right').classList.add('shown'), 40);
+    if (status) status.textContent = '已揭曉 · 等待評分';
+
+  } else if (q.type === 'calculation') {
+    document.querySelector('#q-body .q-calc-layout').classList.remove('stage-question');
+    setTimeout(() => document.querySelector('#q-body .q-calc-solution').classList.add('shown'), 40);
+    if (status) status.textContent = '已揭曉 · 等待評分';
+
+  } else if (q.type === 'word_game') {
+    // word_game correct 是注音字串本身,不是位置索引
+    const selected     = document.querySelector('#q-body .q-word-option.selected');
+    const playerPhon   = selected ? selected.dataset.phonetic : null;
+    const playerCorrect= playerPhon === q.correct;
+    if (playerPhon) { playerCorrect ? (playCorrectSound(), flashScreen('gold')) : (playIncorrectSound(), flashScreen('red')); }
+    document.querySelectorAll('#q-body .q-word-option').forEach(opt => {
+      const phon = opt.dataset.phonetic;
+      const isCorr = phon === q.correct, isPick = phon === playerPhon;
+      if (isCorr) { opt.classList.add('revealed-correct'); if (isPick) opt.classList.add('revealed-player-correct'); }
+      else if (isPick) { opt.classList.add('revealed-player-incorrect'); }
+      else { opt.classList.add('revealed-incorrect'); }
+    });
+    document.querySelector('#q-body .q-word-meaning').classList.add('shown');
+    if (status) status.textContent = playerPhon ? (playerCorrect ? '玩家答對 · 等待加分' : '玩家答錯 · 主持人定奪') : '已揭曉 · 等待評分';
+  }
+  if (revealBtn) revealBtn.textContent = '下一題 →';
+}
+function flashScreen(type) {
+  const overlay  = document.getElementById('flash-overlay');
+  const vignette = document.getElementById('vignette-overlay');
+  if (!overlay) return;
+  overlay.className = type; overlay.style.opacity = '1';
+  if (type === 'red' && vignette) { vignette.style.opacity = '1'; setTimeout(() => vignette.style.opacity = '0', 260); }
+  setTimeout(() => overlay.style.opacity = '0', type === 'gold' ? 200 : 220);
+}
+let audioCtx = null;
+function getAudioCtx() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); return audioCtx; }
+function playCorrectSound() {
+  try {
+    const ctx = getAudioCtx();
+    [523.25, 659.25, 783.99].forEach((freq, i) => {
+      const osc = ctx.createOscillator(), gain = ctx.createGain(), filter = ctx.createBiquadFilter();
+      filter.type = 'highpass'; filter.frequency.value = 200;
+      osc.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'sine'; osc.frequency.value = freq;
+      const t0 = ctx.currentTime + i * 0.1;
+      gain.gain.setValueAtTime(0, t0); gain.gain.linearRampToValueAtTime(0.22, t0 + 0.015); gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.65);
+      osc.start(t0); osc.stop(t0 + 0.7);
+    });
+  } catch(e) {}
+}
+function playIncorrectSound() {
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator(), gain = ctx.createGain(), filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass'; filter.frequency.value = 800;
+    osc.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+    osc.type = 'sawtooth'; osc.frequency.setValueAtTime(380, ctx.currentTime); osc.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + 0.5);
+    gain.gain.setValueAtTime(0.28, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.55);
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.6);
+  } catch(e) {}
+}
+/* === 玩家池 (Notion-like 標籤,8 色 hash 分配) ============================ */
+const PP_COLORS = [
+  { bg: 'rgba(255,160,140,0.18)', border: 'rgba(255,160,140,0.45)', fg: '#FFC4B0' }, // 珊瑚
+  { bg: 'rgba(140,200,255,0.18)', border: 'rgba(140,200,255,0.45)', fg: '#B5DCFF' }, // 天空藍
+  { bg: 'rgba(180,141,216,0.20)', border: 'rgba(180,141,216,0.50)', fg: '#D6BAEC' }, // 紫
+  { bg: 'rgba(212,163,75,0.20)',  border: 'rgba(212,163,75,0.55)',  fg: '#F0C988' }, // 金
+  { bg: 'rgba(110,200,150,0.18)', border: 'rgba(110,200,150,0.45)', fg: '#9BD9B8' }, // 薄荷
+  { bg: 'rgba(255,200,100,0.16)', border: 'rgba(255,200,100,0.42)', fg: '#FFD489' }, // 蜂蜜
+  { bg: 'rgba(255,140,200,0.16)', border: 'rgba(255,140,200,0.42)', fg: '#FFB0D4' }, // 粉
+  { bg: 'rgba(140,220,210,0.18)', border: 'rgba(140,220,210,0.45)', fg: '#A8E2D6' }, // 青
+];
+
+/* 用名字字串 hash 決定色票:同名同色、不同名盡量分散 */
+function _ppColorOf(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) {
+    h = ((h << 5) - h + name.charCodeAt(i)) | 0;
+  }
+  return PP_COLORS[Math.abs(h) % PP_COLORS.length];
+}
+
+function _makeChip(name) {
+  const c = document.createElement('div');
+  c.className = 'pp-chip';
+  c.dataset.name = name;
+  const col = _ppColorOf(name);
+  c.style.background = col.bg;
+  c.style.borderColor = col.border;
+  c.style.color = col.fg;
+  c.textContent = name;
+  return c;
+}
+
+/* 加一個玩家到 pool。若已存在(同名)則跳過。 */
+function addPlayerToPool(name) {
+  if (!name) return;
+  const list = document.getElementById('pp-list');
+  if (!list) return;
+  // 移除 empty 提示
+  const empty = list.querySelector('.pp-empty');
+  if (empty) empty.remove();
+  // 同名去重
+  if (list.querySelector(`.pp-chip[data-name="${CSS.escape(name)}"]`)) return;
+  list.appendChild(_makeChip(name));
+}
+
+function removePlayerFromPool(name) {
+  if (!name) return;
+  const list = document.getElementById('pp-list');
+  if (!list) return;
+  const chip = list.querySelector(`.pp-chip[data-name="${CSS.escape(name)}"]`);
+  if (chip) chip.remove();
+  // 若清空,顯示 empty 提示
+  if (!list.querySelector('.pp-chip')) {
+    list.innerHTML = '<div class="pp-empty">等待玩家加入</div>';
+  }
+}
+
+window.addPlayerToPool = addPlayerToPool;
+window.removePlayerFromPool = removePlayerFromPool;
+
+/* === DEMO: 在 DevTools console 用 mockPlayers(35) 看玩家池滿載樣貌, clearPlayers() 還原 === */
+window.mockPlayers = function(n = 35) {
+  const list = document.getElementById('pp-list'); list.innerHTML = '';
+  const names = ['冠瑋','雅婷','建志','珮瑜','凱傑','子涵','宗翰','怡君','偉誠','詩涵','奕辰','宜萱','俊賢','美玲','志豪','婉婷','明達','佳穎','哲瑋','曉雯','士豪','靜怡','文謙','鈺婷','柏翰','若涵','建宏','麗華','大維','心怡','慶忠','怡萱','志強','雪婷','文彥'];
+  for (let i = 0; i < n; i++) list.appendChild(_makeChip(names[i % names.length] + (i >= names.length ? `_${i}` : '')));
+};
+window.clearPlayers = function() { document.getElementById('pp-list').innerHTML = '<div class="pp-empty">等待玩家加入</div>'; };
+
+/* ══ 煉獄降臨(機率性事件,由主持人端透過 PartyKit 廣播給三端) ══ */
+function generatePurgEmbersArr() {
+  const c = document.getElementById('purg-embers-arr');
+  if (!c) return;
+  c.innerHTML = '';
+  for (let i = 0; i < 35; i++) {
+    const e = document.createElement('div');
+    e.className = 'ember';
+    e.style.left = Math.random() * 100 + '%';
+    e.style.animationDuration = (3 + Math.random()*3) + 's';
+    e.style.animationDelay = (Math.random()*4) + 's';
+    e.style.setProperty('--drift', (Math.random()*120 - 60) + 'px');
+    const sz = (2 + Math.random()*3) + 'px';
+    e.style.width = sz; e.style.height = sz;
+    c.appendChild(e);
+  }
+}
+let purgArrivalTimer = null;
+let categoryLockTimer = null;
+
+function summonPurgatory() {
+  console.log('[PGG/presenter] summonPurgatory called');
+  // 取消任何進行中的 category_confirm setTimeout(避免覆蓋煉獄頁)
+  if (categoryLockTimer) { clearTimeout(categoryLockTimer); categoryLockTimer = null; }
+  // 切到煉獄底色 + 進入降臨頁
+  stage.dataset.mode = 'purgatory';
+  generatePurgEmbersArr();
+  goto('scr-purg-arrival');
+  // 2500ms 後自動切到題目頁(讓特效播完 + 給觀眾驚嘆時間)
+  if (purgArrivalTimer) clearTimeout(purgArrivalTimer);
+  purgArrivalTimer = setTimeout(() => {
+    console.log('[PGG/presenter] purg arrival 2500ms done, calling renderQuestion + goto scr-question');
+    if (currentQuestion) {
+      renderQuestion();
+      goto('scr-question');
+    } else {
+      console.warn('[PGG/presenter] 煉獄降臨後 currentQuestion 仍為 null,等待 question_pick');
+    }
+    purgArrivalTimer = null;
+  }, 2500);
+}
+function endPurgatory() {
+  // 切回正常模式底色,清掉煉獄殘留;畫面交由後續流程切換(不主動 goto)
+  if (currentMode) stage.dataset.mode = currentMode;
+  const c = document.getElementById('purg-embers-arr');
+  if (c) c.innerHTML = '';
+  if (purgArrivalTimer) { clearTimeout(purgArrivalTimer); purgArrivalTimer = null; }
+}
+window.summonPurgatory = summonPurgatory;
+window.endPurgatory = endPurgatory;
+
+/* ════════════════════════════════════════════════════════════════════
+   主持人介面對外 API (純展示;由助理端透過 PartyKit 廣播事件呼叫)
+   ════════════════════════════════════════════════════════════════════
+   流程控制:
+     window.goto(screenId)           · 切到指定畫面('scr-select','scr-confirm','scr-standby','scr-countdown','scr-buzzing','scr-winner','scr-category','scr-question','scr-purg-arrival')
+     window.selectMode(mode)         · 選模式 'ordinary'|'hell'|'paradise'|'custom'
+     window.enterFromSelect()        · 從主選頁進(自動判斷該去 custom 設定或 confirm)
+     window.enterFromCustom()        · 從自由設定頁進入待命
+     window.enterFromConfirm()       · 從確認頁進入待命
+     window.backToSelect()           · 返回主選頁
+     window.goHome()                 · 回首頁
+     window.startRush()              · 開始搶答(進倒數)
+     window.simulateWinner()         · 顯示搶到結果(實際由助理呼叫帶資料)
+     window.enterCategory()          · 進入分類選題頁
+     window.selectCategory()         · 選一個分類
+     window.switchType()             · 切換題型 demo
+     window.revealAnswer()           · 公佈答案 / 進下一題
+     window.summonPurgatory()        · 煉獄降臨
+     window.endPurgatory()           · 煉獄結束
+
+   題庫資料:
+     window.BANK                     · 已掛載題庫(各難度)
+     window.BANK_SCHEMA              · 題庫 schema
+     window.renderQuestion()         · 重繪當前題目
+   ════════════════════════════════════════════════════════════════════ */
+window.goto             = goto;
+window.selectMode       = selectMode;
+window.enterFromSelect  = enterFromSelect;
+window.enterFromCustom  = enterFromCustom;
+window.enterFromConfirm = enterFromConfirm;
+window.backToSelect     = backToSelect;
+window.goHome           = goHome;
+window.startRush        = startRush;
+window.simulateWinner   = simulateWinner;
+window.enterCategory    = enterCategory;
+window.selectCategory   = selectCategory;
+window.switchType       = switchType;
+window.revealAnswer     = revealAnswer;
+window.BANK             = BANK;
+window.BANK_SCHEMA      = BANK_SCHEMA;
+window.renderQuestion   = renderQuestion;
+
+/* ══ 分類九宮格連動(由助理端透過 PartyKit 廣播觸發) ══
+   助理操作流程:
+     1. 點某格 → 主持人端呼叫 previewCategory(fid):柔和呼吸光暈,可換格
+     2. 換別格 → 再呼叫 previewCategory(otherFid):自動清掉前一個
+     3. 按確定 → 主持人端呼叫 lockCategory(fid):強烈閃光鎖定,延遲後抽題
+*/
+function previewCategory(fid) {
+  // 確保在分類頁
+  const scr = document.getElementById('scr-category');
+  if (!scr.classList.contains('active')) goto('scr-category');
+  // 清除其他預覽,但保留鎖定態
+  document.querySelectorAll('.cat-card').forEach(c => {
+    if (!c.classList.contains('locked')) c.classList.remove('preview');
+  });
+  scr.classList.remove('has-locked');
+  // 標記目標
+  const card = document.querySelector(`.cat-card[data-fid="${fid}"]`);
+  if (card && !card.classList.contains('locked')) card.classList.add('preview');
+}
+function lockCategory(fid) {
+  console.log('[PGG/presenter] lockCategory called, fid=', fid);
+  const scr = document.getElementById('scr-category');
+  if (!scr.classList.contains('active')) {
+    console.log('[PGG/presenter] scr-category not active, goto first');
+    goto('scr-category');
+  }
+  // 清預覽
+  document.querySelectorAll('.cat-card').forEach(c => c.classList.remove('preview'));
+  // 鎖定
+  const card = document.querySelector(`.cat-card[data-fid="${fid}"]`);
+  if (card) card.classList.add('locked');
+  scr.classList.add('has-locked');
+  // 850ms 後進入題目(讓鎖定動畫播完 + 給觀眾看一眼是哪格)
+  // 如果煉獄降臨來了會 cancel 這個 timer
+  if (categoryLockTimer) clearTimeout(categoryLockTimer);
+  categoryLockTimer = setTimeout(() => {
+    console.log('[PGG/presenter] 850ms timeout fired, calling selectCategory');
+    selectCategory();
+    categoryLockTimer = null;
+  }, 850);
+}
+function clearCategoryHighlight() {
+  document.querySelectorAll('.cat-card').forEach(c => c.classList.remove('preview', 'locked'));
+  document.getElementById('scr-category')?.classList.remove('has-locked');
+}
+window.previewCategory       = previewCategory;
+window.lockCategory          = lockCategory;
+window.clearCategoryHighlight = clearCategoryHighlight;
+
+/* ════════════════════════════════════════════════════════════════════
+   主持人端九宮格動態化(scr-category 投影頁)
+   依當前模式(由助理 game_start 廣播)統計各 F1-F9 題數,0 題格灰掉
+   ════════════════════════════════════════════════════════════════════ */
+let presenterCustomTiers = [];   // 自由模式時由助理 game_start 帶入
+let presenterUsedIds     = new Set();
+
+function _fwIdByShortId(shortId) {
+  const fw = BANK_SCHEMA.frameworksA.find(f => f.shortId === shortId)
+          || BANK_SCHEMA.frameworksB.find(f => f.shortId === shortId);
+  return fw?.id;
+}
+
+function _activeDifficulties() {
+  if (!currentMode) return [];
+  if (currentMode === 'custom') return presenterCustomTiers;
+  return BANK_SCHEMA.modePool[currentMode] || [];
+}
+
+function updateCategoryGridPresenter() {
+  const grid = document.querySelector('#scr-category .category-grid');
+  if (!grid) return;
+  const difficulties = _activeDifficulties().filter(d => BANK[d]);
+  const remaining = {};
+  difficulties.forEach(d => {
+    const bank = BANK[d];
+    if (!bank?.questions) return;
+    bank.questions.forEach(q => {
+      if (presenterUsedIds.has(q.id)) return;
+      const fw = _findFwByTopic(q.topic);
+      if (!fw) return;
+      remaining[fw.id] = (remaining[fw.id] || 0) + 1;
+    });
+  });
+  grid.querySelectorAll('.cat-card').forEach(card => {
+    const fid = card.dataset.fid;
+    if (!fid) return;
+    const fwId = _fwIdByShortId(fid);
+    const c = remaining[fwId] || 0;
+    const numEl = card.querySelector('.cat-count .num');
+    if (numEl) numEl.textContent = String(c);
+    if (c === 0) card.classList.add('empty');
+    else card.classList.remove('empty');
+  });
+}
+window.updateCategoryGridPresenter = updateCategoryGridPresenter;
+
+/* ════════════════════════════════════════════════════════════════════
+   PartyBus 事件監聽(由助理端透過 PartyBus.emit 廣播)
+   ════════════════════════════════════════════════════════════════════ */
+PartyBus.on('mode_preview', payload => {
+  // 助理在設定頁切模式(尚未開始遊戲):主持人即時跟隨切背景與卡片高亮
+  if (!payload?.mode) return;
+  // selectMode 已有完整邏輯:切 bg-layer、亮 mode-card、切 stage data-mode、is-custom class
+  if (typeof selectMode === 'function') selectMode(payload.mode);
+  // 自由模式:在 scr-select 就地展開次選項區塊(由 stage.is-custom 觸發 CSS display)
+  if (payload.mode === 'custom') {
+    syncCustomChips(payload.customTiers, payload.customTypes);
+  }
+  // 確保停在 scr-select(若主持人意外切到別的畫面,助理改模式時會把它拉回來)
+  const stage = document.getElementById('stage');
+  const cur = stage?.querySelector('.screen.active')?.id;
+  if (cur !== 'scr-select' && cur !== 'scr-standby') {
+    goto('scr-select');
+  }
+});
+
+/* 助理修改自由模式次選項 → 主持人 chip active 狀態同步 */
+PartyBus.on('custom_tiers_changed', payload => {
+  syncCustomChips(payload?.customTiers, payload?.customTypes);
+});
+
+/* 同步主持人 scr-select 就地展開的 chip active 狀態 */
+function syncCustomChips(tiers, types) {
+  if (Array.isArray(tiers)) {
+    document.querySelectorAll('#inline-tier-chips .ci-chip').forEach(chip => {
+      chip.classList.toggle('active', tiers.includes(chip.dataset.val));
+    });
+  }
+  if (Array.isArray(types)) {
+    document.querySelectorAll('#inline-type-chips .ci-chip').forEach(chip => {
+      chip.classList.toggle('active', types.includes(chip.dataset.val));
+    });
+  }
+}
+
+/* 搶答模式 metadata(顯示在 scr-standby 預告區) */
+const RUSH_MODE_META_PRESENTER = {
+  speed:     { label: '電光石火', rule: '321 GO 後最快按下的組獲勝' },
+  count:     { label: '狂點奪魁', rule: '5 秒內猛點搶答鈕,全組總點擊最多者勝' },
+  lightning: { label: '閃電一按', rule: '從第 3 秒開始按,最快的人搶到;3 秒前按下直接淘汰' },
+  allhands:  { label: '全組到位', rule: '8 秒內,在 0.5 秒內同時按下的組員越多排名越前;每人按完冷卻 1 秒' },
+  random:    { label: '隨機', rule: '本輪由系統決定 · 開始搶答時揭曉' },
+};
+let presenterRushMode = 'speed';
+
+function updateStandbyRushPreview() {
+  const meta = RUSH_MODE_META_PRESENTER[presenterRushMode] || RUSH_MODE_META_PRESENTER.speed;
+  const nameEl = document.getElementById('srp-name');
+  const ruleEl = document.getElementById('srp-rule');
+  if (nameEl) nameEl.textContent = meta.label;
+  if (ruleEl) ruleEl.textContent = meta.rule;
+}
+
+PartyBus.on('game_start', payload => {
+  // 助理端開始遊戲:設定模式、難度池、重置抽過 ID
+  selectedMode = payload.mode;
+  pendingMode  = payload.mode;
+  currentMode  = payload.mode;
+  presenterCustomTiers = payload.customTiers || [];
+  presenterUsedIds = new Set();
+  presenterRushMode = payload.rushMode || 'speed';
+  round = 1;
+  isRevealed = false;
+  currentQuestion = null;
+  currentDifficulty = null;
+  currentFramework = null;
+  // 切到該模式畫面
+  if (currentMode) stage.dataset.mode = currentMode;
+  document.querySelectorAll('.bg-layer').forEach(el => el.classList.remove('active'));
+  const bg = document.getElementById('bg-' + currentMode);
+  if (bg) bg.classList.add('active');
+  document.getElementById('paradise-particles')?.classList.toggle('active', currentMode === 'paradise');
+  // 進待命頁
+  goto('scr-standby');
+  document.getElementById('standby-round').textContent = `ROUND ${String(round).padStart(2,'0')}`;
+  updateCategoryGridPresenter();
+  updateStandbyRushPreview();
+});
+
+/* 助理改搶答模式 → 主持人 scr-standby 預告即時更新 */
+PartyBus.on('rush_mode_changed', payload => {
+  if (!payload?.mode) return;
+  presenterRushMode = payload.mode;
+  updateStandbyRushPreview();
+});
+
+PartyBus.on('category_preview', payload => {
+  // 助理切預覽:scr-category 對應卡片柔和呼吸光暈
+  if (payload?.fid) previewCategory(payload.fid);
+});
+
+PartyBus.on('category_confirm', payload => {
+  console.log('[PGG/presenter] received category_confirm', payload);
+  // 助理拍板:強閃進場 + 850ms 後 selectCategory
+  if (!payload?.fid) return;
+  // 確保停在 scr-category(若還卡在 winner 頁面或別處,先切過去)
+  const scr = document.getElementById('scr-category');
+  if (!scr.classList.contains('active')) {
+    goto('scr-category');
+    setTimeout(() => lockCategory(payload.fid), 100);
+  } else {
+    lockCategory(payload.fid);
+  }
+});
+
+PartyBus.on('category_reset', () => {
+  // 下一題開始:回到分類選擇等候態
+  // 1. 清掉 scr-category 的 preview/locked 高亮
+  clearCategoryHighlight();
+  // 2. 清題目頁狀態
+  isRevealed = false;
+  currentQuestion = null;
+  currentDifficulty = null;
+  currentFramework = null;
+  // 3. 重新統計九宮格題數(扣掉已抽過的)
+  if (typeof updateCategoryGridPresenter === 'function') updateCategoryGridPresenter();
+});
+
+PartyBus.on('question_pick', payload => {
+  console.log('[PGG/presenter] received question_pick', payload);
+  // 收到題目 ID,從 BANK 撈題目快取
+  if (!payload?.id) return;
+  const q = getQuestionById(payload.id);
+  if (!q) {
+    console.warn('[PGG/presenter] 題目不在 BANK:', payload.id);
+    return;
+  }
+  currentQuestion = q;
+  currentDifficulty = payload.difficulty || BANK_SCHEMA.difficulties.find(d => d.prefix === payload.id[0])?.id;
+  currentFramework = payload.framework || q.topic;
+  presenterUsedIds.add(q.id);
+  // 不立刻 renderQuestion——等 lockCategory 的 850ms 動畫播完後 selectCategory() 會呼叫
+  // 但若已在題目頁(switchType 等情境),立刻重渲染
+  if (document.getElementById('scr-question')?.classList.contains('active')) {
+    renderQuestion();
+  }
+  // 若煉獄降臨計時已過(因事件晚到),也要立刻補跑
+  // 條件:在 scr-purg-arrival 但 purgArrivalTimer 已 null,代表 2500ms 已過卻當時 currentQuestion 為空
+  const purgScreen = document.getElementById('scr-purg-arrival');
+  if (purgScreen?.classList.contains('active') && !purgArrivalTimer) {
+    console.log('[PGG/presenter] 煉獄降臨等待中收到題目,立刻 render + goto');
+    renderQuestion();
+    goto('scr-question');
+  }
+});
+
+PartyBus.on('purgatory_summon', () => {
+  if (typeof summonPurgatory === 'function') summonPurgatory();
+});
+
+PartyBus.on('purgatory_end', () => {
+  if (typeof endPurgatory === 'function') endPurgatory();
+});
+
+PartyBus.on('reveal_answer', () => {
+  // 助理端按公佈答案:此端跑 reveal 流程(顯示完整答案 + 解析)
+  if (!isRevealed) revealAnswer();
+});
+
+PartyBus.on('next_question', () => {
+  // 助理端按下一題:回到待命頁,重置一切
+  round++;
+  isRevealed = false;
+  currentQuestion = null;
+  currentDifficulty = null;
+  currentFramework = null;
+  // 清九宮格殘留高亮
+  clearCategoryHighlight();
+  // 清題目頁的選擇/答案視覺(下次 renderQuestion 會重畫)
+  const body = document.getElementById('q-body');
+  if (body) body.innerHTML = '';
+  // 回待命頁
+  goto('scr-standby');
+  document.getElementById('standby-round').textContent = `ROUND ${String(round).padStart(2,'0')}`;
+  const sr = document.getElementById('stat-round');
+  if (sr) sr.textContent = String(round).padStart(2,'0');
+  // 重新統計九宮格(把剛抽過的題從計數扣掉)
+  if (typeof updateCategoryGridPresenter === 'function') updateCategoryGridPresenter();
+});
+
+PartyBus.on('skip_question', () => {
+  // 助理端跳題:行為與 next_question 相同(都回待命頁)
+  isRevealed = false;
+  currentQuestion = null;
+  currentDifficulty = null;
+  currentFramework = null;
+  clearCategoryHighlight();
+  const body = document.getElementById('q-body');
+  if (body) body.innerHTML = '';
+  goto('scr-standby');
+  document.getElementById('standby-round').textContent = `ROUND ${String(round).padStart(2,'0')}`;
+  if (typeof updateCategoryGridPresenter === 'function') updateCategoryGridPresenter();
+});
+
+PartyBus.on('start_rush', payload => {
+  // 助理端按開始搶答(或重新搶答):跑 321 倒數 → 進等待搶答畫面
+  // 收下本輪實際模式(若是隨機,助理已決定後傳過來);供未來行為實作使用
+  if (payload?.rushMode) presenterRushMode = payload.rushMode;
+  if (typeof startRush === 'function') startRush();
+});
+
+/* 隨機模式揭曉:5 秒大字「本輪 · 〔實際模式〕」+ 規則 + 進度條 */
+PartyBus.on('rush_reveal', payload => {
+  if (!payload?.rushMode) return;
+  presenterRushMode = payload.rushMode;
+  const meta = RUSH_MODE_META_PRESENTER[payload.rushMode] || RUSH_MODE_META_PRESENTER.speed;
+  const nameEl = document.getElementById('reveal-mode-name');
+  const ruleEl = document.getElementById('reveal-rule');
+  if (nameEl) nameEl.textContent = meta.label;
+  if (ruleEl) ruleEl.textContent = meta.rule;
+  // 重啟進度條動畫(移除 run 再加回來,讓 CSS animation 重跑)
+  const prog = document.getElementById('reveal-progress');
+  if (prog) {
+    prog.classList.remove('run');
+    void prog.offsetWidth;  // 強制 reflow
+    prog.classList.add('run');
+  }
+  goto('scr-reveal');
+});
+
+/* 狂點奪魁 tick:即時更新主持人投影上的計數面板 */
+PartyBus.on('rush_tick', payload => {
+  if (payload?.mode !== 'count') return;
+  // 更新剩餘秒數
+  const remainNum = document.getElementById('bcp-remain-num');
+  if (remainNum) {
+    const sec = (payload.remainingMs / 1000).toFixed(1);
+    remainNum.textContent = sec;
+  }
+  // 更新長條圖(從高到低排序、找出最高分組畫金色)
+  const bars = document.getElementById('bcp-bars');
+  if (bars && Array.isArray(payload.teamCounts)) {
+    const sorted = [...payload.teamCounts].sort((a, b) => b.count - a.count);
+    const max = Math.max(1, sorted[0]?.count || 1);  // 避免除以 0
+    const leaderCount = sorted[0]?.count || 0;
+    bars.innerHTML = sorted.map(t => {
+      const pct = Math.round((t.count / max) * 100);
+      const isLeader = t.count === leaderCount && t.count > 0 ? ' leader' : '';
+      return `<div class="bcp-bar-row${isLeader}">
+        <div class="bcp-bar-name">${t.name}</div>
+        <div class="bcp-bar-track"><div class="bcp-bar-fill" style="width:${pct}%"></div></div>
+        <div class="bcp-bar-count">${t.count}</div>
+      </div>`;
+    }).join('');
+  }
+});
+
+/* 全組到位:即時更新主持人投影上的進度面板
+   payload.teamProgress[] 每組:{ idx, name, currentCluster, bestCluster, total }
+   - 底色 fill = currentCluster (即時 0.5 秒同步窗口人數)
+   - 主 fill   = bestCluster (該組目前為止最佳集群,永不退)
+   - 排序:bestCluster 高者前 → 同分按 total 大者前
+   - 領先組(bestCluster 等於最高值)套 .leader 樣式
+*/
+/* 閃電一按:scr-buzzing 進入時跑 3 秒 DANGER 進度條,3 秒後切 GO 階段 */
+function _runLightningPresenterCountdown() {
+  const phase = document.getElementById('bli-phase');
+  const title = document.getElementById('bli-title');
+  const fill = document.getElementById('bli-progress-fill');
+  const disqList = document.getElementById('bli-disq-list');
+  if (disqList) disqList.innerHTML = '';
+  if (phase) {
+    phase.textContent = 'DANGER ZONE';
+    phase.classList.remove('go');
+    phase.classList.add('danger');
+  }
+  if (title) title.textContent = '3 秒前不要按!';
+  if (fill) {
+    fill.classList.remove('go');
+    fill.classList.add('danger');
+    fill.style.transform = 'scaleX(0)';
+  }
+  // 3 秒進度條(0% → 100%),用 100ms 步進
+  const startedAt = Date.now();
+  const dangerMs = 3000;
+  if (window._bliCdTimer) clearInterval(window._bliCdTimer);
+  window._bliCdTimer = setInterval(() => {
+    const elapsed = Date.now() - startedAt;
+    const pct = Math.min(1, elapsed / dangerMs);
+    if (fill) fill.style.transform = `scaleX(${pct})`;
+    if (elapsed >= dangerMs) {
+      clearInterval(window._bliCdTimer);
+      window._bliCdTimer = null;
+      // 切到 GO 階段
+      if (phase) {
+        phase.textContent = 'GO';
+        phase.classList.remove('danger');
+        phase.classList.add('go');
+      }
+      if (title) title.textContent = '可以按了 · 最快搶到!';
+      if (fill) {
+        fill.classList.remove('danger');
+        fill.classList.add('go');
+        fill.style.transform = 'scaleX(1)';
+      }
+    }
+  }, 100);
+}
+
+/* 閃電一按:有人在淘汰窗口內按下被淘汰 → 投影上加一條紅色淘汰列 */
+PartyBus.on('lightning_disqualify', payload => {
+  if (!payload?.name) return;
+  const list = document.getElementById('bli-disq-list');
+  if (!list) return;
+  const team = payload.team || '';
+  const sec = ((payload.elapsedMs || 0) / 1000).toFixed(2);
+  const row = document.createElement('div');
+  row.className = 'bli-disq-row';
+  row.innerHTML = `
+    <span class="disq-team">${team}</span>
+    <span class="disq-name">${payload.name}</span>
+    <span class="disq-tag">第 ${sec} 秒</span>
+  `;
+  list.appendChild(row);
+  // 限制顯示最近 6 條
+  while (list.children.length > 6) list.firstChild.remove();
+});
+
+PartyBus.on('allhands_progress', payload => {
+  if (!Array.isArray(payload?.teamProgress)) return;
+  // 更新剩餘秒數
+  const remainNum = document.getElementById('bah-remain-num');
+  if (remainNum) {
+    const sec = (payload.remainingMs / 1000).toFixed(1);
+    remainNum.textContent = sec;
+  }
+  const bars = document.getElementById('bah-bars');
+  if (!bars) return;
+  // 算最高 bestCluster 用於 leader 標記
+  const maxBest = Math.max(0, ...payload.teamProgress.map(t => t.bestCluster || 0));
+  // 排序:bestCluster 降冪
+  const sorted = [...payload.teamProgress].sort((a, b) => {
+    if (b.bestCluster !== a.bestCluster) return b.bestCluster - a.bestCluster;
+    return (b.total || 0) - (a.total || 0);
+  });
+  bars.innerHTML = sorted.map(t => {
+    const total = t.total || 1;
+    const bestPct = Math.min(100, Math.round((t.bestCluster / total) * 100));
+    const curPct = Math.min(100, Math.round((t.currentCluster / total) * 100));
+    const isLeader = t.bestCluster === maxBest && t.bestCluster > 0;
+    const cls = isLeader ? ' leader' : '';
+    return `<div class="bah-bar-row${cls}">
+      <div class="bah-bar-name">${t.name}</div>
+      <div class="bah-bar-track">
+        <div class="bah-bar-fill-current" style="width:${curPct}%"></div>
+        <div class="bah-bar-fill-best" style="width:${bestPct}%"></div>
+      </div>
+      <div class="bah-bar-stats">
+        <div class="bah-bar-best-frac">${t.bestCluster} / ${total}</div>
+        <div class="bah-bar-now">當下 <span class="now-num">${t.currentCluster}</span></div>
+      </div>
+    </div>`;
+  }).join('');
+});
+
+PartyBus.on('rush_winner', payload => {
+  if (!payload) return;
+  console.log('[PGG/presenter] rush_winner received at', Date.now(), 'mode:', payload.rushMode);
+  const group = payload.groupName || `第${payload.groupIdx + 1}組`;
+  document.getElementById('win-group').textContent = group;
+
+  const badge = document.getElementById('win-badge');
+  const sub = document.getElementById('win-sub');
+  const runnerUpBlock = document.getElementById('win-runnerup');
+
+  // 預設先隱藏 runner-up
+  if (runnerUpBlock) runnerUpBlock.style.display = 'none';
+
+  const mode = payload.rushMode || 'speed';
+  const person = payload.personName || '';
+
+  if (mode === 'speed') {
+    if (badge) badge.textContent = '電光石火 · 搶答成功';
+    const sec = ((payload.elapsedMs || 0) / 1000).toFixed(3);
+    sub.innerHTML = `<span class="person">${person}</span>&nbsp;搶答耗時&nbsp;<span class="ms">${sec}</span>&nbsp;秒`;
+  } else if (mode === 'lightning') {
+    if (badge) badge.textContent = '閃電一按 · 搶答成功';
+    const sec = (payload.pressedAtSec || 0).toFixed(3);
+    sub.innerHTML = `<span class="person">${person}</span>&nbsp;在第&nbsp;<span class="ms">${sec}</span>&nbsp;秒搶到`;
+  } else if (mode === 'count') {
+    if (badge) badge.textContent = '狂點奪魁 · 搶答成功';
+    const total = payload.teamTotalClicks || 0;
+    const mvp = payload.mvpClicks || 0;
+    sub.innerHTML = `<span class="person">${person}</span>&nbsp;個人最多&nbsp;<span class="ms">${mvp}</span>&nbsp;次<br>全組共點擊&nbsp;<span class="ms">${total}</span>&nbsp;次 · 全場最多`;
+    if (payload.runnerUp && runnerUpBlock) {
+      document.getElementById('wru-name').textContent = payload.runnerUp.name || '';
+      document.getElementById('wru-count').textContent = payload.runnerUp.count || 0;
+      runnerUpBlock.style.display = 'flex';
+    }
+  } else if (mode === 'allhands') {
+    if (badge) badge.textContent = '全組到位 · 同步獲勝';
+    const cluster = payload.clusterCount || 0;
+    const total = payload.totalCount || 0;
+    const sec = (payload.endAtSec || 0).toFixed(2);
+    sub.innerHTML = `共&nbsp;<span class="ms">${cluster} / ${total}</span>&nbsp;人在 0.5 秒內同時按下<br>於第&nbsp;<span class="ms">${sec}</span>&nbsp;秒達成最佳同步`;
+  } else {
+    if (badge) badge.textContent = '搶答成功';
+    sub.innerHTML = `<span class="person">${person}</span>`;
+  }
+
+  lastWinner = { group, person, ms: '0.000' };  // 保留舊欄位給其他可能用到的地方
+  const f = document.getElementById('win-flash');
+  if (f) { f.style.animation = 'none'; void f.offsetWidth; f.style.animation = ''; }
+  goto('scr-winner');
+  try { playCorrectSound(); } catch(e) {}
+});
+
+PartyBus.on('enter_category', () => {
+  console.log('[PGG/presenter] enter_category received at', Date.now());
+  // 助理端要求進選題畫面
+  if (typeof enterCategory === 'function') enterCategory();
+});
+
+/* 組名改變 → 同步主持人這邊任何顯示組名的地方 */
+PartyBus.on('team_rename', payload => {
+  if (!payload?.oldName || !payload?.newName) return;
+  // 1. 若 lastWinner 剛好是這組,更新它
+  if (lastWinner && lastWinner.group === payload.oldName) {
+    lastWinner.group = payload.newName;
+    // 即時更新畫面上的組名(搶答頁與選題頁的橫條)
+    const winGroup = document.getElementById('win-group');
+    if (winGroup && winGroup.textContent === payload.oldName) {
+      winGroup.textContent = payload.newName;
+    }
+    const winnerGroup = document.getElementById('winner-group');
+    if (winnerGroup && winnerGroup.textContent.includes(payload.oldName)) {
+      winnerGroup.textContent = `· ${payload.newName}`;
+    }
+  }
+});
+
+/* 重新開始:回到一開始的 scr-select 模式選擇頁 */
+PartyBus.on('game_restart', () => {
+  console.log('[PGG/presenter] received game_restart');
+  // 重置狀態
+  round = 1;
+  isRevealed = false;
+  currentQuestion = null;
+  currentDifficulty = null;
+  currentFramework = null;
+  presenterUsedIds = new Set();
+  selectedMode = null;
+  pendingMode = null;
+  currentMode = null;
+  // 取消任何進行中的 timer
+  if (typeof categoryLockTimer !== 'undefined' && categoryLockTimer) { clearTimeout(categoryLockTimer); categoryLockTimer = null; }
+  if (typeof purgArrivalTimer !== 'undefined' && purgArrivalTimer) { clearTimeout(purgArrivalTimer); purgArrivalTimer = null; }
+  // 清題目頁與九宮格殘留
+  const body = document.getElementById('q-body');
+  if (body) body.innerHTML = '';
+  if (typeof clearCategoryHighlight === 'function') clearCategoryHighlight();
+  // 清模式卡選中狀態
+  document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
+  const btn = document.getElementById('btn-enter');
+  if (btn) btn.disabled = true;
+  // 切回 stage-default + 回到 scr-select
+  stage.dataset.mode = 'select';
+  goto('scr-select');
+  // 重啟 QR 倒數(讓再次進入 scr-select 時 QR 重新出現)
+  if (typeof startJoinQRCountdown === 'function') {
+    startJoinQRCountdown(60000);
+  }
+  // 注意:不清玩家池(玩家還在線,只是遊戲重置)
+});
+
+/* 參賽者加入 → 主持人玩家池新增 chip */
+PartyBus.on('player_join', payload => {
+  if (!payload?.name) return;
+  if (typeof addPlayerToPool === 'function') addPlayerToPool(payload.name);
+});
+
+/* 參賽者離開 → 主持人玩家池移除 chip */
+PartyBus.on('player_leave', payload => {
+  if (!payload?.name) return;
+  if (typeof removePlayerFromPool === 'function') removePlayerFromPool(payload.name);
+});
+
+updatePool();
+renderQuestion();
+updateCategoryGridPresenter();
+
+/* JOIN ROOM QR Code 邏輯
+   - 初始即顯示 + 倒數 60 秒,結束後淡出
+   - 助理透過 presenter_show_qr 事件可重新顯示
+   - 切離 scr-select 時清掉 timer
+   - QR 圖案只渲染一次(用 PGG_JOIN_URL),倒數只控制顯隱
+*/
+let _joinQRCountdownTimer = null;
+let _joinQRTickTimer = null;
+
+function renderJoinQR() {
+  const container = document.getElementById('join-qr');
+  const urlEl = document.getElementById('join-url');
+  const codeEl = document.getElementById('join-room-code');
+  if (urlEl) urlEl.textContent = PGG_JOIN_URL.replace(/^https?:\/\//, '');
+  if (codeEl) codeEl.textContent = PGG_ROOM_CODE;
+  if (!container) return;
+  if (typeof QRCode === 'undefined') {
+    setTimeout(renderJoinQR, 100);  // library 還沒載入,等一下
+    return;
+  }
+  // QR 只渲染一次(若已渲染則跳過)
+  if (!container.firstChild) {
+    new QRCode(container, {
+      text: PGG_JOIN_URL,
+      width: 124,  // 配合 140 的容器扣掉 padding
+      height: 124,
+      correctLevel: QRCode.CorrectLevel.H,
+    });
+  }
+  // 啟動倒數計時
+  startJoinQRCountdown(60000);
+}
+window.renderJoinQR = renderJoinQR;
+
+/* 啟動 / 重啟 QR 倒數計時 */
+function startJoinQRCountdown(durationMs) {
+  // 清舊 timer
+  clearJoinQRTimers();
+  const box = document.getElementById('join-qr-box');
+  const timerEl = document.getElementById('join-qr-timer');
+  if (!box) return;
+  // 取消 hidden 狀態(顯示)
+  box.classList.remove('hidden');
+  // 倒數秒數即時更新
+  const startTs = Date.now();
+  const endTs = startTs + durationMs;
+  const updateText = () => {
+    const remaining = Math.max(0, Math.ceil((endTs - Date.now()) / 1000));
+    if (timerEl) timerEl.textContent = remaining + 's';
+    return remaining;
+  };
+  updateText();
+  _joinQRTickTimer = setInterval(() => {
+    if (updateText() <= 0) clearInterval(_joinQRTickTimer);
+  }, 250);
+  // 結束時淡出
+  _joinQRCountdownTimer = setTimeout(() => {
+    if (box) box.classList.add('hidden');
+    if (timerEl) timerEl.textContent = '';
+    clearInterval(_joinQRTickTimer);
+  }, durationMs);
+}
+
+/* 清掉 QR 相關的 timer(避免在 scr-select 切走後仍跑) */
+function clearJoinQRTimers() {
+  if (_joinQRCountdownTimer) { clearTimeout(_joinQRCountdownTimer); _joinQRCountdownTimer = null; }
+  if (_joinQRTickTimer) { clearInterval(_joinQRTickTimer); _joinQRTickTimer = null; }
+}
+window.clearJoinQRTimers = clearJoinQRTimers;
+
+/* 助理觸發「在主持人介面顯示 QR Code」→ QR 重新顯示 + 重啟倒數 */
+PartyBus.on('presenter_show_qr', payload => {
+  const dur = payload?.durationMs || 60000;
+  // 只在 scr-select 還 active 時才動作(遊戲開始後 QR 永久消失)
+  const sel = document.getElementById('scr-select');
+  if (!sel || !sel.classList.contains('active')) return;
+  startJoinQRCountdown(dur);
+});
+
+/* 初次渲染 */
+if (typeof QRCode !== 'undefined') {
+  renderJoinQR();
+} else {
+  window.addEventListener('load', () => setTimeout(renderJoinQR, 50));
+}
+</script>
+</body>
+</html>

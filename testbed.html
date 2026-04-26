@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>保險知識星攻略 · 開發測試台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#050912;color:#F2EDE1;font-family:"Noto Sans TC",system-ui,sans-serif;overflow:hidden}
+
+/* 頂部控制列 */
+.tb-bar{
+  height:42px;background:#0B1020;border-bottom:1px solid rgba(155,163,181,.18);
+  display:flex;align-items:center;padding:0 16px;gap:12px;flex-shrink:0;
+}
+.tb-title{
+  font-weight:700;font-size:13px;letter-spacing:.1em;color:#F2EDE1;
+}
+.tb-title .sub{
+  font-family:"JetBrains Mono",monospace;font-size:9px;letter-spacing:.22em;
+  color:#D4A34B;margin-left:8px;text-transform:uppercase;font-weight:500;
+}
+.tb-spacer{flex:1}
+.tb-btn{
+  background:transparent;border:1px solid rgba(155,163,181,.28);color:#9BA3B5;
+  font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.14em;
+  padding:6px 11px;text-transform:uppercase;cursor:pointer;
+  transition:all 160ms;
+}
+.tb-btn:hover{border-color:#D4A34B;color:#D4A34B}
+.tb-btn.danger{border-color:rgba(216,52,74,.35);color:#D8344A}
+.tb-btn.danger:hover{border-color:#D8344A;color:#EC5068;background:rgba(216,52,74,.08)}
+.tb-zoom{display:flex;align-items:center;gap:4px}
+.tb-zoom .lbl{
+  font-family:"JetBrains Mono",monospace;font-size:9px;color:#5C6480;
+  letter-spacing:.12em;text-transform:uppercase;
+}
+.tb-zoom select{
+  background:#141B2E;border:1px solid rgba(155,163,181,.28);color:#9BA3B5;
+  font-family:"JetBrains Mono",monospace;font-size:10px;padding:3px 6px;
+  cursor:pointer;
+}
+
+/* 三欄主區 */
+.tb-stage{
+  height:calc(100vh - 42px);
+  display:grid;
+  grid-template-columns:1fr 1fr 380px;
+  gap:1px;background:rgba(155,163,181,.14);
+}
+
+/* 每欄 */
+.tb-col{
+  display:flex;flex-direction:column;background:#080A10;min-width:0;min-height:0;
+}
+.tb-col-hd{
+  height:32px;background:#141B2E;border-bottom:1px solid rgba(155,163,181,.14);
+  display:flex;align-items:center;padding:0 12px;gap:10px;flex-shrink:0;
+}
+.tb-col-hd .role{
+  font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.22em;
+  color:#D4A34B;text-transform:uppercase;font-weight:700;
+}
+.tb-col-hd .desc{
+  font-family:"JetBrains Mono",monospace;font-size:9px;letter-spacing:.12em;
+  color:#5C6480;
+}
+.tb-col-hd .actions{margin-left:auto;display:flex;gap:6px}
+.tb-col-hd .icon-btn{
+  background:transparent;border:1px solid rgba(155,163,181,.18);color:#5C6480;
+  width:24px;height:22px;display:flex;align-items:center;justify-content:center;
+  font-family:"JetBrains Mono",monospace;font-size:11px;cursor:pointer;
+  transition:all 160ms;
+}
+.tb-col-hd .icon-btn:hover{border-color:#D4A34B;color:#D4A34B}
+.tb-col-body{
+  flex:1;position:relative;overflow:hidden;background:#000;
+}
+.tb-col-body iframe{
+  position:absolute;top:0;left:0;border:none;display:block;background:#080A10;
+  transform-origin:top left;
+}
+
+/* 參賽者欄:模擬手機外觀 */
+.tb-col.participant .tb-col-body{
+  background:#1a1a1a;
+  display:flex;align-items:center;justify-content:center;
+  padding:8px;
+}
+.tb-col.participant .frame-wrap{
+  position:relative;width:100%;max-width:380px;height:100%;
+  border-radius:8px;overflow:hidden;
+  box-shadow:0 0 0 1px rgba(155,163,181,.18), 0 8px 24px rgba(0,0,0,.6);
+}
+.tb-col.participant .frame-wrap iframe{
+  position:absolute;top:0;left:0;width:100%;height:100%;
+  transform:none;
+}
+
+/* loading 占位 */
+.tb-loading{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  background:#080A10;font-family:"JetBrains Mono",monospace;font-size:11px;
+  color:#5C6480;letter-spacing:.18em;text-transform:uppercase;
+  pointer-events:none;
+}
+
+/* RWD:窄螢幕改為垂直堆疊 */
+@media (max-width:1100px){
+  .tb-stage{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
+  .tb-col.participant{grid-column:1/-1}
+}
+</style>
+</head>
+<body>
+
+<div class="tb-bar">
+  <div class="tb-title">保險知識星攻略<span class="sub">DEV TESTBED</span></div>
+  <div class="tb-zoom">
+    <span class="lbl">Zoom</span>
+    <select id="tb-zoom-sel" onchange="setZoom(this.value)">
+      <option value="1">100%</option>
+      <option value="0.85" selected>85%</option>
+      <option value="0.75">75%</option>
+      <option value="0.65">65%</option>
+      <option value="0.5">50%</option>
+    </select>
+  </div>
+  <div class="tb-spacer"></div>
+  <button class="tb-btn" onclick="reloadAll()">重整全部</button>
+  <button class="tb-btn" onclick="clearBus()">清 PartyBus</button>
+  <button class="tb-btn danger" onclick="clearBank()">清題庫</button>
+  <button class="tb-btn danger" onclick="resetAll()">完全重置</button>
+</div>
+
+<div class="tb-stage">
+
+  <!-- 主持人(投影) -->
+  <div class="tb-col" data-role="presenter">
+    <div class="tb-col-hd">
+      <span class="role">Presenter</span>
+      <span class="desc">主持人 · 投影</span>
+      <div class="actions">
+        <button class="icon-btn" onclick="reloadFrame('presenter')" title="重整">↻</button>
+        <button class="icon-btn" onclick="popout('presenter')" title="獨立視窗">↗</button>
+      </div>
+    </div>
+    <div class="tb-col-body">
+      <div class="tb-loading">Loading presenter...</div>
+      <iframe id="if-presenter" src="presenter.html" allow="autoplay"></iframe>
+    </div>
+  </div>
+
+  <!-- 助理(總控) -->
+  <div class="tb-col" data-role="assistant">
+    <div class="tb-col-hd">
+      <span class="role">Assistant</span>
+      <span class="desc">助理 · 總控</span>
+      <div class="actions">
+        <button class="icon-btn" onclick="reloadFrame('assistant')" title="重整">↻</button>
+        <button class="icon-btn" onclick="popout('assistant')" title="獨立視窗">↗</button>
+      </div>
+    </div>
+    <div class="tb-col-body">
+      <div class="tb-loading">Loading assistant...</div>
+      <iframe id="if-assistant" src="assistant.html"></iframe>
+    </div>
+  </div>
+
+  <!-- 參賽者(手機) -->
+  <div class="tb-col participant" data-role="participant">
+    <div class="tb-col-hd">
+      <span class="role">Participant</span>
+      <span class="desc">參賽者 · 手機</span>
+      <div class="actions">
+        <button class="icon-btn" onclick="reloadFrame('participant')" title="重整">↻</button>
+        <button class="icon-btn" onclick="popout('participant')" title="獨立視窗">↗</button>
+      </div>
+    </div>
+    <div class="tb-col-body">
+      <div class="frame-wrap">
+        <div class="tb-loading">Loading participant...</div>
+        <iframe id="if-participant" src="participant.html"></iframe>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* 縮放:用 transform scale 縮 iframe,讓畫面更舒服
+   參賽者欄不縮放(已是手機尺寸) */
+function setZoom(z) {
+  z = parseFloat(z);
+  ['presenter', 'assistant'].forEach(role => {
+    const f = document.getElementById('if-' + role);
+    if (!f) return;
+    const body = f.parentElement;
+    f.style.transform = `scale(${z})`;
+    f.style.width = `${100 / z}%`;
+    f.style.height = `${100 / z}%`;
+  });
+}
+// 等 iframe 載完再套用初始縮放(避免閃爍)
+window.addEventListener('load', () => {
+  setTimeout(() => setZoom(document.getElementById('tb-zoom-sel').value), 200);
+});
+
+/* 重整單一 iframe */
+function reloadFrame(role) {
+  const f = document.getElementById('if-' + role);
+  if (!f) return;
+  // 用 src 重設觸發 reload
+  const src = f.src;
+  f.src = 'about:blank';
+  setTimeout(() => { f.src = src; }, 50);
+}
+
+/* 重整全部 */
+function reloadAll() {
+  ['presenter', 'assistant', 'participant'].forEach(reloadFrame);
+}
+
+/* 把某 iframe 開到獨立視窗(脫離 testbed) */
+function popout(role) {
+  const f = document.getElementById('if-' + role);
+  if (!f) return;
+  // 用原始路徑開新分頁(去除 about:blank 等暫態)
+  const src = f.getAttribute('src');
+  if (src && src !== 'about:blank') {
+    window.open(src, '_blank');
+  } else {
+    window.open(`${role}.html`, '_blank');
+  }
+}
+
+/* 清掉 PartyBus 殘留(localStorage 的 pgg_party_event key) */
+function clearBus() {
+  try {
+    localStorage.removeItem('pgg_party_event');
+    // 各 iframe 內也清(iframe 同 origin 可直接存取)
+    ['presenter', 'assistant', 'participant'].forEach(role => {
+      try {
+        const f = document.getElementById('if-' + role);
+        f?.contentWindow?.localStorage?.removeItem('pgg_party_event');
+      } catch (e) {}
+    });
+    alert('PartyBus 殘留已清除');
+  } catch (e) {
+    alert('清除失敗: ' + e.message);
+  }
+}
+
+/* 清掉題庫(localStorage 的 pgg_quiz_bank_v1 key)+ 重整 */
+function clearBank() {
+  if (!confirm('確定要清除已掛載的題庫?之後要重新上傳。')) return;
+  try {
+    localStorage.removeItem('pgg_quiz_bank_v1');
+    ['presenter', 'assistant', 'participant'].forEach(role => {
+      try {
+        const f = document.getElementById('if-' + role);
+        f?.contentWindow?.localStorage?.removeItem('pgg_quiz_bank_v1');
+      } catch (e) {}
+    });
+    reloadAll();
+  } catch (e) {
+    alert('清除失敗: ' + e.message);
+  }
+}
+
+/* 完全重置(清所有 pgg_* + 重整) */
+function resetAll() {
+  if (!confirm('完全重置會清除題庫、PartyBus、所有狀態,確定?')) return;
+  try {
+    Object.keys(localStorage).filter(k => k.startsWith('pgg_')).forEach(k => localStorage.removeItem(k));
+    ['presenter', 'assistant', 'participant'].forEach(role => {
+      try {
+        const f = document.getElementById('if-' + role);
+        const ls = f?.contentWindow?.localStorage;
+        if (ls) Object.keys(ls).filter(k => k.startsWith('pgg_')).forEach(k => ls.removeItem(k));
+      } catch (e) {}
+    });
+    reloadAll();
+  } catch (e) {
+    alert('重置失敗: ' + e.message);
+  }
+}
+
+/* iframe 載完後移除 loading */
+['presenter', 'assistant', 'participant'].forEach(role => {
+  const f = document.getElementById('if-' + role);
+  f?.addEventListener('load', () => {
+    const loading = f.parentElement.querySelector('.tb-loading');
+    if (loading) loading.style.display = 'none';
+  });
+});
+</script>
+
+</body>
+</html>
