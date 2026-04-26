@@ -19,13 +19,13 @@ const OUT = resolve(ROOT, 'public', 'lib', 'partybus.js');
 mkdirSync(dirname(OUT), { recursive: true });
 
 await esbuild.build({
-  entryPoints: [resolve(ROOT, 'client', 'partybus.ts')],
+  entryPoints: [resolve(ROOT, 'client', 'index.ts')],
   bundle: true,
   format: 'iife',
   platform: 'browser',
   target: 'es2022',
   outfile: OUT,
-  minify: false,           // keep readable; PartyBus is tiny anyway
+  minify: false,           // keep readable; PartyBus + BankLoader are small
   sourcemap: 'inline',     // attached so DevTools can map errors back to TS
   legalComments: 'inline',
   logLevel: 'info',

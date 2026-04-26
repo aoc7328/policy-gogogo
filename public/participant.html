@@ -2204,6 +2204,16 @@ function loadBankP() {
   } catch (e) {}
 }
 loadBankP();
+
+/* Phase 0 Q11:auto-fetch /data/ 5 個 BANK JSON,fill empty slots only。
+   參賽者端純讀,fetch 失敗只 console 警示。 */
+PGGBankLoader.autoLoad({
+  onError: (diff, msg) => console.warn(`[PGG participant] BANK ${diff} 載入失敗:`, msg),
+}).then(result => {
+  Object.entries(result.banks).forEach(([d, bank]) => {
+    if (!BANK_P[d] || !BANK_P[d].questions) BANK_P[d] = bank;
+  });
+}).catch(err => console.error('[PGG participant] BANK auto-load 完全失敗:', err));
 window.addEventListener('storage', e => {
   if (e.key === BANK_STORAGE_KEY_P) {
     Object.keys(BANK_P).forEach(k => BANK_P[k] = null);

@@ -1303,6 +1303,17 @@ function loadBank() {
 }
 loadBank();
 
+/* Phase 0 Q11:auto-fetch /data/ 5 個 BANK JSON,fill empty slots only。
+   主持人端純讀,fetch 失敗只 console 警示,不阻擋連線。 */
+PGGBankLoader.autoLoad({
+  onError: (diff, msg) => console.warn(`[PGG presenter] BANK ${diff} 載入失敗:`, msg),
+}).then(result => {
+  Object.entries(result.banks).forEach(([d, bank]) => {
+    if (!BANK[d] || !BANK[d].questions) BANK[d] = bank;
+  });
+  if (typeof updateCategoryGridPresenter === 'function') updateCategoryGridPresenter();
+}).catch(err => console.error('[PGG presenter] BANK auto-load 完全失敗:', err));
+
 /* 監聽其他分頁更新題庫(助理上傳後主持人自動 reload) */
 window.addEventListener('storage', e => {
   if (e.key === BANK_STORAGE_KEY) {

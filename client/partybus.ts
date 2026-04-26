@@ -46,7 +46,11 @@ class PartyBusImpl {
   private socket: PartySocket | null = null;
   private role: Role | null = null;
   private controlCode: string | null = null;
-  private status: Status = 'disconnected';
+  // Default 'connecting' (not 'disconnected') so a freshly-loaded page shows
+  // a neutral "warming up" indicator instead of a scary red disconnected
+  // flash before init() runs. Stays 'connecting' until the WebSocket opens
+  // (or fails). Phase 0 reg #3 — "斷線提示是異常狀態,初始載入不該觸發".
+  private status: Status = 'connecting';
 
   init(opts: InitOptions): void {
     if (this.socket) {

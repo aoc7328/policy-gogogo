@@ -1486,6 +1486,35 @@ PartyBus.on('purgatory_end', () => {
   if (typeof window.endPurgatory === 'function') window.endPurgatory();
 });
 
+/* server 私訊 __error__ — 在 #sts 顯示紅字提示;若是 no_question(抽題失敗),
+   還原 cat picker 的 optimistic lock 讓助理重試。 */
+PartyBus.on('__error__', payload => {
+  if (!payload || typeof payload !== 'object') return;
+  const code = payload.code || 'unknown';
+  const msg = payload.message || '';
+  const sts = document.getElementById('sts');
+  if (sts) {
+    sts.innerHTML = `<span style="color:var(--err,#E55353)">⚠ ${msg}</span>`;
+  }
+  console.warn(`[PGG server error] ${code}: ${msg}`);
+  // no_question:抽題失敗,還原 cat picker UI
+  if (code === 'no_question') {
+    S.catLocked = false;
+    document.getElementById('cat-grid')?.classList.remove('locked');
+    const cBtn = document.getElementById('cat-confirm-btn');
+    if (cBtn) {
+      cBtn.textContent = '確定';
+      cBtn.classList.remove('locked');
+      cBtn.disabled = false;
+    }
+    // 已選的格子保留 preview 狀態(讓助理可改選別格再確定)
+    document.querySelectorAll('.cat-btn.locked').forEach(b => {
+      b.classList.remove('locked');
+      b.classList.add('preview');
+    });
+  }
+});
+
 /* 診斷工具:看題庫結構是否健康 */
 window.PGG.diagnose = function() {
   console.log('=== 題庫診斷 ===');
@@ -1977,13 +2006,19 @@ function rebuildNamesValue() {
   chk();
 }
 
+/* Phase 4:auto-fetch 完成前(BANK 還未確認可用)鎖住開始遊戲鈕。
+   設為 true 的條件:autoLoad 至少有 1 個難度成功載入(或 localStorage 已快取)。
+   保守策略:任何難度都沒有 → 不准開始遊戲。 */
+let BANK_AUTO_LOAD_READY = false;
+
 function chk(){
   const q=parseInt(document.getElementById('i-q')?.value)||0;
   const s=parseInt(document.getElementById('i-s')?.value)||0;
   const n=parseInt(document.getElementById('i-n')?.value)||0;
   // 自由模式必須勾至少一個難度 + 至少一個題型
   const customOk = S.mode !== 'custom' || (S.customTiers.length > 0 && S.customTypes.length > 0);
-  document.getElementById('start-btn').disabled=!(S.mode&&q>0&&s>0&&n>=2&&customOk);
+  document.getElementById('start-btn').disabled=
+    !(BANK_AUTO_LOAD_READY && S.mode && q>0 && s>0 && n>=2 && customOk);
 }
 
 function startGame(){
@@ -2934,11 +2969,57 @@ window.BANK = BANK;
 window.BANK_SCHEMA = BANK_SCHEMA;
 
 /* ── 初始化 ── */
-loadBankFromStorage();
+loadBankFromStorage();      // localStorage 快取(若有)立即填 BANK
 renderBankPage();
 initCodes();
-rebuildNames();recalc();chk();
+rebuildNames();recalc();
+// 若 localStorage 已快取至少一個難度,先把 BANK_AUTO_LOAD_READY 設 true,
+// 讓配置完成的話開始遊戲鈕能立即可用,不必等 auto-fetch。
+if (Object.values(BANK).some(b => b && b.questions)) {
+  BANK_AUTO_LOAD_READY = true;
+}
+chk();
 updateCategoryGrid();
+
+/* Phase 0 Q11:auto-fetch /data/ 5 個 BANK JSON。
+   策略:fill empty slots only(不覆蓋手動上傳或 localStorage 快取),
+   完成後寫回 localStorage 當下次 cold load 的快取。 */
+PGGBankLoader.autoLoad({
+  onProgress: (loaded, total, diff) => {
+    setStatus(`題庫載入中… (${loaded}/${total}) · 最新 ${diff}`);
+  },
+  onError: (diff, msg) => {
+    console.warn(`[PGG] BANK ${diff} 載入失敗:`, msg);
+  },
+}).then(result => {
+  // Merge:只填空格,不覆蓋(保護助理手動上傳的版本)
+  Object.entries(result.banks).forEach(([d, bank]) => {
+    if (!BANK[d] || !BANK[d].questions) BANK[d] = bank;
+  });
+  saveBankToStorage();
+  renderBankPage();
+  updateCategoryGrid();
+
+  const loadedDiffs = Object.keys(BANK).filter(d => BANK[d] && BANK[d].questions);
+  BANK_AUTO_LOAD_READY = loadedDiffs.length > 0;
+  chk();
+
+  if (result.errors.length > 0) {
+    const failedNames = result.errors.map(e => `${e.difficulty}(${e.message})`).join('; ');
+    const sts = document.getElementById('sts');
+    if (sts) {
+      sts.innerHTML = `<span style="color:var(--err,#E55353)">⚠ 部分題庫載入失敗:${failedNames} · 已掛載 ${loadedDiffs.length}/5</span>`;
+    }
+  } else {
+    setStatus(`題庫載入完成 (${loadedDiffs.length}/5) · 可開始遊戲`);
+  }
+}).catch(err => {
+  console.error('[PGG] BANK auto-load 完全失敗:', err);
+  const sts = document.getElementById('sts');
+  if (sts) {
+    sts.innerHTML = `<span style="color:var(--err,#E55353)">⚠ 題庫載入失敗 · ${err?.message || err} · 請檢查 /data/ 路徑或手動上傳</span>`;
+  }
+});
 
 // 邀請 QR Code(等 qrcodejs library 載入完才產生,稍微延遲)
 if (typeof QRCode !== 'undefined') {

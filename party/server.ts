@@ -190,7 +190,7 @@ export default class PolicyGogogoServer implements Party.Server {
       case 'category_preview':
         return this.onCategoryPreview(cmd.payload);
       case 'category_confirm':
-        return this.onCategoryConfirm(cmd.payload);
+        return this.onCategoryConfirm(cmd.payload, sender);
       case 'category_reset':
         return this.onCategoryReset();
       case 'reveal_answer':
@@ -281,14 +281,16 @@ export default class PolicyGogogoServer implements Party.Server {
     this.broadcast({ type: 'category_preview', payload });
   }
 
-  private onCategoryConfirm(payload: { fid: string }): void {
+  private onCategoryConfirm(
+    payload: { fid: string },
+    sender: Party.Connection<ConnState>
+  ): void {
     if (this.state.phase !== 'picking') return;
-    this.state.currentCat = payload.fid;
-    this.state.catLocked = true;
-    this.broadcast({ type: 'category_confirm', payload });
-
-    // Pick a question.
     if (!this.state.game) return;
+
+    // Try the pick FIRST — no state change, no broadcast yet. If it fails,
+    // we send a private error to the sender (assistant) so they can retry
+    // without other clients seeing a flicker.
     const tierPool = tiersForMode(this.state.game.mode, this.state.game.customTiers);
     const framework = FRAMEWORK_BY_SHORT_ID[payload.fid] ?? null;
     const result = pickQuestion({
@@ -303,20 +305,19 @@ export default class PolicyGogogoServer implements Party.Server {
     });
 
     if (!result.ok) {
-      this.broadcast({
-        type: '__error__',
-        payload: {
-          code: 'no_question',
-          message: result.reason,
-        },
-      });
+      const friendly = result.reason === 'no_purgatory_left'
+        ? '煉獄題庫已抽完(此分類無剩餘煉獄題)'
+        : '此分類已無可抽題目(難度池或框架被用盡)';
+      this.sendError(sender, 'no_question', friendly);
       return;
     }
 
-    // Consume purgArmed flag if used.
+    // Pick succeeded — commit state changes and broadcast in one batch.
     const wasArmed = this.state.purgArmed;
     if (wasArmed) this.state.purgArmed = false;
 
+    this.state.currentCat = payload.fid;
+    this.state.catLocked = true;
     this.state.usedIds.add(result.question.id);
     this.state.askedQuestions.push({
       id: result.question.id,
@@ -331,10 +332,10 @@ export default class PolicyGogogoServer implements Party.Server {
     this.state.currQ = (this.state.currQ ?? 0) + 1;
     this.state.phase = 'answering';
 
+    this.broadcast({ type: 'category_confirm', payload });
     if (result.triggersPurgatory) {
       this.broadcast({ type: 'purgatory_summon', payload: {} });
     }
-
     this.broadcast({
       type: 'question_pick',
       payload: {
