@@ -77,26 +77,23 @@ export default class PolicyGogogoServer implements Party.Server {
     const team = url.searchParams.get('team');
     const presentedCode = url.searchParams.get('controlCode');
 
-    let verified = false;
-    if (role === 'assistant') {
-      verified =
-        presentedCode === null ||
-        verifyControlCode(presentedCode, this.state.controlCode);
-      if (!verified) {
-        this.send(conn, {
-          type: '__error__',
-          payload: { code: 'unauth', message: 'Bad controlCode' },
-        });
-        conn.close();
-        return;
-      }
-    }
+    // Loose-auth model (Phase 4):
+    // - Connection-level: any client may claim any role; we always accept
+    //   and rely on per-command controlCode verification (see onMessage)
+    //   to gate privileged actions.
+    // - presentedCode in URL may be stale (sessionStorage from a previous
+    //   server lifetime). Server is authoritative — we ignore the stale
+    //   value and send the current controlCode in __welcome__ below; the
+    //   client adapter overwrites sessionStorage on receipt.
+    // - Phase 5 first-claim hardening will tighten this so only the first
+    //   assistant can claim the role without presenting matching code.
+    void presentedCode;
 
     conn.setState({
       role,
       name: role === 'participant' ? name : null,
       team: role === 'participant' ? team : null,
-      verified,
+      verified: role === 'assistant',
     });
 
     // Welcome: send role + (assistant only) controlCode + server time.
