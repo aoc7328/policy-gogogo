@@ -3005,12 +3005,28 @@ function renderEndStage(payload) {
   // 題目回顧(收折式 — 點擊展開答案)
   const qaList = document.getElementById('qa-list');
   if (qaList) {
-    const askedQs = payload.askedQuestions || [];
-    if (askedQs.length === 0) {
+    // server payload 只帶 {id, difficulty, framework},完整題目內容(question
+    // text、options、answer、explanation 等)要從本地 BANK_P 用 id 撈出來合併。
+    // 沒這步 → qa-q / qa-options / 解析 全部空白(user-reported Phase 4 bug:
+    // 「本場題目與解答 是空的」)
+    const enriched = (payload.askedQuestions || []).map((meta) => {
+      const full = (typeof getQuestionByIdP === 'function')
+        ? getQuestionByIdP(meta.id)
+        : null;
+      return {
+        ...(full || {}),
+        // 保留 server 帶來的 difficulty / framework(是 server 抽到當下的權威值)
+        id: meta.id,
+        _difficulty: meta.difficulty,
+        _framework: meta.framework,
+      };
+    });
+
+    if (enriched.length === 0) {
       qaList.innerHTML = '<div class="qa-item" style="cursor:default"><div class="qa-q" style="opacity:.5">本場無題目記錄</div></div>';
     } else {
-      qaList.innerHTML = askedQs.map((q, i) => {
-        const stem = (q.question || '').trim();
+      qaList.innerHTML = enriched.map((q, i) => {
+        const stem = (q.question || q.word || '').trim();
         const meta = [
           getDifficultyLabelP(q._difficulty),
           getFrameworkLabelP(q._framework || q.topic),
@@ -3075,7 +3091,9 @@ function renderQaAnswerBody(q) {
   }
 
   if (t === 'short_answer') {
-    const ans = (q.model_answer || '').trim();
+    // 真 BANK schema:short_answer 用 `answer` 欄位(非 model_answer);
+    // 兼容 fixture 也會寫 model_answer 的版本
+    const ans = (q.answer || q.model_answer || '').trim();
     return ans ? `
       <div class="qa-section">
         <div class="qa-section-lbl">參考答案</div>
