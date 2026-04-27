@@ -857,7 +857,7 @@ input::placeholder{color:var(--ink-3)}
         <div class="setup-row" style="grid-template-columns:1fr 1fr;margin-bottom:6px">
           <div class="fld">
             <span class="flbl">總人數</span>
-            <input type="number" id="i-total" value="35" min="2" max="200" oninput="rebuildNames()">
+            <input type="number" id="i-total" value="0" min="0" max="200" readonly title="自動由實際加入的參賽者人數計算">
           </div>
           <div class="fld">
             <span class="flbl">分幾組</span>
@@ -1323,6 +1323,7 @@ PartyBus.on('player_join', payload => {
   // 重渲染分組表/計分表(讓組員列即時顯示)
   if (typeof renderGroups === 'function') renderGroups();
   if (typeof renderScores === 'function') renderScores();
+  updateTotalCount();
 });
 
 /* server 重新洗牌(助理改了組數 / 第一個 participant 進來時 server lazy-init):
@@ -1346,6 +1347,7 @@ PartyBus.on('roster_reshuffled', payload => {
   }
   if (typeof renderGroups === 'function') renderGroups();
   if (typeof renderScores === 'function') renderScores();
+  updateTotalCount();
 });
 
 /* 參賽者離開(預留,正式版 PartyKit disconnect 時觸發) */
@@ -1365,6 +1367,7 @@ PartyBus.on('player_leave', payload => {
   }
   if (typeof renderGroups === 'function') renderGroups();
   if (typeof renderScores === 'function') renderScores();
+  updateTotalCount();
 });
 
 /* ════════════════════════════════════════════════════════════════════
@@ -1986,6 +1989,18 @@ function getGroupSizes(){
   const extra=total%n;
   return Array.from({length:n},(_,i)=>i<extra?base+1:base);
 }
+
+/* 重新計算當前實際參賽者總人數(各組 members 加總)→ 寫進 i-total。
+   player_join / player_leave / roster_reshuffled 之後都應該呼叫。 */
+function updateTotalCount() {
+  const total = (S.groups || []).reduce(
+    (sum, g) => sum + (Array.isArray(g.members) ? g.members.length : 0),
+    0
+  );
+  const el = document.getElementById('i-total');
+  if (el) el.value = String(total);
+}
+window.updateTotalCount = updateTotalCount;
 
 function rebuildNames(){
   const n=parseInt(document.getElementById('i-n').value)||2;
