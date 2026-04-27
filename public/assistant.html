@@ -2438,8 +2438,16 @@ function pickCategory(fid) {
   document.getElementById('cat-hint').innerHTML = `預覽中 · <span class="accent">${fid} ${name}</span> · 按確定拍板`;
   // 廣播給主持人投影同步預覽(無論武裝與否,主持人投影都看到正常預覽)
   PartyBus.emit('category_preview', { fid });
-  // 第一次點時(從 won 進 picking),狀態切換
-  if (S.phase === 'won') setPhase('picking');
+  // 第一次點時(從 won 進 picking),狀態切換 + 通知 server。
+  // 重要:user 若在 onRushWinner 排的 3.5s setTimeout 之前就點 grid,我們得
+  // 自己把 enter_category 命令送出去,不能只改本地 phase 就算。否則 server
+  // 永遠停在 'won' → 後續按確定會撞 wrong_phase 錯誤。
+  // (3.5s timer 還在排,但其 guard `if S.phase !== 'won' return` 會因為這裡
+  // 改成 'picking' 而早退,不會重複 emit。)
+  if (S.phase === 'won') {
+    PartyBus.emit('enter_category', {});
+    setPhase('picking');
+  }
 }
 
 function confirmCategory() {
