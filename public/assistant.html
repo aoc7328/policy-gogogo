@@ -1829,18 +1829,19 @@ function renderInviteQR() {
 }
 window.renderInviteQR = renderInviteQR;
 
-/* 在主持人介面顯示 QR Code(觸發主持人重新顯示 1 分鐘) */
+/* 在主持人介面顯示 QR Code:每次按下都讓主持人端的 QR 倒數重置回 60 秒。
+   不鎖按鈕(presenter 端的 startJoinQRCountdown 收到事件就會 clear 舊 timer
+   重新計時,所以連按只是不斷把時間延長到 60 秒,不會疊加)。
+   1.5 秒的文字回饋讓助理知道按鍵生效,但不影響再次按下。 */
 function showPresenterQR() {
   PartyBus.emit('presenter_show_qr', { durationMs: 60000 });
   const btn = document.getElementById('btn-show-presenter-qr');
-  if (btn) {
-    btn.disabled = true;
-    btn.textContent = '已通知主持人(60 秒後可再按)';
-    setTimeout(() => {
-      btn.disabled = false;
-      btn.textContent = '在主持人介面顯示 QR Code';
-    }, 60000);
-  }
+  if (!btn) return;
+  btn.textContent = '已通知主持人 ✓';
+  if (btn._restoreTimer) clearTimeout(btn._restoreTimer);
+  btn._restoreTimer = setTimeout(() => {
+    btn.textContent = '在主持人介面顯示 QR Code';
+  }, 1500);
 }
 window.showPresenterQR = showPresenterQR;
 
