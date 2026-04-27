@@ -1,0 +1,689 @@
+{
+  "schema_version": "2.0",
+  "last_updated": "2026-04-28",
+  "branding": {
+    "title_prefix": "保險知識",
+    "title_suffix": "星攻略",
+    "_note": "title_prefix 1~4 字、可換主題;title_suffix 固定 3 字、不可改(三端 UI 寫死格式)"
+  },
+  "total_questions": 437,
+  "description": "保險知識星攻略 · 題庫元資料、供 App 讀取、減少載入完整題目的成本",
+  "difficulties": [
+    {
+      "id": "easy",
+      "label": "簡單",
+      "total_questions": 60,
+      "id_prefix": "E",
+      "type_breakdown": {
+        "short_answer": 15,
+        "multiple_choice": 15,
+        "essay": 15,
+        "calculation": 15
+      },
+      "framework_system": "system_A_standard_9",
+      "available_frameworks": [
+        {
+          "id": "f5_product_planning",
+          "label": "險種規劃與商品",
+          "question_count": 26
+        },
+        {
+          "id": "f1_insurance_basics",
+          "label": "保險基礎與法規",
+          "question_count": 14
+        },
+        {
+          "id": "f2_contract_terms",
+          "label": "契約條款與效力",
+          "question_count": 8
+        },
+        {
+          "id": "f9_premium_calc",
+          "label": "保費、保單運用與計算",
+          "question_count": 8
+        },
+        {
+          "id": "f4_claims",
+          "label": "理賠實務與爭議",
+          "question_count": 4
+        }
+      ],
+      "framework_count": 5,
+      "note": "簡單難度僅使用 9 框架中的 5 個、主題篩選器應依 available_frameworks 顯示、避免空頁"
+    },
+    {
+      "id": "medium",
+      "label": "中等",
+      "total_questions": 96,
+      "id_prefix": "M",
+      "type_breakdown": {
+        "short_answer": 15,
+        "multiple_choice": 25,
+        "essay": 25,
+        "calculation": 25,
+        "word_game": 6
+      },
+      "framework_system": "system_A_standard_9",
+      "available_frameworks": [
+        {
+          "id": "f5_product_planning",
+          "label": "險種規劃與商品",
+          "question_count": 38
+        },
+        {
+          "id": "f9_premium_calc",
+          "label": "保費、保單運用與計算",
+          "question_count": 22
+        },
+        {
+          "id": "f2_contract_terms",
+          "label": "契約條款與效力",
+          "question_count": 13
+        },
+        {
+          "id": "f4_claims",
+          "label": "理賠實務與爭議",
+          "question_count": 8
+        },
+        {
+          "id": "f6_actuarial",
+          "label": "精算、財務與監理",
+          "question_count": 6
+        },
+        {
+          "id": "f1_insurance_basics",
+          "label": "保險基礎與法規",
+          "question_count": 3
+        },
+        {
+          "id": "f8_ethics_compliance",
+          "label": "業務倫理與合規",
+          "question_count": 3
+        },
+        {
+          "id": "f3_underwriting",
+          "label": "核保與健康告知",
+          "question_count": 2
+        },
+        {
+          "id": "f7_wealth_tax",
+          "label": "高資產與稅務傳承",
+          "question_count": 1
+        }
+      ],
+      "framework_count": 9
+    },
+    {
+      "id": "hard",
+      "label": "困難",
+      "total_questions": 105,
+      "id_prefix": "H",
+      "type_breakdown": {
+        "short_answer": 15,
+        "multiple_choice": 25,
+        "essay": 25,
+        "calculation": 25,
+        "word_game": 15
+      },
+      "framework_system": "system_A_standard_9",
+      "available_frameworks": [
+        {
+          "id": "f6_actuarial",
+          "label": "精算、財務與監理",
+          "question_count": 42
+        },
+        {
+          "id": "f5_product_planning",
+          "label": "險種規劃與商品",
+          "question_count": 20
+        },
+        {
+          "id": "f9_premium_calc",
+          "label": "保費、保單運用與計算",
+          "question_count": 9
+        },
+        {
+          "id": "f4_claims",
+          "label": "理賠實務與爭議",
+          "question_count": 7
+        },
+        {
+          "id": "f1_insurance_basics",
+          "label": "保險基礎與法規",
+          "question_count": 7
+        },
+        {
+          "id": "f7_wealth_tax",
+          "label": "高資產與稅務傳承",
+          "question_count": 7
+        },
+        {
+          "id": "f3_underwriting",
+          "label": "核保與健康告知",
+          "question_count": 5
+        },
+        {
+          "id": "f2_contract_terms",
+          "label": "契約條款與效力",
+          "question_count": 5
+        },
+        {
+          "id": "f8_ethics_compliance",
+          "label": "業務倫理與合規",
+          "question_count": 3
+        }
+      ],
+      "framework_count": 9
+    },
+    {
+      "id": "hell",
+      "label": "地獄",
+      "total_questions": 96,
+      "id_prefix": "X",
+      "type_breakdown": {
+        "short_answer": 15,
+        "multiple_choice": 24,
+        "essay": 23,
+        "calculation": 19,
+        "word_game": 15
+      },
+      "framework_system": "system_A_standard_9",
+      "available_frameworks": [
+        {
+          "id": "f7_wealth_tax",
+          "label": "高資產與稅務傳承",
+          "question_count": 23
+        },
+        {
+          "id": "f5_product_planning",
+          "label": "險種規劃與商品",
+          "question_count": 15
+        },
+        {
+          "id": "f8_ethics_compliance",
+          "label": "業務倫理與合規",
+          "question_count": 15
+        },
+        {
+          "id": "f4_claims",
+          "label": "理賠實務與爭議",
+          "question_count": 13
+        },
+        {
+          "id": "f3_underwriting",
+          "label": "核保與健康告知",
+          "question_count": 12
+        },
+        {
+          "id": "f9_premium_calc",
+          "label": "保費、保單運用與計算",
+          "question_count": 7
+        },
+        {
+          "id": "f6_actuarial",
+          "label": "精算、財務與監理",
+          "question_count": 5
+        },
+        {
+          "id": "f1_insurance_basics",
+          "label": "保險基礎與法規",
+          "question_count": 3
+        },
+        {
+          "id": "f2_contract_terms",
+          "label": "契約條款與效力",
+          "question_count": 3
+        }
+      ],
+      "framework_count": 9
+    },
+    {
+      "id": "purgatory",
+      "label": "煉獄",
+      "total_questions": 80,
+      "id_prefix": "P",
+      "type_breakdown": {
+        "multiple_choice": 40,
+        "essay": 40
+      },
+      "framework_system": "system_B_purgatory_4",
+      "available_frameworks": [
+        {
+          "id": "l2_customer",
+          "label": "客戶溝通",
+          "question_count": 28
+        },
+        {
+          "id": "l3_ethics",
+          "label": "道德判斷",
+          "question_count": 22
+        },
+        {
+          "id": "l1_cross_dept",
+          "label": "跨部門溝通",
+          "question_count": 18
+        },
+        {
+          "id": "l4_time_scale",
+          "label": "時間尺度",
+          "question_count": 12
+        }
+      ],
+      "framework_count": 4,
+      "note": "煉獄使用獨立 4 框架、不與其他難度共享、結構為扁平陣列"
+    }
+  ],
+  "question_types": [
+    {
+      "id": "short_answer",
+      "label": "簡答",
+      "fields": {
+        "required": [
+          "id",
+          "topic",
+          "question",
+          "answer"
+        ],
+        "optional": [
+          "layer"
+        ]
+      },
+      "description": "開放式問答、answer 為範例解答字串"
+    },
+    {
+      "id": "multiple_choice",
+      "label": "選擇",
+      "fields": {
+        "required": [
+          "id",
+          "topic",
+          "question",
+          "options",
+          "correct",
+          "explanation"
+        ],
+        "optional": [
+          "layer"
+        ]
+      },
+      "description": "options 為 {A,B,C,D} 字典、correct 為單一字母",
+      "notes": "正解 A/B/C/D 分布已做 block randomization、連續相同≤2 題"
+    },
+    {
+      "id": "essay",
+      "label": "申論",
+      "fields": {
+        "required": [
+          "id",
+          "topic",
+          "question",
+          "key_points",
+          "model_answer"
+        ],
+        "optional": [
+          "layer"
+        ]
+      },
+      "description": "key_points 為評分要點陣列、model_answer 為完整範文字串"
+    },
+    {
+      "id": "calculation",
+      "label": "計算",
+      "fields": {
+        "required": [
+          "id",
+          "topic",
+          "question",
+          "given",
+          "steps",
+          "answer",
+          "unit"
+        ],
+        "optional": [
+          "layer"
+        ]
+      },
+      "description": "given 為條件字典、steps 為解題步驟陣列、answer 為最終答案、unit 為單位",
+      "notes": "所有難度（含地獄）已統一為此結構"
+    },
+    {
+      "id": "word_game",
+      "label": "一字千金",
+      "fields": {
+        "required": [
+          "id",
+          "topic",
+          "word",
+          "options",
+          "correct"
+        ],
+        "optional": [
+          "context_phrase",
+          "scenario",
+          "meaning"
+        ]
+      },
+      "description": "word 為字、options 為 4 個注音字串陣列、correct 為正確注音字串（非位置）",
+      "notes": "正解位置分布已做 block randomization"
+    }
+  ],
+  "topic_frameworks": {
+    "system_A_standard_9": {
+      "description": "標準 9 框架、適用於簡單/中等/困難/地獄",
+      "frameworks": [
+        {
+          "id": "f1_insurance_basics",
+          "label": "保險基礎與法規"
+        },
+        {
+          "id": "f2_contract_terms",
+          "label": "契約條款與效力"
+        },
+        {
+          "id": "f3_underwriting",
+          "label": "核保與健康告知"
+        },
+        {
+          "id": "f4_claims",
+          "label": "理賠實務與爭議"
+        },
+        {
+          "id": "f5_product_planning",
+          "label": "險種規劃與商品"
+        },
+        {
+          "id": "f6_actuarial",
+          "label": "精算、財務與監理"
+        },
+        {
+          "id": "f7_wealth_tax",
+          "label": "高資產與稅務傳承"
+        },
+        {
+          "id": "f8_ethics_compliance",
+          "label": "業務倫理與合規"
+        },
+        {
+          "id": "f9_premium_calc",
+          "label": "保費、保單運用與計算"
+        }
+      ]
+    },
+    "system_B_purgatory_4": {
+      "description": "煉獄專用 4 框架（L1-L4 能力分層）、與系統 A 無對應關係",
+      "frameworks": [
+        {
+          "id": "l1_cross_dept",
+          "label": "跨部門溝通",
+          "description": "L1 橫向能力"
+        },
+        {
+          "id": "l2_customer",
+          "label": "客戶溝通",
+          "description": "L2 外向能力"
+        },
+        {
+          "id": "l3_ethics",
+          "label": "道德判斷",
+          "description": "L3 內向能力"
+        },
+        {
+          "id": "l4_time_scale",
+          "label": "時間尺度",
+          "description": "L4 時間判斷"
+        }
+      ]
+    }
+  },
+  "data_structure_notes": {
+    "file_layout": {
+      "easy": "questions.easy.<type> 巢狀物件",
+      "medium": "questions.medium.<type> 巢狀物件",
+      "hard": "questions.hard.<type> 巢狀物件",
+      "hell": "questions.hell.<type> 巢狀物件",
+      "purgatory": "questions 扁平陣列、每題以 type 欄位區分"
+    },
+    "app_reading_guide": [
+      "讀取題目前、先讀本 metadata 決定畫面結構（難度清單、題型、主題篩選器可用選項）",
+      "煉獄級結構與其他四級不同、載入時需條件判斷",
+      "每個難度的 available_frameworks 是『實際有題目的主題』、主題篩選器應只顯示這些、避免空頁"
+    ]
+  },
+  "file_paths": {
+    "easy": "insurance-quiz-bank-easy.json",
+    "medium": "insurance-quiz-bank-medium.json",
+    "hard": "insurance-quiz-bank-hard.json",
+    "hell": "insurance-quiz-bank-hell.json",
+    "purgatory": "insurance-quiz-bank-purgatory.json"
+  },
+  "id_ranges": {
+    "easy": {
+      "short_answer": {
+        "count": 15,
+        "min": "001",
+        "max": "015",
+        "continuous": true
+      },
+      "essay": {
+        "count": 15,
+        "min": "001",
+        "max": "015",
+        "continuous": true
+      },
+      "multiple_choice": {
+        "count": 15,
+        "min": "001",
+        "max": "015",
+        "continuous": true
+      },
+      "calculation": {
+        "count": 15,
+        "min": "001",
+        "max": "015",
+        "continuous": true
+      }
+    },
+    "medium": {
+      "short_answer": {
+        "count": 15,
+        "min": "001",
+        "max": "015",
+        "continuous": true
+      },
+      "essay": {
+        "count": 25,
+        "min": "001",
+        "max": "025",
+        "continuous": true
+      },
+      "multiple_choice": {
+        "count": 25,
+        "min": "001",
+        "max": "025",
+        "continuous": true
+      },
+      "calculation": {
+        "count": 25,
+        "min": "001",
+        "max": "025",
+        "continuous": true
+      },
+      "word_game": {
+        "count": 6,
+        "min": "001",
+        "max": "006",
+        "continuous": true
+      }
+    },
+    "hard": {
+      "short_answer": {
+        "count": 15,
+        "min": "001",
+        "max": "015",
+        "continuous": true
+      },
+      "essay": {
+        "count": 25,
+        "min": "001",
+        "max": "025",
+        "continuous": true
+      },
+      "multiple_choice": {
+        "count": 25,
+        "min": "001",
+        "max": "025",
+        "continuous": true
+      },
+      "calculation": {
+        "count": 25,
+        "min": "001",
+        "max": "025",
+        "continuous": true
+      },
+      "word_game": {
+        "count": 15,
+        "min": "001",
+        "max": "015",
+        "continuous": true
+      }
+    },
+    "hell": {
+      "short_answer": {
+        "count": 15,
+        "min": "001",
+        "max": "015",
+        "continuous": true
+      },
+      "essay": {
+        "count": 23,
+        "min": "001",
+        "max": "023",
+        "continuous": true
+      },
+      "multiple_choice": {
+        "count": 24,
+        "min": "001",
+        "max": "024",
+        "continuous": true
+      },
+      "calculation": {
+        "count": 19,
+        "min": "001",
+        "max": "019",
+        "continuous": true
+      },
+      "word_game": {
+        "count": 15,
+        "min": "001",
+        "max": "015",
+        "continuous": true
+      }
+    },
+    "purgatory": {
+      "multiple_choice": {
+        "count": 40,
+        "min": "001",
+        "max": "040",
+        "continuous": true
+      },
+      "essay": {
+        "count": 40,
+        "min": "001",
+        "max": "040",
+        "continuous": true
+      }
+    }
+  },
+  "answer_distributions": {
+    "easy": {
+      "multiple_choice": {
+        "total": 15,
+        "distribution": {
+          "A": 4,
+          "D": 3,
+          "B": 4,
+          "C": 4
+        },
+        "max_consecutive": 2
+      }
+    },
+    "medium": {
+      "multiple_choice": {
+        "total": 25,
+        "distribution": {
+          "B": 6,
+          "D": 7,
+          "C": 6,
+          "A": 6
+        },
+        "max_consecutive": 2
+      },
+      "word_game": {
+        "total": 6,
+        "distribution": {
+          "C": 1,
+          "D": 1,
+          "A": 2,
+          "B": 2
+        },
+        "max_consecutive": 2
+      }
+    },
+    "hard": {
+      "multiple_choice": {
+        "total": 25,
+        "distribution": {
+          "A": 7,
+          "D": 6,
+          "C": 6,
+          "B": 6
+        },
+        "max_consecutive": 2
+      },
+      "word_game": {
+        "total": 15,
+        "distribution": {
+          "B": 4,
+          "A": 4,
+          "C": 4,
+          "D": 3
+        },
+        "max_consecutive": 2
+      }
+    },
+    "hell": {
+      "multiple_choice": {
+        "total": 24,
+        "distribution": {
+          "D": 6,
+          "A": 6,
+          "C": 6,
+          "B": 6
+        },
+        "max_consecutive": 2
+      },
+      "word_game": {
+        "total": 15,
+        "distribution": {
+          "C": 4,
+          "B": 3,
+          "A": 4,
+          "D": 4
+        },
+        "max_consecutive": 2
+      }
+    },
+    "purgatory": {
+      "multiple_choice": {
+        "total": 40,
+        "distribution": {
+          "B": 10,
+          "A": 10,
+          "C": 10,
+          "D": 10
+        },
+        "max_consecutive": 2
+      }
+    }
+  }
+}

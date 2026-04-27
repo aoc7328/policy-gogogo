@@ -15,6 +15,7 @@ import mediumJson from '../public/data/insurance-quiz-bank-medium.json';
 import hardJson from '../public/data/insurance-quiz-bank-hard.json';
 import hellJson from '../public/data/insurance-quiz-bank-hell.json';
 import purgatoryJson from '../public/data/insurance-quiz-bank-purgatory.json';
+import metadataJson from '../public/data/quiz-bank-metadata.json';
 
 import type { Difficulty, GameMode } from './protocol';
 
@@ -30,20 +31,25 @@ export interface NormalizedQuestion {
 // ──────────────────────────────────────────────────────────────────────
 
 /**
- * Frameworks come from the bank's own metadata.frameworks field — NOT
- * hardcoded in this file anymore. Swap the JSON files to change topic
- * (insurance → history → geography → ...) and the framework labels follow.
+ * Frameworks + branding come from quiz-bank-metadata.json — the single
+ * source of truth for "what topics are in this bank, what should the game
+ * be called". Swap that file alone (rather than 5 banks + 3 HTML files) to
+ * change topic from insurance to history/geography/anything-else.
  *
- * Framework A (the 9-grid in normal modes) is read from the easy bank.
- * Framework B (the 4-grid in purgatory mode) is read from the purgatory bank.
- * Each declares its own metadata.frameworks.{A|B} — an array of label strings.
+ * Framework A (9-grid in normal modes) → topic_frameworks.system_A_standard_9
+ * Framework B (4-grid in purgatory)    → topic_frameworks.system_B_purgatory_4
  *
- * shortId (F1..F9, L1..L4) is just the 1-based index — index 0 of A is F1,
- * index 0 of B is L1. Clients use shortId for grid cell positioning;
- * server uses the label string to filter questions by topic.
+ * Each declares an array of `{id, label}` objects in metadata; we extract
+ * the `label` string (because question.topic stores the Chinese label
+ * directly, not the technical id).
  *
- * Backward-compat fallbacks below: if a bank predates the frameworks field,
- * we use the original insurance labels so the picker still works.
+ * shortId (F1..F9, L1..L4) is the 1-based index of the array.
+ * Client uses shortId for grid cell positioning; server uses the label
+ * string to filter questions by topic.
+ *
+ * Backward-compat fallbacks: if metadata is malformed/missing the expected
+ * shape, we use the original insurance labels so the picker still works
+ * rather than crash on bank load.
  */
 
 const FALLBACK_FRAMEWORKS_A = [
@@ -54,18 +60,48 @@ const FALLBACK_FRAMEWORKS_A = [
 const FALLBACK_FRAMEWORKS_B = [
   '跨部門溝通', '客戶溝通', '道德判斷', '時間尺度',
 ];
+const FALLBACK_TITLE_PREFIX = '保險知識';
+const FALLBACK_TITLE_SUFFIX = '星攻略';
 
-function readFrameworks(file: unknown, key: 'A' | 'B'): string[] {
-  const meta = (file as { metadata?: { frameworks?: { A?: unknown; B?: unknown } } })
-    .metadata?.frameworks?.[key];
-  if (Array.isArray(meta) && meta.every((x) => typeof x === 'string')) {
-    return meta as string[];
-  }
-  return key === 'A' ? FALLBACK_FRAMEWORKS_A : FALLBACK_FRAMEWORKS_B;
+interface MetadataFramework {
+  id?: string;
+  label?: string;
+}
+interface MetadataShape {
+  branding?: { title_prefix?: string; title_suffix?: string };
+  topic_frameworks?: {
+    system_A_standard_9?: { frameworks?: MetadataFramework[] };
+    system_B_purgatory_4?: { frameworks?: MetadataFramework[] };
+  };
 }
 
-export const FRAMEWORKS_A: string[] = readFrameworks(easyJson, 'A');
-export const FRAMEWORKS_B: string[] = readFrameworks(purgatoryJson, 'B');
+function extractLabels(arr: MetadataFramework[] | undefined, fallback: string[]): string[] {
+  if (!Array.isArray(arr)) return fallback;
+  const labels = arr
+    .map((fw) => fw?.label)
+    .filter((s): s is string => typeof s === 'string' && s.length > 0);
+  return labels.length > 0 ? labels : fallback;
+}
+
+const _meta = metadataJson as MetadataShape;
+
+export const FRAMEWORKS_A: string[] = extractLabels(
+  _meta.topic_frameworks?.system_A_standard_9?.frameworks,
+  FALLBACK_FRAMEWORKS_A
+);
+export const FRAMEWORKS_B: string[] = extractLabels(
+  _meta.topic_frameworks?.system_B_purgatory_4?.frameworks,
+  FALLBACK_FRAMEWORKS_B
+);
+
+export const BRANDING = {
+  titlePrefix: typeof _meta.branding?.title_prefix === 'string' && _meta.branding.title_prefix.length > 0
+    ? _meta.branding.title_prefix
+    : FALLBACK_TITLE_PREFIX,
+  titleSuffix: typeof _meta.branding?.title_suffix === 'string' && _meta.branding.title_suffix.length > 0
+    ? _meta.branding.title_suffix
+    : FALLBACK_TITLE_SUFFIX,
+};
 
 /**
  * shortId → topic-label map. Synthesized from FRAMEWORKS_{A,B} arrays:

@@ -262,7 +262,8 @@ export interface RoomStateSnapshot {
   askedIds: string[];
   presenterClaimed: boolean;
   /**
-   * Topic-domain frameworks read from the bank's metadata.frameworks.
+   * Topic-domain frameworks read from quiz-bank-metadata.json's
+   * topic_frameworks section.
    * - frameworksA: 1..9 labels for the 3x3 grid in normal modes.
    *   Fewer than 9 → trailing cells render empty/disabled in client UI.
    * - frameworksB: 1..4 labels for purgatory mode.
@@ -270,6 +271,13 @@ export interface RoomStateSnapshot {
    * `npm run deploy` time, NOT from client localStorage.
    */
   frameworks: { A: string[]; B: string[] };
+  /**
+   * Game title parts read from quiz-bank-metadata.json's branding section.
+   * Three-end UI shows `{titlePrefix}{titleSuffix}` (e.g. "保險知識星攻略").
+   * - titlePrefix: 1~4 chars, swap when changing topic
+   * - titleSuffix: fixed 3 chars in the original design
+   */
+  branding: { titlePrefix: string; titleSuffix: string };
 }
 
 export type RoomStateEvent = {

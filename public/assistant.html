@@ -1238,6 +1238,11 @@ PartyBus.on('__room_state__', snap => {
   }
   // grid 還沒掛在頁面上的話 updateCategoryGrid 沒事做;若已渲染就重畫一次套新標籤
   if (typeof updateCategoryGrid === 'function') updateCategoryGrid();
+  // 套用題庫的 branding(助理端沒有可見的品牌元素,只動 document.title)
+  const b = snap?.branding;
+  if (b && typeof b.titlePrefix === 'string' && typeof b.titleSuffix === 'string') {
+    document.title = `${b.titlePrefix}${b.titleSuffix} · 助理端`;
+  }
 });
 
 /* 連線狀態 → 既有 #sts 狀態文字(不新增 DOM 節點)

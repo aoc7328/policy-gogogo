@@ -1014,7 +1014,7 @@ input{-webkit-appearance:none;border-radius:0}
     <div class="login-rule">
       <div class="lr-line"></div><div class="lr-dot"></div><div class="lr-line r"></div>
     </div>
-    <div class="login-title">保險知識星攻略</div>
+    <div class="login-title"><span id="brand-prefix">保險知識</span><span id="brand-suffix">星攻略</span></div>
     <div class="login-sub">Participant · 參與者</div>
   </div>
   <div style="display:flex;justify-content:center;padding:0 32px">
@@ -1420,6 +1420,16 @@ PartyBus.on('__room_state__', (snap) => {
     BANK_SCHEMA_P.frameworksB = fb.map((label, i) => ({
       id: label, shortId: `L${i + 1}`, label,
     }));
+  }
+  // 套用題庫的 branding(標題前綴 / 後綴)。後綴在 metadata 設計上固定為「星攻略」,
+  // 但 server 仍會送過來 — 這樣以後若連後綴都想改,只要在 metadata 改就生效。
+  const b = snap?.branding;
+  if (b && typeof b.titlePrefix === 'string' && typeof b.titleSuffix === 'string') {
+    const prefixEl = document.getElementById('brand-prefix');
+    const suffixEl = document.getElementById('brand-suffix');
+    if (prefixEl) prefixEl.textContent = b.titlePrefix;
+    if (suffixEl) suffixEl.textContent = b.titleSuffix;
+    document.title = `${b.titlePrefix}${b.titleSuffix} · 參與者`;
   }
 });
 

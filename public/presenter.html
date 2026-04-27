@@ -623,7 +623,7 @@ html, body { background: #080A10; font-family: var(--font-sans); -webkit-font-sm
 
 <div class="demo-chrome">
   <div class="demo-header">
-    <div class="demo-brand">保險知識星攻略 · 主持人端 <span class="tag">v1.0</span></div>
+    <div class="demo-brand"><span id="brand-prefix">保險知識</span><span id="brand-suffix">星攻略</span> · 主持人端 <span class="tag">v1.0</span></div>
     <div class="demo-tips"><span><span class="dot">●</span> 合併版 · 模式選擇 + 自由設定 + 遊戲流程</span></div>
   </div>
 
@@ -1492,6 +1492,15 @@ PartyBus.on('__room_state__', snap => {
   }
   // 9 宮格已渲染(scr-select 階段)的話,重畫一次套上新標籤
   if (typeof updateCategoryGridPresenter === 'function') updateCategoryGridPresenter();
+  // 套用題庫的 branding(標題前綴 / 後綴)。
+  const b = snap?.branding;
+  if (b && typeof b.titlePrefix === 'string' && typeof b.titleSuffix === 'string') {
+    const prefixEl = document.getElementById('brand-prefix');
+    const suffixEl = document.getElementById('brand-suffix');
+    if (prefixEl) prefixEl.textContent = b.titlePrefix;
+    if (suffixEl) suffixEl.textContent = b.titleSuffix;
+    document.title = `${b.titlePrefix}${b.titleSuffix} · 主持人端`;
+  }
 });
 
 /* 當前題目快取(每收到 question_pick 就更新) */
