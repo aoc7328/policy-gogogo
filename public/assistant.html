@@ -118,7 +118,7 @@ input::placeholder{color:var(--ink-3)}
 .log-list::-webkit-scrollbar-track{background:transparent}
 .log-list::-webkit-scrollbar-thumb{background:var(--line-s);border-radius:3px}
 .log-list::-webkit-scrollbar-thumb:hover{background:var(--accent)}
-.log-row{display:grid;grid-template-columns:80px 70px 1fr auto;gap:12px;align-items:center;padding:9px 12px;font-family:var(--font-mono);font-size:12px;border-left:2px solid transparent;transition:background 180ms}
+.log-row{display:grid;grid-template-columns:80px max-content 1fr auto;gap:12px;align-items:center;padding:9px 12px;font-family:var(--font-mono);font-size:12px;border-left:2px solid transparent;transition:background 180ms}
 .log-row:hover{background:var(--bg-raised)}
 .log-row.join{border-left-color:var(--ok)}
 .log-row.leave{border-left-color:var(--ink-3)}
@@ -126,7 +126,7 @@ input::placeholder{color:var(--ink-3)}
 .log-row.system{border-left-color:var(--err)}
 .log-row.rename{border-left-color:#B48DD8}
 .log-time{color:var(--ink-3);letter-spacing:.04em}
-.log-action{font-size:10px;letter-spacing:.14em;text-transform:uppercase}
+.log-action{font-size:10px;letter-spacing:.14em;text-transform:uppercase;white-space:nowrap}
 .log-row.join .log-action{color:var(--ok)}
 .log-row.leave .log-action{color:var(--ink-3)}
 .log-row.reconn .log-action{color:#D9B477}
@@ -421,6 +421,10 @@ input::placeholder{color:var(--ink-3)}
 .cb.rush{background:#3DAA5C;border-color:#3DAA5C;color:#fff;font-weight:700;font-size:12px;box-shadow:0 0 12px rgba(61,170,92,.35)}
 .cb.rush:hover:not(:disabled){background:#48C66A;border-color:#48C66A;box-shadow:0 0 24px rgba(61,170,92,.5)}
 .cb.rush:disabled{background:transparent;color:rgba(61,170,92,.35);border-color:rgba(61,170,92,.25);box-shadow:none}
+/* 下一題鈕(綠色,亮起時跟「開始搶答」同色,讓助理一眼看到該按下一題) */
+.cb.next{background:#3DAA5C;border-color:#3DAA5C;color:#fff;font-weight:700;font-size:12px;box-shadow:0 0 12px rgba(61,170,92,.35)}
+.cb.next:hover:not(:disabled){background:#48C66A;border-color:#48C66A;box-shadow:0 0 24px rgba(61,170,92,.5)}
+.cb.next:disabled{background:transparent;color:rgba(61,170,92,.35);border-color:rgba(61,170,92,.25);box-shadow:none}
 /* 重新搶答(橙色,提示性;搶答中或已搶到時可用) */
 .cb.warn{border-color:rgba(255,138,61,.45);color:#FF8A3D}
 .cb.warn:hover:not(:disabled){border-color:#FF8A3D;color:#FFB347;background:rgba(255,138,61,.08)}
@@ -569,7 +573,7 @@ input::placeholder{color:var(--ink-3)}
 .rev-acts.show{display:flex}
 .rev-btn{flex:1;border:none;font-family:var(--font-mono);font-size:12px;font-weight:700;padding:12px 0;letter-spacing:.12em;text-transform:uppercase;transition:all 200ms}
 .rev-btn.ok{background:var(--ok);color:var(--bg-void)}.rev-btn.ok:hover{filter:brightness(1.12)}
-.rev-btn.pass{background:var(--bg-raised);border:1px solid var(--line-s);color:var(--ink-3)}.rev-btn.pass:hover{color:var(--ink-2)}
+.rev-btn.pass{background:var(--err);color:#fff}.rev-btn.pass:hover{filter:brightness(1.12)}
 
 /* 長條圖排行 */
 .ranking{margin-top:12px;padding:18px 20px;background:var(--bg-surface);border:1px solid var(--line)}
@@ -881,7 +885,6 @@ input::placeholder{color:var(--ink-3)}
         <span class="cn" id="curr-q">0</span>
         <span> / <span id="tot-q">20</span> 題</span>
       </div>
-      <button class="export-btn" onclick="doExport()">匯出結果</button>
     </div>
 
     <div class="score-grid" id="score-grid"></div>
@@ -964,9 +967,9 @@ input::placeholder{color:var(--ink-3)}
         <button class="cb rush"     id="btn-rush"   onclick="doStartRush()" disabled>開始搶答</button>
         <button class="cb warn"     id="btn-rerush" onclick="doReRush()"    disabled>重新搶答</button>
         <button class="cb"          id="btn-skip"   onclick="doSkip()"      disabled>跳題</button>
-        <button class="cb"          id="btn-redraw" onclick="doRedraw()"    disabled>重抽</button>
+        <button class="cb"          id="btn-redraw" onclick="doRedraw()"    disabled>同範圍重抽</button>
         <button class="cb primary"  id="btn-reveal" onclick="doReveal()"    disabled>公佈答案</button>
-        <button class="cb"          id="btn-next"   onclick="doNext()"      disabled>下一題</button>
+        <button class="cb next"     id="btn-next"   onclick="doNext()"      disabled>下一題</button>
       </div>
       <div class="ctrl-row">
         <button class="cb"        id="btn-restart" onclick="doRestart()">重新開始</button>
@@ -1081,9 +1084,22 @@ input::placeholder{color:var(--ink-3)}
                     Phase 5 部署時把預設改成 policy-gogogo.<account>.partykit.dev
    ═══════════════════════════════════════════════════════════════ */
 const _PGG_QS = new URLSearchParams(window.location.search);
-const PGG_ROOM_CODE = _PGG_QS.get('room') || 'DEMO01';
+// 自動產房號:URL 沒帶 ?room= 就現場產一組 4 位數字、塞回 URL(不 reload),
+// 之後 PGG_ROOM_CODE / PGG_JOIN_URL / QR / partykit 連線都用同一個,徹底
+// 解決「短網址永遠是 DEMO01」的舊問題。
+let _autoRoom = _PGG_QS.get('room');
+if (!_autoRoom) {
+  _autoRoom = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+  _PGG_QS.set('room', _autoRoom);
+  window.history.replaceState(null, '', window.location.pathname + '?' + _PGG_QS.toString());
+}
+const PGG_ROOM_CODE = _autoRoom;
 const PGG_JOIN_URL = 'https://pgg.app/' + PGG_ROOM_CODE;
 const PGG_PARTY_HOST = _PGG_QS.get('host') || 'localhost:1999';
+// 把這場 room 寫進 localStorage 當 hint;主持人/參賽者端開啟時若 URL 沒
+// ?room= 就拿這個 fallback,讓三端在同一 origin / 同一裝置上自動對齊到
+// 同一房,免得測試時還要手動複製貼網址。
+try { localStorage.setItem('pgg_last_room', PGG_ROOM_CODE); } catch {}
 
 const S={
   mode:null,totalQ:20,spq:5,groups:[],currQ:0,
@@ -1220,34 +1236,8 @@ PartyBus.on('ping', p => {
   console.log(`[PGG] PING from ${p.from} @ ${p.t}: ${p.msg}`);
 });
 
-/* 參賽者加入 → 把名字塞到對應組的 members、進退場紀錄、重渲染分組表 */
-PartyBus.on('player_join', payload => {
-  if (!payload?.name || !payload?.team) return;
-  // 確保 S.groups 已初始化(若助理還沒 rebuildNames,先觸發一次)
-  if (!S.groups || S.groups.length === 0) {
-    if (typeof syncGroupsFromInputs === 'function') syncGroupsFromInputs();
-  }
-  // 找對應的組(用組名比對;若找不到,放第一組 fallback)
-  let idx = S.groups.findIndex(g => g.name === payload.team);
-  if (idx < 0) {
-    // 找不到完全比對的組(可能組名已改);demo 階段放第一組
-    idx = 0;
-  }
-  if (!S.groups[idx]) return;
-  // members 陣列若沒有就建一個
-  if (!Array.isArray(S.groups[idx].members)) S.groups[idx].members = [];
-  // 不重複加入
-  if (!S.groups[idx].members.includes(payload.name)) {
-    S.groups[idx].members.push(payload.name);
-  }
-  // 進退場紀錄
-  if (typeof addLog === 'function') {
-    addLog(payload.name, '加入', 'join', S.groups[idx].name);
-  }
-  // 重渲染分組表 + 計分表
-  if (typeof renderGroups === 'function') renderGroups();
-  if (typeof renderScores === 'function') renderScores();
-});
+/* (Phase 4:player_join 的監聽合併到下面那個,本來這裡有一份重複的 listener,
+   每次參賽者登入會跳 2 條進場紀錄;移除以解決進退場紀錄重複問題。) */
 
 /* 參賽者改組名:更新 S.groups + 重新渲染 + 進退場紀錄 + 廣播 score_update */
 PartyBus.on('team_rename', payload => {
@@ -1738,15 +1728,22 @@ function genCode(len, alphanumeric){
 }
 
 function initCodes(){
-  S.roomCode=genCode(4,false);   // 4 位數字房號
-  S.hostCode=genCode(6,true);    // 6 位英數控制碼
+  // 房號跟 PGG_ROOM_CODE 對齊(就是真實 partykit room id),不再 client 隨機產
+  S.roomCode=PGG_ROOM_CODE;
+  // hostCode 不再 client 產假碼當 placeholder — 之前這樣做會有 race:
+  // user 在 __welcome__ 抵達前讀到顯示的「假碼」,拿去主持人介面登入,
+  // server 比對真碼 → 永遠跳「控制碼錯誤」。改成顯示「讀取中…」,等
+  // welcome handler 從 server 拿到真碼才填上去。
+  S.hostCode=null;
   document.getElementById('room-code').textContent=S.roomCode;
-  document.getElementById('host-code').textContent=S.hostCode;
+  document.getElementById('host-code').textContent='讀取中…';
 }
 
 function copyCode(which){
   const text=which==='room'?S.roomCode:S.hostCode;
   const btn=document.getElementById(which==='room'?'btn-copy-room':'btn-copy-host');
+  // hostCode 在 server welcome 抵達前是 null,不要去複製 'null' 字串
+  if (!text) return;
   navigator.clipboard.writeText(text).then(()=>{
     if(!btn)return;
     btn.classList.add('copied');btn.textContent='已複製';
@@ -1814,9 +1811,13 @@ window.showPresenterQR = showPresenterQR;
 
 function regenRoom(){
   if(!confirm('重新生成房號會踢掉所有已加入的玩家,確定?'))return;
-  S.roomCode=genCode(4,false);
-  document.getElementById('room-code').textContent=S.roomCode;
-  addLog('系統','房號重新生成','system','所有玩家被踢出');
+  // 換房 = 換 partykit DurableObject = full reload。把新 room 寫進 URL 重載,
+  // 重新走整套 PartyBus.init(用新 PGG_ROOM_CODE),server 端會新建一個 DO,
+  // 短網址 / QR 也跟著更新。
+  const newCode = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+  const qs = new URLSearchParams(window.location.search);
+  qs.set('room', newCode);
+  window.location.search = '?' + qs.toString();
 }
 
 function regenHost(){
@@ -2109,13 +2110,17 @@ function setPhase(p) {
   const set = (id, en) => { const el = $(id); if (el) el.disabled = !en; };
 
   // 按鈕啟用矩陣
+  // 跳題:只有題目真的出現後(answering)才能按。won / picking 階段
+  // 還沒抽到題,server 會回 wrong_phase。
+  // 下一題:即使在 revealed 也保持 disabled,要等助理按了「加分 / 不計分」
+  // 後 afterScore() 才會手動把它打開,避免漏記分。
   const en = {
     idle:      { rush:1, rerush:0, skip:0, redraw:0, reveal:0, next:0 },
     rushing:   { rush:0, rerush:1, skip:0, redraw:0, reveal:0, next:0 },
-    won:       { rush:0, rerush:1, skip:1, redraw:0, reveal:0, next:0 },
-    picking:   { rush:0, rerush:1, skip:1, redraw:0, reveal:0, next:0 },
+    won:       { rush:0, rerush:1, skip:0, redraw:0, reveal:0, next:0 },
+    picking:   { rush:0, rerush:1, skip:0, redraw:0, reveal:0, next:0 },
     answering: { rush:0, rerush:0, skip:1, redraw:1, reveal:1, next:0 },
-    revealed:  { rush:0, rerush:0, skip:0, redraw:0, reveal:0, next:1 },
+    revealed:  { rush:0, rerush:0, skip:0, redraw:0, reveal:0, next:0 },
     ended:     { rush:0, rerush:0, skip:0, redraw:0, reveal:0, next:0 },
   }[p] || {};
   set('btn-rush',   !!en.rush);
@@ -2197,10 +2202,14 @@ function onRushWinner(idx, _serverPayload) {
   renderScores();
   const g = S.groups[idx];
   setStatus(`${g?.name || ''} 搶答成功 · 點九宮格選分類`);
-  // 給觀眾足夠時間看 winner 頁(3.5 秒),然後通知 server 進九宮格階段
+  // 給觀眾足夠時間看 winner 頁(3.5 秒),然後通知 server 進九宮格階段。
+  // 重要:本機 phase 也要 setPhase('picking'),不然之後 user 第一次點 grid
+  // 時 pickCategory 看 S.phase 還是 'won',會重複 emit 一次 enter_category,
+  // server 已在 picking → 跳 wrong_phase 錯誤。
   S._winnerCardTimer = setTimeout(() => {
     if (S.phase !== 'won') return;
     PartyBus.emit('enter_category', {});
+    setPhase('picking');
   }, 3500);
 }
 
@@ -2233,6 +2242,9 @@ function afterScore(){
   S.selectedIdx=null;
   S.pendingIdx=null;
   renderScores();
+  // 計分結束才把「下一題」打開(setPhase('revealed') 把它鎖死,避免漏記分)。
+  const next = document.getElementById('btn-next');
+  if (next) next.disabled = false;
   setStatus('揭曉完成 · 按「下一題」繼續');
 }
 
@@ -2683,6 +2695,10 @@ function doExport(){
   PartyBus.emit('export_result', {
     mode: S.mode,
     modeLabel: modeLabel[S.mode] || '—',
+    // 自由模式下,客戶端要拿這個列出實際勾的難度;其它模式 server 端就決定好,
+    // 給也無妨,participant 渲染時會看 mode 決定要不要顯示。
+    customTiers: S.mode === 'custom' ? [...S.customTiers] : [],
+    customTypes: S.mode === 'custom' ? [...S.customTypes] : [],
     totalQ: S.totalQ,
     spq: S.spq,
     actualQ: S.askedQuestions.length,

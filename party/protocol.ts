@@ -168,6 +168,23 @@ export type TeamRenameCommand = {
   controlCode?: string;
 };
 
+/**
+ * Claim the presenter role for this room. Anyone can attempt; server checks
+ * the embedded code matches state.controlCode AND that nobody has claimed yet.
+ * On success, server broadcasts `presenter_claimed` (mutex flag for all
+ * other participants' login button). On failure, server replies with __error__.
+ *
+ * NOT in the privileged-command set: the controlCode here is the user's
+ * one-shot proof, not a session-level credential like the assistant's
+ * controlCode. (Putting it in the privileged set would auto-attach the
+ * assistant's controlCode to all assistant-side emits, which is wrong —
+ * we want the user-typed code from the modal.)
+ */
+export type ClaimPresenterCommand = {
+  type: 'claim_presenter';
+  payload: { code: string };
+};
+
 export type ClientCommand =
   | PingCommand
   | GameStartCommand
@@ -190,7 +207,8 @@ export type ClientCommand =
   | ExportResultCommand
   | PlayerJoinCommand
   | BuzzPressCommand
-  | TeamRenameCommand;
+  | TeamRenameCommand
+  | ClaimPresenterCommand;
 
 // ──────────────────────────────────────────────────────────────────────
 // ServerEvent variants (server → client)
@@ -228,6 +246,7 @@ export interface RoomStateSnapshot {
   purgArmed: boolean;
   participants: { name: string; team: string }[];
   askedIds: string[];
+  presenterClaimed: boolean;
 }
 
 export type RoomStateEvent = {
@@ -238,6 +257,16 @@ export type RoomStateEvent = {
 export type ErrorEvent = {
   type: '__error__';
   payload: { code: string; message: string; cause?: string };
+};
+
+/**
+ * Sent privately to a participant connection that's being replaced by a
+ * newer connection from the same browser (same deviceId). The receiving
+ * tab should stop reconnecting and surface a "use the other tab" UI.
+ */
+export type KickedEvent = {
+  type: '__kicked__';
+  payload: { reason: 'replaced_by_new_tab' };
 };
 
 // Public broadcasts (match EVENTS.md verb-for-verb).
@@ -414,7 +443,9 @@ export type ExportResultEvent = {
   type: 'export_result';
   payload: {
     mode: GameMode;
-    modeLabel: string;
+    modeLabel: string;          // Chinese label: 普通 / 地獄 / 極樂 / 自由
+    customTiers: Difficulty[];  // only meaningful when mode==='custom', else []
+    customTypes: string[];      // only meaningful when mode==='custom', else []
     totalQ: number;
     spq: number;
     actualQ: number;
@@ -440,6 +471,18 @@ export type PlayerJoinEvent = {
   payload: { name: string; team: string };
 };
 
+/**
+ * Broadcast when someone successfully claims the presenter role.
+ * All participants disable their "主持人登入" button on receipt.
+ * Server also fires this immediately after init for late-joiners — they
+ * also pick it up via __room_state__'s presenterClaimed field, but this
+ * standalone event covers the case where they connected before claim.
+ */
+export type PresenterClaimedEvent = {
+  type: 'presenter_claimed';
+  payload: { at: number };
+};
+
 export type PlayerLeaveEvent = {
   type: 'player_leave';
   payload: { name: string; team: string };
@@ -449,6 +492,7 @@ export type ServerEvent =
   | WelcomeEvent
   | RoomStateEvent
   | ErrorEvent
+  | KickedEvent
   | GameStartEvent
   | ModePreviewEvent
   | CustomTiersChangedEvent
@@ -475,7 +519,8 @@ export type ServerEvent =
   | TeamRenameEvent
   | PresenterShowQrEvent
   | PlayerJoinEvent
-  | PlayerLeaveEvent;
+  | PlayerLeaveEvent
+  | PresenterClaimedEvent;
 
 // ──────────────────────────────────────────────────────────────────────
 // Privileged command type guard

@@ -35,6 +35,7 @@ const HTMLS = ['assistant.html', 'presenter.html', 'participant.html', 'testbed.
 const RUNTIME_CREATED_ALLOWLIST = new Set([
   // (a) runtime-created
   'buzz-cd-overlay',     // participant.html:1609 createElement
+  'pgg-kicked-veil',     // participant.html __kicked__ listener createElement
   // (b) optional / demo leftover (callers null-guard)
   'btn-enter',           // presenter.html — defensive guards everywhere now
   'host-status',         // presenter.html — defensive guards everywhere now

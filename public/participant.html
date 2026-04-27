@@ -125,16 +125,18 @@ input{-webkit-appearance:none;border-radius:0}
 .stage{position:absolute;inset:0;display:flex;flex-direction:column;opacity:0;pointer-events:none;transition:opacity 480ms ease-out;z-index:1}
 .stage.active{opacity:1;pointer-events:all}
 
-/* ── 主持人登入入口（只在「輸入名字頁」顯示;進入答題後消失） ── */
+/* ── 主持人登入入口(任何階段都顯示;被 claim 後變灰)──
+   原本只在 stage-login 顯示,但加了 auto-rejoin 後使用者會直接跳過
+   stage-login,看不到按鈕 → 拿不到 presenter 角色。改成一直顯示,
+   被 claim 後 .taken / disabled 狀態自然會把它鎖灰。 */
 .host-login-btn{
-  position:fixed;top:8px;right:12px;z-index:1000;
+  position:fixed;bottom:12px;right:12px;z-index:1000;
   background:rgba(5,9,18,.92);border:1px solid rgba(212,163,75,.4);
   color:#D4A34B;font-family:"JetBrains Mono",monospace;
   font-size:10px;letter-spacing:.16em;padding:6px 12px;
-  text-transform:uppercase;display:none;align-items:center;gap:7px;
+  text-transform:uppercase;display:flex;align-items:center;gap:7px;
   backdrop-filter:blur(8px);transition:all 200ms;cursor:pointer;
 }
-body:has(#stage-login.active) .host-login-btn{display:flex}
 .host-login-btn:hover:not(:disabled){border-color:#D4A34B;background:rgba(212,163,75,.12);color:#EDC266}
 .host-login-btn .hl-dot{width:5px;height:5px;border-radius:50%;background:currentColor;box-shadow:0 0 8px currentColor;animation:hlPulse 2.4s ease-in-out infinite}
 @keyframes hlPulse{0%,100%{opacity:.5}50%{opacity:1}}
@@ -851,6 +853,7 @@ body:has(#stage-login.active) .host-login-btn{display:flex}
 .end-hd{text-align:center;padding-bottom:18px;border-bottom:1px solid var(--line)}
 .end-badge{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.3em;color:var(--accent);text-transform:uppercase;margin-bottom:8px}
 .end-title{font-family:"Noto Serif TC",serif;font-weight:900;font-size:26px;color:var(--ink-1);letter-spacing:.06em}
+.end-meta{margin-top:8px;font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink-3);letter-spacing:.08em}
 
 /* 我的成績卡 */
 .my-card{
@@ -871,7 +874,7 @@ body:has(#stage-login.active) .host-login-btn{display:flex}
 
 /* 長條圖排行 */
 .bar-chart{display:flex;flex-direction:column;gap:8px;background:var(--bg-s);border:1px solid var(--line);padding:16px 18px}
-.bar-row{display:grid;grid-template-columns:64px 1fr 48px;gap:10px;align-items:center}
+.bar-row{display:grid;grid-template-columns:110px 1fr 48px;gap:10px;align-items:center}
 .bar-name{font-size:13px;font-weight:500;color:var(--ink-2);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bar-row.my-row .bar-name{color:var(--accent)}
 .bar-track{background:var(--bg-r);height:22px;position:relative;overflow:hidden}
@@ -943,9 +946,9 @@ body:has(#stage-login.active) .host-login-btn{display:flex}
         <button class="hm-btn primary" id="hm-submit" onclick="submitHostLogin()">登入</button>
       </div>
       <div class="hm-actions-success" id="hm-actions-success">
-        <button class="hm-btn primary full" onclick="openPresenter()">→ 開啟主持人介面</button>
+        <!-- claim 成功會直接 navigate 走,正常情況不會看到這顆。留著以防 navigate 失敗時 user 還能手動再按。 -->
+        <button class="hm-btn primary full" onclick="window.location.reload()">重新整理</button>
       </div>
-      <div class="hm-demo-tip">DEMO 提示 · 有效控制碼<code>DEMO01</code></div>
     </div>
   </div>
 </div>
@@ -1051,7 +1054,7 @@ body:has(#stage-login.active) .host-login-btn{display:flex}
       <span class="purg-badge">◆ 煉獄</span>
     </div>
     <div class="gs-right">
-      <button class="gs-mini-btn invite" id="gs-invite-btn" onclick="openInviteModal()" title="邀請朋友加入">📱</button>
+      <button class="gs-mini-btn invite" id="gs-invite-btn" onclick="openInviteModal()" title="邀請朋友加入">QR</button>
       <span class="gs-round" id="gs-round">—</span>
     </div>
   </div>
@@ -1147,6 +1150,7 @@ body:has(#stage-login.active) .host-login-btn{display:flex}
   <div class="end-hd">
     <div class="end-badge">Game Over · 遊戲結束</div>
     <div class="end-title">成績揭曉</div>
+    <div class="end-meta" id="end-meta">—</div>
   </div>
 
   <!-- 我的成績 -->
@@ -1195,9 +1199,71 @@ body:has(#stage-login.active) .host-login-btn{display:flex}
    - Phase 5 部署時把預設 host 改成 policy-gogogo.<account>.partykit.dev
    ═══════════════════════════════════════════════════════════════ */
 const _PGG_QS = new URLSearchParams(window.location.search);
-const PGG_ROOM_CODE = _PGG_QS.get('room') || 'DEMO01';
+// URL 沒帶 ?room= 時,先試 localStorage 'pgg_last_room'(助理端開啟時會
+// 寫的 hint,讓三端在同 origin 自動對齊到同一房);最終 fallback 'DEMO01'。
+function _readLastRoomHint() {
+  try { return localStorage.getItem('pgg_last_room'); } catch { return null; }
+}
+const PGG_ROOM_CODE = _PGG_QS.get('room') || _readLastRoomHint() || 'DEMO01';
 const PGG_JOIN_URL = 'https://pgg.app/' + PGG_ROOM_CODE;
 const PGG_PARTY_HOST = _PGG_QS.get('host') || 'localhost:1999';
+
+// 同 origin 跨 tab 同步:助理端 reload 換新房號時會 setItem('pgg_last_room',
+// 新碼),storage event 在「另一個 tab」會觸發。本分頁如果 URL 沒帶明確
+// ?room=(亦即跟著 hint 走的),且新值跟當前不同 → reload 切換到新房。
+// 有明確 ?room= 的不要動,user 是刻意指定房間。
+window.addEventListener('storage', e => {
+  if (e.key !== 'pgg_last_room' || !e.newValue) return;
+  if (_PGG_QS.has('room')) return;
+  if (e.newValue !== PGG_ROOM_CODE) window.location.reload();
+});
+
+/* ══ 同裝置去重 (multi-tab dedup) ══
+   localStorage 兩把 key:
+   - pgg_device_id_v1: 一臺瀏覽器一輩子的 UUID,給 server 當 participant 識別
+   - pgg_participant_v1: { name, team, room } — 給同一臺裝置「開新分頁/重新整理」
+     自動回填,不必再輸入名字。room 不一致就忽略(換場了,要重新登入)。
+
+   Server 端用 deviceId dedup:同 deviceId 後到的連線會踢掉先到的,新連線
+   會繼承同一個 (name, team) 走進同組。被踢的舊分頁會收到 __kicked__ 事件
+   並停止重連,顯示提示要使用者改用新分頁。 */
+const PGG_DEVICE_KEY = 'pgg_device_id_v1';
+const PGG_PARTICIPANT_KEY = 'pgg_participant_v1';
+function getOrCreateDeviceId() {
+  try {
+    let id = localStorage.getItem(PGG_DEVICE_KEY);
+    if (!id) {
+      id = (crypto && crypto.randomUUID) ? crypto.randomUUID()
+         : 'd_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
+      localStorage.setItem(PGG_DEVICE_KEY, id);
+    }
+    return id;
+  } catch {
+    // localStorage 被禁(隱身模式 / 嚴格 cookie 設定):退回每分頁獨立 deviceId
+    return 'd_ephemeral_' + Math.random().toString(36).slice(2, 12);
+  }
+}
+function loadStoredParticipant() {
+  try {
+    const raw = localStorage.getItem(PGG_PARTICIPANT_KEY);
+    if (!raw) return null;
+    const o = JSON.parse(raw);
+    if (!o || typeof o !== 'object') return null;
+    if (o.room !== PGG_ROOM_CODE) return null;  // 換場了,不自動回填
+    if (typeof o.name !== 'string' || typeof o.team !== 'string') return null;
+    if (!o.name.trim() || !o.team.trim()) return null;
+    return { name: o.name, team: o.team };
+  } catch { return null; }
+}
+function saveStoredParticipant(name, team) {
+  try {
+    localStorage.setItem(PGG_PARTICIPANT_KEY, JSON.stringify({ name, team, room: PGG_ROOM_CODE }));
+  } catch { /* localStorage 被禁,放棄 */ }
+}
+function clearStoredParticipant() {
+  try { localStorage.removeItem(PGG_PARTICIPANT_KEY); } catch { /* ignore */ }
+}
+const PGG_DEVICE_ID = getOrCreateDeviceId();
 
 /* ══ 全域狀態 ══ */
 const G = {
@@ -1225,55 +1291,28 @@ const RUSH_MODE_META = {
   allhands:  { label: '全組到位', rule: '8 秒內,在 0.5 秒內同時按下的組員越多排名越前;每人按完冷卻 1 秒' },
 };
 
-/* ══ 主持人登入通道（mock，正式版由 PartyKit 後端 atomic check-and-set） ══ */
-const MOCK_HOST_CODE = 'DEMO01';        // 真實版由助理端產生的 S.hostCode 提供
-const HOST_CHANNEL_KEY = 'pgg_host_taken';
-let _bc = null;
-try { _bc = new BroadcastChannel('pgg_host_channel'); } catch(e) {}
+/* ══ 主持人登入通道(server-authoritative) ══
+   流程:點按鈕 → modal → 輸入助理給的 6 位控制碼 → emit claim_presenter →
+   server 驗證 → 廣播 presenter_claimed → 本機 navigate 到 presenter.html
+   (controlCode 帶在 query string,讓 presenter 無痛 init)。
+   失敗(碼錯/已被搶):server 回 __error__,modal 顯示原因。
+   旁觀者:其他 participant 也收到 presenter_claimed → 按鈕變灰。
+   遲到的人:在 __room_state__ payload 裡有 presenterClaimed 旗標,初始
+   就會被鎖。 */
 
-function isHostChannelTaken() {
-  return sessionStorage.getItem(HOST_CHANNEL_KEY) === '1';
-}
-function takeHostChannel() {
-  sessionStorage.setItem(HOST_CHANNEL_KEY, '1');
-  if (_bc) _bc.postMessage({ type: 'host_taken' });
-}
-function resetHostChannel() {
-  sessionStorage.removeItem(HOST_CHANNEL_KEY);
-  if (_bc) _bc.postMessage({ type: 'host_reset' });
-  updateHostBtnState();
-}
-window.resetHostChannel = resetHostChannel;  // demo 用：console 重置
+let _presenterClaimed = false;          // 收到 broadcast / room_state 設 true
+let _claimingNow = false;               // 本機正在送 claim,等 server 回應
 
-if (_bc) {
-  _bc.onmessage = (ev) => {
-    if (ev.data?.type === 'host_taken') {
-      sessionStorage.setItem(HOST_CHANNEL_KEY, '1');
-      updateHostBtnState();
-    } else if (ev.data?.type === 'host_reset') {
-      sessionStorage.removeItem(HOST_CHANNEL_KEY);
-      updateHostBtnState();
-    }
-  };
-}
-
-function updateHostBtnState() {
+function setPresenterClaimedUI() {
+  _presenterClaimed = true;
+  // claim 完成後直接從 DOM 移除按鈕(不只是禁用變灰),避免佔位干擾 UI。
+  // 已 claim 的房間任何人都拿不回 presenter 角色,留著按鈕沒意義。
   const btn = document.getElementById('host-login-btn');
-  const text = btn?.querySelector('.hl-text');
-  if (!btn || !text) return;
-  if (isHostChannelTaken()) {
-    btn.classList.add('taken');
-    btn.disabled = true;
-    text.textContent = '主持人已登入';
-  } else {
-    btn.classList.remove('taken');
-    btn.disabled = false;
-    text.textContent = '主持人登入';
-  }
+  if (btn) btn.style.display = 'none';
 }
 
 function openHostModal() {
-  if (isHostChannelTaken()) return;
+  if (_presenterClaimed) return;
   const m = document.getElementById('host-modal');
   m.classList.add('show');
   document.getElementById('hm-input').value = '';
@@ -1303,46 +1342,58 @@ function submitHostLogin() {
     return;
   }
 
-  // 模擬後端驗證延遲
   submit.disabled = true;
   submit.textContent = '驗證中…';
   status.textContent = '';
   status.className = 'hm-status';
-
-  setTimeout(() => {
-    if (code !== MOCK_HOST_CODE) {
-      status.textContent = '控制碼錯誤,請向助理確認';
-      status.className = 'hm-status err';
-      submit.disabled = false;
-      submit.textContent = '登入';
-      return;
-    }
-    if (isHostChannelTaken()) {
-      status.textContent = '此控制碼已有主持人登入';
-      status.className = 'hm-status err';
-      submit.disabled = false;
-      submit.textContent = '登入';
-      updateHostBtnState();
-      return;
-    }
-    // 成功 — atomic take
-    takeHostChannel();
-    updateHostBtnState();
-    status.textContent = '✓ 登入成功 · 通道已關閉';
-    status.className = 'hm-status ok';
-    document.getElementById('hm-actions-default').style.display = 'none';
-    document.getElementById('hm-actions-success').classList.add('show');
-  }, 380);
+  _claimingNow = true;
+  // 把碼存起來,等 presenter_claimed 廣播時把它附在 navigate 的 query 上
+  G._pendingPresenterCode = code;
+  PartyBus.emit('claim_presenter', { code });
 }
 
-function openPresenter() {
-  // 正式版會以 SPA 路由切換到主持人介面;demo 用新分頁開啟
-  window.open('./presenter_combined.html', '_blank');
-  closeHostModal();
-}
+/* server 廣播 → 所有 participant 都收到。本機如果是 _claimingNow 那就是
+   自己 claim 成功了 → navigate 到 presenter.html;其他人就只是把按鈕
+   變灰(setPresenterClaimedUI)。 */
+PartyBus.on('presenter_claimed', () => {
+  setPresenterClaimedUI();
+  if (_claimingNow && G._pendingPresenterCode) {
+    const code = G._pendingPresenterCode;
+    G._pendingPresenterCode = null;
+    _claimingNow = false;
+    // 同分頁 navigate 走,不開新分頁(投影機那臺電腦本來就要變主持人介面)
+    const url = `presenter.html?room=${encodeURIComponent(PGG_ROOM_CODE)}&host=${encodeURIComponent(PGG_PARTY_HOST)}&controlCode=${encodeURIComponent(code)}`;
+    window.location.href = url;
+  }
+});
 
-// 初始化
-updateHostBtnState();
+/* 本機送 claim 後若 server 回 __error__,_claimingNow 還沒清 → 在 modal
+   顯示原因。其他 __error__(別的 command)就忽略。 */
+PartyBus.on('__error__', (err) => {
+  if (!_claimingNow) return;
+  const code = err?.code || '';
+  const msg = err?.message || '登入失敗';
+  if (['bad_code', 'already_claimed', 'bad_payload'].includes(code)) {
+    _claimingNow = false;
+    G._pendingPresenterCode = null;
+    const status = document.getElementById('hm-status');
+    const submit = document.getElementById('hm-submit');
+    if (status) {
+      status.textContent = msg;
+      status.className = 'hm-status err';
+    }
+    if (submit) {
+      submit.disabled = false;
+      submit.textContent = '登入';
+    }
+  }
+});
+
+/* 連線時 server 會送 __room_state__ 含 presenterClaimed,讓晚到的人也
+   能立刻把按鈕鎖灰(不必等下一次 claim broadcast)。 */
+PartyBus.on('__room_state__', (snap) => {
+  if (snap?.presenterClaimed) setPresenterClaimedUI();
+});
 
 /* ══ 事件:模式切換(PartyKit 接管後由主持人端廣播) ══ */
 function simMode(m) {
@@ -1373,21 +1424,13 @@ function doLogin() {
   // 進入遊戲 = 立刻開放組名編輯(直到助理按開始遊戲後 5 秒鎖死)
   G.canRenameTeam = true;
   setTeamNameEditable(true);
-  // Phase 3:登入時才開 WebSocket(adapter 內部 buffer 會等 open 才送)
-  // host/room/name/team 透過 query string 帶給 server;server 收到連線就
-  // 自動 register participant + broadcast player_join。再額外送一次明確
-  // player_join 命令保險,讓 server 在 query 缺欄位時有備援。
-  PartyBus.init({
-    role: 'participant',
-    roomId: PGG_ROOM_CODE,
-    name: v,
-    team: G.team,
-    host: PGG_PARTY_HOST,
-  });
-  PartyBus.emit('player_join', {
-    name: v,
-    team: G.team,
-  });
+  // PartyBus 在 page load 已經連線(role='participant',沒帶 name/team,
+   // 所以 server.onConnect 不會 broadcast player_join)。doLogin 走到這裡
+   // 才 emit player_join 命令給 server,讓它把這個連線升級成「正式參賽者」
+   // (server.onPlayerJoin 會 upsertParticipant + broadcast player_join 一次)。
+   // saveStoredParticipant 寫 localStorage 給同 origin 的其他 tab / reload 用。
+  saveStoredParticipant(v, G.team);
+  PartyBus.emit('player_join', { name: v, team: G.team });
   // 若助理已經按開始遊戲,直接補跑進 game 流程(套主題色 + 開組名編輯倒數)
   if (G._gameStarted) {
     enterGameStage();
@@ -2258,10 +2301,17 @@ const TYPE_LABELS_P = {
    - 實作位於 client/partybus.ts → /lib/partybus.js,在 <head> 載入,
      於此檔執行前已是 window.PartyBus。
    - 公開 API:PartyBus.emit(type, payload) / PartyBus.on(type, cb)
-   - init() 在 doLogin 時呼叫(要等使用者輸入 name + team)
+   - init() 在 page load 立刻呼叫(沒名字也可以連,server 不會 broadcast
+     player_join 因為 URL 沒帶 name/team)。doLogin 進來後再 emit
+     player_join 命令給 server 註冊。這樣「主持人登入」按鈕在 stage-login
+     就能 emit claim_presenter,不會撞「PartyBus called before init」。
    ════════════════════════════════════════════════════════════════════ */
-/* PartyKit 連線:roomId / host 來自檔頭的 PGG_ROOM_CODE / PGG_PARTY_HOST,
-   不在此重複宣告(2026-04-27 修:重複 const 會炸 SyntaxError 整段 script 死)。 */
+PartyBus.init({
+  role: 'participant',
+  roomId: PGG_ROOM_CODE,
+  deviceId: PGG_DEVICE_ID,
+  host: PGG_PARTY_HOST,
+});
 
 /* 連線狀態 → 既有 .conn-dot 元素(原為純裝飾,Phase 3 接上 WebSocket 狀態)
    - connected:  原綠色脈動(default,清空 inline style)
@@ -2972,6 +3022,16 @@ function renderEndStage(payload) {
 
   // 我的成績卡
   const setText = (id, t) => { const el = document.getElementById(id); if (el) el.textContent = t; };
+
+  // 難度模式 meta line(在 end-hd 標題下方)。custom 模式才把選到的 tier
+  // labels 列出來,其它模式只顯示 mode 名稱(普通/地獄/極樂)。
+  const metaParts = [`難度模式:${payload.modeLabel || '—'}`];
+  if (payload.mode === 'custom' && Array.isArray(payload.customTiers) && payload.customTiers.length > 0) {
+    const tierLabels = payload.customTiers.map(t => getDifficultyLabelP(t)).join('、');
+    metaParts.push(`(${tierLabels})`);
+  }
+  setText('end-meta', metaParts.join(' '));
+
   setText('end-name', G.name || '（未登入）');
   setText('end-group', myTeam.name);
   // 組員 — 用 payload 帶的成員;若空則顯示「—」
@@ -2987,15 +3047,14 @@ function renderEndStage(payload) {
   const maxScore = Math.max(...sorted.map(g => g.score || 0), 0);
   const barChart = document.getElementById('bar-chart');
   if (barChart) {
-    barChart.innerHTML = sorted.map((g, r) => {
+    barChart.innerHTML = sorted.map((g) => {
       const pct = maxScore > 0 ? Math.round((g.score / maxScore) * 100) : 0;
       const isMe = g.name === myTeam.name;
-      const isTop = r === 0;
       return `
         <div class="bar-row ${isMe ? 'my-row' : ''}">
-          <div class="bar-name">${g.name}${isMe ? ' ★' : ''}</div>
+          <div class="bar-name">${g.name}</div>
           <div class="bar-track">
-            <div class="bar-fill ${isTop && !isMe ? 'top' : ''}" style="width:0%" data-pct="${pct}"></div>
+            <div class="bar-fill" style="width:0%" data-pct="${pct}"></div>
           </div>
           <div class="bar-val">${g.score || 0}</div>
         </div>`;
@@ -3156,6 +3215,50 @@ function renderQaAnswerBody(q) {
   return fallback ? `<div class="qa-section-body">${fallback}</div>` : '';
 }
 window.renderQaAnswerBody = renderQaAnswerBody;
+
+/* ══ 同裝置去重:被踢分頁的提示 ══
+   server 偵測到同 deviceId 新分頁進來,本連線會被 close,partybus.js 內部
+   會收到 __kicked__ 並停止重連。這裡負責 UI 提示 — 蓋一張全螢幕半透明
+   遮罩,告訴使用者「請改用新分頁」。 */
+PartyBus.on('__kicked__', () => {
+  // 已經有遮罩就不重蓋
+  if (document.getElementById('pgg-kicked-veil')) return;
+  const veil = document.createElement('div');
+  veil.id = 'pgg-kicked-veil';
+  veil.style.cssText = [
+    'position:fixed','inset:0','z-index:99999',
+    'background:rgba(0,0,0,.88)','color:#fff',
+    'display:flex','flex-direction:column','align-items:center','justify-content:center',
+    'gap:18px','padding:24px','text-align:center','font-family:"Noto Sans TC",sans-serif',
+  ].join(';');
+  veil.innerHTML = `
+    <div style="font-size:48px">⚠</div>
+    <div style="font-size:20px;font-weight:700">本分頁已停用</div>
+    <div style="font-size:14px;opacity:.85;line-height:1.7;max-width:320px">
+      你在另一個分頁開啟了相同的遊戲,以新分頁為準。<br>
+      請切回新分頁繼續,或關閉此分頁。
+    </div>`;
+  document.body.appendChild(veil);
+});
+
+/* ══ 自動回填登入(同 device 重新整理 / 開新分頁)══
+   localStorage 有同房 (name, team) 就跳過名字輸入直接 doLogin。
+   注意:這要等 PartyBus 已存在 + DOM ready 才能跑。inline script 在
+   body 內、ready 沒問題;PartyBus 由前面 partybus.js 載入時掛上 window。 */
+(function tryAutoRejoin() {
+  const stored = loadStoredParticipant();
+  if (!stored) return;
+  // 把 G.team 設好,然後填 name input + 觸發 doLogin
+  G.team = stored.team;
+  const inp = document.getElementById('inp-name');
+  if (inp) {
+    inp.value = stored.name;
+    // login-btn 預設 disabled,doLogin 自己會檢查 v.trim() 為空就 return,
+    // 所以可以直接呼叫,不必先把 button 啟用。
+  }
+  // 給其他初始化(e.g. inline DOM render)一個 tick 跑完再 login。
+  setTimeout(() => doLogin(), 0);
+})();
 </script>
 </body>
 </html>

@@ -131,6 +131,11 @@ export interface RoomState {
 
   // Live participants (by connection). Used for player_leave broadcasts.
   participants: Map<string, ParticipantRef>;
+
+  // True after someone has successfully claimed the presenter role for this
+  // room. Persists across game_restart (presenter is per-room infra, not
+  // per-game) — only resets when the DurableObject itself is destroyed.
+  presenterClaimed: boolean;
 }
 
 // ──────────────────────────────────────────────────────────────────────
@@ -156,6 +161,7 @@ export function createInitialState(roomId: string, controlCode: string): RoomSta
     rushModeActual: null,
     rushSession: null,
     participants: new Map(),
+    presenterClaimed: false,
   };
 }
 
@@ -194,9 +200,13 @@ export function restartGame(state: RoomState): void {
   if (state.rushSession) {
     for (const t of state.rushSession.timers) clearTimeout(t);
   }
-  // Preserve roomId, controlCode, participants. Reset the rest.
+  // Preserve roomId, controlCode, participants, presenterClaimed
+  // (presenter 是房層設施,不會因為按了「重新開始」就解鎖 → 必須帶過來)。
   const fresh = createInitialState(state.roomId, state.controlCode);
-  Object.assign(state, fresh, { participants: state.participants });
+  Object.assign(state, fresh, {
+    participants: state.participants,
+    presenterClaimed: state.presenterClaimed,
+  });
 }
 
 export function adjustScore(
@@ -295,5 +305,6 @@ export function snapshot(state: RoomState): RoomStateSnapshot {
       team: p.team,
     })),
     askedIds: [...state.usedIds],
+    presenterClaimed: state.presenterClaimed,
   };
 }

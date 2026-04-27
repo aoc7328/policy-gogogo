@@ -32,6 +32,12 @@ interface InitOptions {
   roomId: string;
   name?: string;            // participant only
   team?: string;            // participant only
+  /**
+   * Per-device identity, persisted in localStorage by the caller. Multiple
+   * tabs from the same browser share this; server uses it to dedup so one
+   * device = one participant (新開分頁踢掉舊分頁,合併進同一組)。
+   */
+  deviceId?: string;
   /** Override server host. Default: window.location.host (same-origin). */
   host?: string;
   /** PartyKit "party" name. Default: 'main'. */
@@ -53,6 +59,10 @@ class PartyBusImpl {
   private status: Status = 'connecting';
 
   init(opts: InitOptions): void {
+    if (this._kicked) {
+      console.warn('PartyBus.init ignored — this tab was kicked by another tab');
+      return;
+    }
     if (this.socket) {
       console.warn('PartyBus.init called more than once; ignoring');
       return;
@@ -73,6 +83,7 @@ class PartyBusImpl {
     const query: Record<string, string> = { role: opts.role };
     if (opts.name) query.name = opts.name;
     if (opts.team) query.team = opts.team;
+    if (opts.deviceId) query.deviceId = opts.deviceId;
     if (opts.role === 'assistant' && this.controlCode) {
       query.controlCode = this.controlCode;
     }
@@ -114,11 +125,22 @@ class PartyBusImpl {
         // Surface server errors to console so debugging is easier; still
         // dispatch to listeners in case the HTML wants to render an alert.
         console.warn('PartyBus server error:', env.payload);
+      } else if (env.type === '__kicked__') {
+        // 同 deviceId 新分頁進來,server 把本連線踢掉。標記為 kicked,
+        // 主動 close 並停止重連(否則 partysocket 會自動重連 → server 又
+        // 踢新分頁 → 兩邊互相踢的迴圈)。HTML 那邊 listen __kicked__
+        // 顯示提示。
+        this._kicked = true;
+        try { this.socket?.close(); } catch { /* ignore */ }
+        this.socket = null;
       }
 
       this._dispatch(env.type, env.payload);
     });
   }
+
+  /** True after server sent __kicked__; emit/init become no-ops. */
+  private _kicked = false;
 
   emit(type: string, payload?: unknown): void {
     if (!this.socket) {

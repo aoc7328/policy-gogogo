@@ -55,6 +55,7 @@ interface ConnState {
   role: ConnectionRole;
   name: string | null;       // participant only
   team: string | null;       // participant only
+  deviceId: string | null;   // participant only — per-browser identity for multi-tab dedup
   verified: boolean;         // controlCode validated for assistants
 }
 
@@ -75,7 +76,31 @@ export default class PolicyGogogoServer implements Party.Server {
     const role = this.normalizeRole(rawRole);
     const name = url.searchParams.get('name');
     const team = url.searchParams.get('team');
+    const deviceId = url.searchParams.get('deviceId');
     const presentedCode = url.searchParams.get('controlCode');
+
+    // Multi-tab dedup (participant only):
+    // 同一 deviceId 從另一分頁進來,把舊分頁踢掉。先 send __kicked__ 給舊
+    // 連線(讓它能顯示提示 + 停止重連),然後從 participants Map 摘掉舊
+    // entry(避免它的 onClose 廣播 player_leave 干擾助理進退場紀錄),
+    // 最後 close()。新連線繼續走下面的 register flow 接管同一個 (name, team)。
+    let replacedExistingTab = false;
+    if (role === 'participant' && deviceId) {
+      for (const c of this.room.getConnections<ConnState>()) {
+        if (c.id === conn.id) continue;
+        if (c.state?.role !== 'participant') continue;
+        if (c.state?.deviceId !== deviceId) continue;
+        try {
+          this.send(c, {
+            type: '__kicked__',
+            payload: { reason: 'replaced_by_new_tab' },
+          });
+        } catch { /* old conn may already be closing */ }
+        removeParticipantByConn(this.state, c.id);
+        try { c.close(); } catch { /* ignore */ }
+        replacedExistingTab = true;
+      }
+    }
 
     // Loose-auth model (Phase 4):
     // - Connection-level: any client may claim any role; we always accept
@@ -93,6 +118,7 @@ export default class PolicyGogogoServer implements Party.Server {
       role,
       name: role === 'participant' ? name : null,
       team: role === 'participant' ? team : null,
+      deviceId: role === 'participant' ? deviceId : null,
       verified: role === 'assistant',
     });
 
@@ -108,10 +134,15 @@ export default class PolicyGogogoServer implements Party.Server {
     });
 
     // If a participant connected with valid name+team, register immediately
-    // and broadcast player_join (so the assistant updates the roster).
+    // and broadcast player_join (so the assistant updates the roster)。
+    // 同 deviceId 接管(replacedExistingTab):仍然 upsert(新 conn.id),但
+    // 不廣播 player_join — 觀眾視角這個人本來就在房裡,助理進退場紀錄
+    // 不該再多跳一條「加入」。
     if (role === 'participant' && name && team) {
       upsertParticipant(this.state, conn.id, name, team);
-      this.broadcast({ type: 'player_join', payload: { name, team } });
+      if (!replacedExistingTab) {
+        this.broadcast({ type: 'player_join', payload: { name, team } });
+      }
     }
 
     // Push current room snapshot so the connection can render correct UI.
@@ -202,6 +233,8 @@ export default class PolicyGogogoServer implements Party.Server {
         return this.onArmPurgatory(cmd.payload);
       case 'redraw_question':
         return this.onRedrawQuestion(sender);
+      case 'claim_presenter':
+        return this.onClaimPresenter(cmd.payload, sender);
       case 'mode_preview':
         return this.broadcast({ type: 'mode_preview', payload: cmd.payload });
       case 'custom_tiers_changed':
@@ -465,6 +498,37 @@ export default class PolicyGogogoServer implements Party.Server {
     this.state.purgArmed = !!payload.armed;
   }
 
+  /**
+   * 主持人介面 claim flow:
+   * - 驗證 payload.code 與 state.controlCode 相符
+   * - 已被 claim → 回 __error__('already_claimed')
+   * - 否則設 flag + 廣播 presenter_claimed → 所有 participant 鎖按鈕,
+   *   呼叫端從 broadcast 知道自己 claim 成功(因為自己也會收到)
+   */
+  private onClaimPresenter(
+    payload: { code: string },
+    sender: Party.Connection<ConnState>
+  ): void {
+    const code = (payload?.code || '').trim().toUpperCase();
+    if (!code) {
+      this.sendError(sender, 'bad_payload', '請輸入主持人控制碼');
+      return;
+    }
+    if (code !== this.state.controlCode) {
+      this.sendError(sender, 'bad_code', '控制碼錯誤,請向助理確認');
+      return;
+    }
+    if (this.state.presenterClaimed) {
+      this.sendError(sender, 'already_claimed', '主持人介面已被其他裝置開啟');
+      return;
+    }
+    this.state.presenterClaimed = true;
+    this.broadcast({
+      type: 'presenter_claimed',
+      payload: { at: Date.now() },
+    });
+  }
+
   private onRedrawQuestion(sender: Party.Connection<ConnState>): void {
     // 重抽:當前題還沒公佈答案時可以換一題(同 framework / tier pool / type 限制),
     // 計數器不增加(還是同一輪)。
@@ -481,13 +545,11 @@ export default class PolicyGogogoServer implements Party.Server {
       this.sendError(sender, 'no_current', '目前無題目可重抽');
       return;
     }
-    const oldId = this.state.currentQuestion.id;
     const oldFw = this.state.currentQuestion.framework;
-    // 從 usedIds 拉掉舊題(讓 picker 不會把它當已抽);picker 仍會避開它因為下方
-    // 直接從 candidates 篩走,但拉掉後若重抽失敗,舊題不會永久卡在 usedIds。
-    this.state.usedIds.delete(oldId);
-    // 同 framework 重抽。framework 在 BANK normalize 後是 Chinese label,跟
-    // FRAMEWORK_BY_SHORT_ID lookup 表對齊。
+    // 重抽行為:被丟掉的題目算「已用」,留在 usedIds 裡,池子真的會縮。
+    // 5 題框架 → 第 1 題 + 4 次重抽後 usedIds={5 題},第 5 次重抽抽無題,
+    // 跳警告。usedIds 已經包含當前題(picking 時已 add),picker 自然
+    // 不會把它再選給我們。
     const tierPool = tiersForMode(this.state.game.mode, this.state.game.customTiers);
     const result = pickQuestion({
       tierPool,
@@ -496,13 +558,11 @@ export default class PolicyGogogoServer implements Party.Server {
         this.state.game.mode === 'custom' && this.state.game.customTypes.length > 0
           ? this.state.game.customTypes
           : null,
-      usedIds: new Set([...this.state.usedIds, oldId]), // 避免抽到自己
+      usedIds: this.state.usedIds,
       purgArmed: false, // 重抽不消耗 purgArmed flag
     });
 
     if (!result.ok) {
-      // 還原 usedIds(舊題仍是「抽過」狀態)+ 回 error
-      this.state.usedIds.add(oldId);
       this.sendError(
         sender,
         'no_question',
@@ -554,9 +614,21 @@ export default class PolicyGogogoServer implements Party.Server {
     const sortedGroups = [...this.state.groups]
       .sort((a, b) => b.score - a.score)
       .map((g) => ({ name: g.name, score: g.score }));
+    // Chinese mode labels for participant UI. Server is authoritative for
+    // the export payload (它不轉發 client 的 emit,自己組裝),所以這個 map
+    // 就在這裡定。
+    const MODE_LABEL_ZH: Record<typeof this.state.game.mode, string> = {
+      ordinary: '普通',
+      hell: '地獄',
+      paradise: '極樂',
+      custom: '自由',
+    };
+    const isCustom = this.state.game.mode === 'custom';
     const payload = {
       mode: this.state.game.mode,
-      modeLabel: this.state.game.mode,
+      modeLabel: MODE_LABEL_ZH[this.state.game.mode] || '—',
+      customTiers: isCustom ? [...this.state.game.customTiers] : [],
+      customTypes: isCustom ? [...this.state.game.customTypes] : [],
       totalQ: this.state.game.totalQ,
       spq: this.state.game.spq,
       actualQ: this.state.askedQuestions.length,
@@ -586,6 +658,7 @@ export default class PolicyGogogoServer implements Party.Server {
       role: 'participant',
       name: payload.name,
       team: payload.team,
+      deviceId: sender.state?.deviceId ?? null,
       verified: false,
     });
     this.broadcast({ type: 'player_join', payload });

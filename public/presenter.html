@@ -1033,9 +1033,22 @@ html, body { background: #080A10; font-family: var(--font-sans); -webkit-font-sm
    - Phase 5 部署時把預設 host 改成 policy-gogogo.<account>.partykit.dev
    ═══════════════════════════════════════════════════════════════ */
 const _PGG_QS = new URLSearchParams(window.location.search);
-const PGG_ROOM_CODE = _PGG_QS.get('room') || 'DEMO01';
+// URL 沒帶 ?room= 時,先試 localStorage 'pgg_last_room'(助理端開啟時會
+// 寫的 hint,讓三端在同 origin 自動對齊到同一房);最終 fallback 'DEMO01'。
+function _readLastRoomHint() {
+  try { return localStorage.getItem('pgg_last_room'); } catch { return null; }
+}
+const PGG_ROOM_CODE = _PGG_QS.get('room') || _readLastRoomHint() || 'DEMO01';
 const PGG_JOIN_URL = 'https://pgg.app/' + PGG_ROOM_CODE;
 const PGG_PARTY_HOST = _PGG_QS.get('host') || 'localhost:1999';
+
+// 同 origin 跨 tab 同步(同 participant.html 的邏輯):助理 reload 換房時
+// 自動同步本分頁。URL 帶明確 ?room= 的不動,user 刻意指定就尊重。
+window.addEventListener('storage', e => {
+  if (e.key !== 'pgg_last_room' || !e.newValue) return;
+  if (_PGG_QS.has('room')) return;
+  if (e.newValue !== PGG_ROOM_CODE) window.location.reload();
+});
 
 const stage = document.getElementById('stage');
 let currentMode   = null;  // 正式進入的模式
