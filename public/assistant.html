@@ -2996,9 +2996,14 @@ PGGBankLoader.autoLoad({
     console.warn(`[PGG] BANK ${diff} 載入失敗:`, msg);
   },
 }).then(result => {
-  // Merge:只填空格,不覆蓋(保護助理手動上傳的版本)
+  // Phase 4 fix:/data/ 是 server 共用的權威來源(Phase 0 Q11),localStorage 只是
+  // 本地 cache。早期 fill-empty-only 邏輯讓 stale fixture(localStorage 殘留)
+  // 永遠搶贏 /data/ 的真 BANK,造成 client lookup id 跟 server 抽出來的 id 對不上
+  // (fixture id 用底線 M_SA_001、真 BANK 用 dash M-SA-001),server 抽到的題在
+  // client BANK 裡 find 不到 → UI 卡住沒題目。
+  // 一律用 /data/ 蓋掉本地 cache,localStorage 變成「下次冷啟動的速度優化」而已。
   Object.entries(result.banks).forEach(([d, bank]) => {
-    if (!BANK[d] || !BANK[d].questions) BANK[d] = bank;
+    BANK[d] = bank;
   });
   saveBankToStorage();
   renderBankPage();

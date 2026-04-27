@@ -2216,8 +2216,9 @@ loadBankP();
 PGGBankLoader.autoLoad({
   onError: (diff, msg) => console.warn(`[PGG participant] BANK ${diff} 載入失敗:`, msg),
 }).then(result => {
+  // Phase 4 fix:/data/ 一律覆寫,避免 stale localStorage 卡住(詳見 assistant.html 同段註解)
   Object.entries(result.banks).forEach(([d, bank]) => {
-    if (!BANK_P[d] || !BANK_P[d].questions) BANK_P[d] = bank;
+    BANK_P[d] = bank;
   });
 }).catch(err => console.error('[PGG participant] BANK auto-load 完全失敗:', err));
 window.addEventListener('storage', e => {

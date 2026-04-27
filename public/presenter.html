@@ -1334,8 +1334,9 @@ loadBank();
 PGGBankLoader.autoLoad({
   onError: (diff, msg) => console.warn(`[PGG presenter] BANK ${diff} 載入失敗:`, msg),
 }).then(result => {
+  // Phase 4 fix:/data/ 一律覆寫,避免 stale localStorage 卡住(詳見 assistant.html 同段註解)
   Object.entries(result.banks).forEach(([d, bank]) => {
-    if (!BANK[d] || !BANK[d].questions) BANK[d] = bank;
+    BANK[d] = bank;
   });
   if (typeof updateCategoryGridPresenter === 'function') updateCategoryGridPresenter();
 }).catch(err => console.error('[PGG presenter] BANK auto-load 完全失敗:', err));
