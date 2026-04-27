@@ -113,11 +113,10 @@ input::placeholder{color:var(--ink-3)}
 .hint{font-family:var(--font-mono);font-size:11px;color:var(--ink-3);letter-spacing:.04em;margin-top:12px;line-height:1.6}
 .hint.warn{color:#90303A}
 
-.log-list{max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;scrollbar-width:thin;scrollbar-color:var(--line-s) transparent}
-.log-list::-webkit-scrollbar{width:5px}
-.log-list::-webkit-scrollbar-track{background:transparent}
-.log-list::-webkit-scrollbar-thumb{background:var(--line-s);border-radius:3px}
-.log-list::-webkit-scrollbar-thumb:hover{background:var(--accent)}
+/* 高度固定到 15 筆可視區域(每列 ~36px + gap 3px,15 列約 580px,加 buffer)。
+   addLog 用 unshift 把新紀錄塞最前面,所以最新永遠在頂部、最舊在底部。
+   overflow:hidden → 超過 15 筆時舊紀錄從底部被切掉,不出現滾軸。 */
+.log-list{height:600px;overflow:hidden;display:flex;flex-direction:column;gap:3px}
 .log-row{display:grid;grid-template-columns:80px max-content 1fr auto;gap:12px;align-items:center;padding:9px 12px;font-family:var(--font-mono);font-size:12px;border-left:2px solid transparent;transition:background 180ms}
 .log-row:hover{background:var(--bg-raised)}
 .log-row.join{border-left-color:var(--ok)}
