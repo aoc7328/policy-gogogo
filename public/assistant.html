@@ -1094,7 +1094,7 @@ if (!_autoRoom) {
   window.history.replaceState(null, '', window.location.pathname + '?' + _PGG_QS.toString());
 }
 const PGG_ROOM_CODE = _autoRoom;
-const PGG_JOIN_URL = window.location.origin + '/participant.html?room=' + PGG_ROOM_CODE;
+const PGG_JOIN_URL = window.location.origin + '/' + PGG_ROOM_CODE;
 // 部署環境:預設指向正式 PartyKit URL;本機開發可用 ?host=localhost:1999 覆寫。
 const PGG_PARTY_HOST = _PGG_QS.get('host') || 'policy-gogogo.aoc7328.partykit.dev';
 // 把這場 room 寫進 localStorage 當 hint;主持人/參賽者端開啟時若 URL 沒
