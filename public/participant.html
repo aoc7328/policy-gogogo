@@ -2457,6 +2457,24 @@ function enterGameStage() {
   lockBuzz();
 }
 
+/* 重置 q-wait 到「pre-game」狀態:用於 game_restart 後。
+   差別於 resetWaitToIdle:這個是「整場還沒開始」,助理還在選模式;
+   resetWaitToIdle 是「整場已開始,在輪與輪之間」,模式已選定。
+   所以這裡額外把 mode/rule chip 藏掉(主持人還沒選模式,不該預告)。 */
+function resetWaitToPreGame() {
+  resetWaitToIdle();
+  const setShow = (id, show) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = show ? '' : 'none';
+  };
+  setShow('qw-mode', false);
+  setShow('qw-rule', false);
+  const titleEl = document.getElementById('qw-title');
+  if (titleEl) titleEl.textContent = '等待遊戲開始';
+  const hintEl = document.getElementById('qw-hint');
+  if (hintEl) hintEl.textContent = '主持人選擇模式中';
+}
+
 /* 重置 q-wait 上方提示到「等待主持人開始搶答」狀態 + 預告下一輪搶答模式 */
 function resetWaitToIdle() {
   const setShow = (id, show) => {
@@ -2916,13 +2934,13 @@ PartyBus.on('game_restart', () => {
   if (qBody) qBody.style.display = 'none';
   const qWait = document.getElementById('q-wait');
   if (qWait) qWait.style.display = 'flex';
-  // 把 q-wait 內部 sub-panel 切回 idle 狀態(沒這行的話 winner 結果頁會卡住,
-  // user-reported Phase 4 bug:重新開始 participant 還顯示「電光石火 第三組 12 搶答耗時」)
-  if (typeof resetWaitToIdle === 'function') resetWaitToIdle();
+  // 把 q-wait 內部 sub-panel 切回 pre-game 狀態(整場未開始 / 助理還在選模式)。
+  // 不是「between rounds」狀態 — restart 後 game 還沒 start,模式都未定。
+  if (typeof resetWaitToPreGame === 'function') resetWaitToPreGame();
   if (typeof lockBuzz === 'function') lockBuzz();
-  // status 文字
+  // status 文字 — 同樣是 pre-game 措辭,不是 between-rounds
   const btnStatus = document.getElementById('btn-status');
-  if (btnStatus) btnStatus.textContent = '等待主持人開始搶答';
+  if (btnStatus) btnStatus.textContent = '等待遊戲開始';
   // round 顯示重置
   const gsRound = document.getElementById('gs-round');
   if (gsRound) gsRound.textContent = G.totalQ > 0 ? `00 / ${String(G.totalQ).padStart(2,'0')}` : '00';
