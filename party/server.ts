@@ -200,6 +200,8 @@ export default class PolicyGogogoServer implements Party.Server {
         return this.onGameRestart();
       case 'arm_purgatory':
         return this.onArmPurgatory(cmd.payload);
+      case 'redraw_question':
+        return this.onRedrawQuestion(sender);
       case 'mode_preview':
         return this.broadcast({ type: 'mode_preview', payload: cmd.payload });
       case 'custom_tiers_changed':
@@ -368,6 +370,7 @@ export default class PolicyGogogoServer implements Party.Server {
         id: result.question.id,
         difficulty: result.question.difficulty,
         framework: result.question.framework,
+        roundQ: this.state.currQ,
       },
     });
   }
@@ -406,8 +409,10 @@ export default class PolicyGogogoServer implements Party.Server {
     if (this.state.currentQuestion?.difficulty === 'purgatory') {
       this.broadcast({ type: 'purgatory_end', payload: {} });
     }
-    // Skip doesn't increment currQ.
-    this.state.currQ = Math.max(0, (this.state.currQ ?? 0) - 1);
+    // Phase 4 fix:不再 decrement currQ。currQ 語意統一成「已抽過的題數」,
+    // skip 也算抽過(問題已亮出來給觀眾看了),不能讓 counter 退回去。
+    // 之前 decrement 是 demo 階段「skip 不算數」的舊語意,跟 user expectation
+    // 不符(user 期待 counter 跟著 question 往前)。
     this.state.currentQuestion = null;
     this.state.currentCat = null;
     this.state.catLocked = false;
@@ -435,6 +440,85 @@ export default class PolicyGogogoServer implements Party.Server {
   private onArmPurgatory(payload: { armed: boolean }): void {
     // Hidden 秘技: server stores flag silently, no broadcast.
     this.state.purgArmed = !!payload.armed;
+  }
+
+  private onRedrawQuestion(sender: Party.Connection<ConnState>): void {
+    // 重抽:當前題還沒公佈答案時可以換一題(同 framework / tier pool / type 限制),
+    // 計數器不增加(還是同一輪)。
+    if (this.state.phase !== 'answering') {
+      this.sendError(
+        sender,
+        'wrong_phase',
+        `redraw_question 只能在 answering 階段送(目前 server phase=${this.state.phase})`
+      );
+      return;
+    }
+    if (!this.state.game) return;
+    if (!this.state.currentQuestion) {
+      this.sendError(sender, 'no_current', '目前無題目可重抽');
+      return;
+    }
+    const oldId = this.state.currentQuestion.id;
+    const oldFw = this.state.currentQuestion.framework;
+    // 從 usedIds 拉掉舊題(讓 picker 不會把它當已抽);picker 仍會避開它因為下方
+    // 直接從 candidates 篩走,但拉掉後若重抽失敗,舊題不會永久卡在 usedIds。
+    this.state.usedIds.delete(oldId);
+    // 同 framework 重抽。framework 在 BANK normalize 後是 Chinese label,跟
+    // FRAMEWORK_BY_SHORT_ID lookup 表對齊。
+    const tierPool = tiersForMode(this.state.game.mode, this.state.game.customTiers);
+    const result = pickQuestion({
+      tierPool,
+      framework: oldFw,
+      typeWhitelist:
+        this.state.game.mode === 'custom' && this.state.game.customTypes.length > 0
+          ? this.state.game.customTypes
+          : null,
+      usedIds: new Set([...this.state.usedIds, oldId]), // 避免抽到自己
+      purgArmed: false, // 重抽不消耗 purgArmed flag
+    });
+
+    if (!result.ok) {
+      // 還原 usedIds(舊題仍是「抽過」狀態)+ 回 error
+      this.state.usedIds.add(oldId);
+      this.sendError(
+        sender,
+        'no_question',
+        '此分類已無其他題目可重抽(只剩當前這題)'
+      );
+      return;
+    }
+
+    // 替換 currentQuestion + askedQuestions 最後一筆
+    this.state.usedIds.add(result.question.id);
+    if (this.state.askedQuestions.length > 0) {
+      this.state.askedQuestions[this.state.askedQuestions.length - 1] = {
+        id: result.question.id,
+        difficulty: result.question.difficulty,
+        framework: result.question.framework,
+      };
+    }
+    this.state.currentQuestion = {
+      id: result.question.id,
+      difficulty: result.question.difficulty,
+      framework: result.question.framework,
+    };
+    // currQ 不變(同一輪)
+    if (result.triggersPurgatory) {
+      this.broadcast({ type: 'purgatory_summon', payload: {} });
+    } else if (this.state.currentQuestion.difficulty !== 'purgatory') {
+      // 重抽從煉獄變一般題,要清掉煉獄特效
+      this.broadcast({ type: 'purgatory_end', payload: {} });
+    }
+    this.broadcast({
+      type: 'question_pick',
+      payload: {
+        id: result.question.id,
+        difficulty: result.question.difficulty,
+        framework: result.question.framework,
+        roundQ: this.state.currQ,   // 重抽不增 currQ,送同一輪數
+        redraw: true,
+      },
+    });
   }
 
   private onRushModeChanged(payload: { mode: import('./protocol').RushMode; label: string }): void {

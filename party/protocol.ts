@@ -116,6 +116,13 @@ export type ArmPurgatoryCommand = {
   payload: { armed: boolean };
 } & PrivilegedHeader;
 
+// Phase 4: redraw the current question. Removes its id from usedIds and
+// re-picks from the same framework. Counter (state.currQ) NOT incremented
+// for the redraw (still the same round, just different question).
+export type RedrawQuestionCommand = {
+  type: 'redraw_question';
+} & PrivilegedHeader;
+
 export type ModePreviewCommand = {
   type: 'mode_preview';
   payload: {
@@ -175,6 +182,7 @@ export type ClientCommand =
   | SkipQuestionCommand
   | GameRestartCommand
   | ArmPurgatoryCommand
+  | RedrawQuestionCommand
   | ModePreviewCommand
   | CustomTiersChangedCommand
   | RushModeChangedCommand
@@ -363,7 +371,13 @@ export type CategoryResetEvent = {
 
 export type QuestionPickEvent = {
   type: 'question_pick';
-  payload: { id: string; difficulty: Difficulty; framework: string };
+  payload: {
+    id: string;
+    difficulty: Difficulty;
+    framework: string;
+    roundQ: number;          // server 權威 currQ;client 直接 set 不 increment
+    redraw?: boolean;        // true 表示這是 redraw_question 的回應(同一輪換題)
+  };
 };
 
 export type PurgatorySummonEvent = {
@@ -480,6 +494,7 @@ export const PRIVILEGED_COMMAND_TYPES = new Set<string>([
   'skip_question',
   'game_restart',
   'arm_purgatory',
+  'redraw_question',
   'mode_preview',
   'custom_tiers_changed',
   'rush_mode_changed',

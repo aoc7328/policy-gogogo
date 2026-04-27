@@ -1461,6 +1461,18 @@ PartyBus.on('question_pick', payload => {
     });
   }
 
+  // Phase 4 fix:把 server 的 currQ 直接套到本機 + UI(server 是權威)。
+  // 第一次抽題會增、重抽 (redraw=true) 不增 — server 的 roundQ 就是定義好的。
+  if (typeof payload.roundQ === 'number') {
+    S.currQ = payload.roundQ;
+    const cqEl = document.getElementById('curr-q');
+    if (cqEl) cqEl.textContent = S.currQ;
+    const mqEl = document.getElementById('m-q');
+    if (mqEl) mqEl.textContent = `${S.currQ} / ${S.totalQ}`;
+    const mrEl = document.getElementById('m-round');
+    if (mrEl) mrEl.textContent = String(S.currQ).padStart(2, '0');
+  }
+
   const isPurgatory = (payload.difficulty === 'purgatory');
   const cBtn = document.getElementById('cat-confirm-btn');
   if (cBtn) {
@@ -2229,11 +2241,9 @@ function doNext(){
   // 清掉殘留的搶答 session
   if (typeof _clearLocalRushUITimers === 'function') _clearLocalRushUITimers();
   S.rushSession = null;
-  S.currQ++;
-  document.getElementById('curr-q').textContent=S.currQ;
-  document.getElementById('m-q').textContent=`${S.currQ} / ${S.totalQ}`;
-  document.getElementById('m-round').textContent=String(S.currQ+1).padStart(2,'0');
-  if(S.currQ>=S.totalQ){doEnd();return;}
+  // Phase 4:S.currQ 已在 question_pick listener 從 server roundQ 套好,
+  // 這裡不再 increment。只用「目前已 ≥ totalQ」這條 end-of-game 判定。
+  if (S.currQ >= S.totalQ) { doEnd(); return; }
   document.getElementById('rev-acts').classList.remove('show');
   S.pendingIdx = null;
   S.selectedIdx = null;
@@ -2267,10 +2277,12 @@ function doSkip(){
 }
 
 function doRedraw(){
-  // Phase 3:重抽功能暫停(server 還沒實作 redraw_question 命令)。
-  // Phase 5 部署前會新增 server-side 命令:從 usedIds 移除當前題、
-  // 重新從同 framework 抽,屆時本函式只送一個 redraw_question 命令給 server。
-  setStatus('Phase 3 暫未支援重抽 · 請按「下一題」或「跳過」');
+  // Phase 4:重抽。送命令給 server,server 從 usedIds 拿掉當前題 +
+  // 同 framework 重抽 + broadcast question_pick (with redraw:true,
+  // roundQ 不變)。失敗(同 framework 沒其他題)會回 __error__。
+  if (S.phase !== 'answering') return;
+  setStatus('已送出重抽指令 · 等待 server 回新題');
+  PartyBus.emit('redraw_question', {});
 }
 
 /* ══ 分類九宮格(兩階段:預覽 → 拍板) ══
