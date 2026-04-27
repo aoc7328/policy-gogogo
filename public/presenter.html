@@ -1040,7 +1040,8 @@ function _readLastRoomHint() {
 }
 const PGG_ROOM_CODE = _PGG_QS.get('room') || _readLastRoomHint() || 'DEMO01';
 const PGG_JOIN_URL = 'https://pgg.app/' + PGG_ROOM_CODE;
-const PGG_PARTY_HOST = _PGG_QS.get('host') || 'localhost:1999';
+// 部署環境:預設指向正式 PartyKit URL;本機開發可用 ?host=localhost:1999 覆寫。
+const PGG_PARTY_HOST = _PGG_QS.get('host') || 'policy-gogogo.aoc7328.partykit.dev';
 
 // 同 origin 跨 tab 同步(同 participant.html 的邏輯):助理 reload 換房時
 // 自動同步本分頁。URL 帶明確 ?room= 的不動,user 刻意指定就尊重。
