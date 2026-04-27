@@ -1113,12 +1113,18 @@ function updatePool() {
   const tiers = [...document.querySelectorAll('[data-group="tier"].active')].map(c => c.textContent.trim());
   const types = [...document.querySelectorAll('[data-group="type"].active')].map(c => c.textContent.trim());
   const hasMin = tiers.length > 0 && types.length > 0;
-  document.getElementById('custom-enter-btn').disabled = !hasMin;
-  if (!hasMin) { document.getElementById('pool-num').textContent = '—'; return; }
+  // 修:demo 階段這裡寫成 'custom-enter-btn'(不存在的 id),導致 updatePool() 在
+  // line 2395 初始化呼叫時 throw → 整段 inline script abort → 後面的 let 變數 TDZ
+  // → game_start listener 跑不起來。實際元素 id 是 'btn-enter'。null-guard 避免
+  // 未來其他 id typo 再次連鎖崩潰。
+  const enterBtn = document.getElementById('btn-enter');
+  if (enterBtn) enterBtn.disabled = !hasMin;
+  const poolNumEl = document.getElementById('pool-num');
+  if (!hasMin) { if (poolNumEl) poolNumEl.textContent = '—'; return; }
   const totalTier = tiers.reduce((s, t) => s + (tierCounts[t] || 0), 0);
   const typeRatio = types.reduce((s, t) => s + (typeMulti[t] || 0), 0);
   const est = Math.round(totalTier * Math.min(typeRatio / 0.55, 1));
-  document.getElementById('pool-num').textContent = est;
+  if (poolNumEl) poolNumEl.textContent = est;
 }
 document.querySelectorAll('.chip').forEach(chip => {
   chip.addEventListener('click', () => { chip.classList.toggle('active'); updatePool(); });
@@ -1149,8 +1155,12 @@ function goHome() {
   document.getElementById('bg-select').classList.add('active');
   document.getElementById('paradise-particles').classList.remove('active');
   document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
-  document.getElementById('btn-enter').disabled = true;
-  document.getElementById('host-status').textContent = '主持人 · 請選擇模式';
+  // null-guard:btn-enter / host-status 是 demo 階段殘留的 id 引用,markup 已無對應
+  // 元素;沒 guard 會 throw → goHome 整段 abort → 後續 goto('scr-select') 跳不過去
+  const enterBtnHome = document.getElementById('btn-enter');
+  if (enterBtnHome) enterBtnHome.disabled = true;
+  const hostStatusHome = document.getElementById('host-status');
+  if (hostStatusHome) hostStatusHome.textContent = '主持人 · 請選擇模式';
   goto('scr-select');
 }
 function backToSelect() {

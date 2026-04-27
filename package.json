@@ -12,7 +12,8 @@
     "audit:check": "node scripts/audit-check.mjs",
     "verify:html": "node scripts/verify-html-syntax.mjs",
     "verify:contract": "node scripts/verify-event-contract.mjs",
-    "verify:all": "npm run typecheck && npm run verify:html && npm run verify:contract && npm run audit:check"
+    "verify:dom-refs": "node scripts/verify-dom-refs.mjs",
+    "verify:all": "npm run typecheck && npm run verify:html && npm run verify:contract && npm run verify:dom-refs && npm run audit:check"
   },
   "devDependencies": {
     "jsdom": "^29.0.2",
