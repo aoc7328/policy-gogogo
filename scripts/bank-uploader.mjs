@@ -61,6 +61,10 @@ main{max-width:720px;margin:0 auto}
 .modal ul,.modal ol{margin-top:8px;padding-left:24px}
 .modal li{margin-bottom:4px}
 .modal-close{margin-top:24px;padding:10px 24px;background:#D4A34B;border:none;color:#050912;font-weight:700;cursor:pointer;letter-spacing:.14em}
+.copy-wrap{position:relative;margin:8px 0}
+.copy-btn{position:absolute;top:8px;right:8px;background:#0B1020;border:1px solid #5C6480;color:#D4A34B;padding:4px 10px;font-family:monospace;font-size:11px;letter-spacing:.1em;cursor:pointer;z-index:1}
+.copy-btn:hover{border-color:#D4A34B;background:#141B2E}
+.copy-wrap pre{margin:0;padding-right:80px}
 </style>
 </head>
 <body>
@@ -107,7 +111,9 @@ ${DIFFICULTIES.map(d => `<label class="row" for="f-${d.id}">
 
 <h3>4. 框架(分類)— 跟著題庫走</h3>
 <p>題庫的 <code>metadata</code> 必須宣告自己的框架(分類)清單,server 跟三端 UI 全部都讀這個。換主題就是換清單,不再寫死保險。</p>
-<p>結構長這樣:</p>
+<p>結構長這樣(右上角可一鍵複製):</p>
+<div class="copy-wrap">
+<button class="copy-btn" onclick="copyPre(this)">複製</button>
 <pre style="background:#050912;color:#88C765;padding:12px;font-size:12px;line-height:1.6;overflow-x:auto;border:1px solid #2a3040">{
   "metadata": {
     "name": "中國史題庫",
@@ -124,18 +130,22 @@ ${DIFFICULTIES.map(d => `<label class="row" for="f-${d.id}">
   },
   "questions": { ... }
 }</pre>
+</div>
 <ul>
 <li><strong>frameworks.A</strong> — 1~9 個分類,簡單/中等/困難/地獄共用。對應到 9 宮格 UI(<code>F1</code> = 第一個、<code>F2</code> = 第二個...,以陣列順序)</li>
 <li><strong>frameworks.B</strong> — 1~4 個分類,煉獄專用。對應到煉獄畫面(<code>L1</code>~<code>L4</code>)</li>
 <li><strong>少於 9 / 4 個怎麼辦?</strong> — 也行,UI 會把多餘格子變灰色不可選。但<strong>建議湊滿</strong>,使用者體驗較完整</li>
 </ul>
 <p>每題的 <code>topic</code> 欄位<strong>必須完全等於 frameworks 清單裡的某一個字串</strong>(連標點都要一樣),否則 server 抽題時這題會被排除。</p>
-<p>例如,中國史 metadata 宣告「上古傳說」是 framework A 的第一格,題目就要寫:</p>
+<p>例如,中國史 metadata 宣告「上古傳說」是 framework A 的第一格,題目就要寫(右上角可一鍵複製):</p>
+<div class="copy-wrap">
+<button class="copy-btn" onclick="copyPre(this)">複製</button>
 <pre style="background:#050912;color:#88C765;padding:12px;font-size:12px;line-height:1.6;border:1px solid #2a3040">{
   "id": "E-MC-001",
   "topic": "上古傳說",
   "question": "..."
 }</pre>
+</div>
 <p>(三端 UI 不再認識「保險基礎與法規」這 9 個固定保險分類了 — 從這次重構之後,完全跟著 metadata 走。所以你想換成歷史、地理、人文、自然,都只要改 metadata + 題目的 topic,三端會自動切。)</p>
 
 <h3>5. 各題型必填欄位</h3>
@@ -169,6 +179,30 @@ ${DIFFICULTIES.map(d => `<label class="row" for="f-${d.id}">
 </div>
 <script>
 const files = {};
+
+// 一鍵複製:讀按鈕 next sibling(<pre>)的純文字內容到剪貼簿。
+// 在 localhost 上 navigator.clipboard 可用,不需要 https。
+function copyPre(btn) {
+  const pre = btn.nextElementSibling;
+  if (!pre) return;
+  const text = pre.textContent || '';
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = '已複製 ✓';
+    btn.style.color = '#88C765';
+    btn.style.borderColor = '#88C765';
+    setTimeout(() => {
+      btn.textContent = orig;
+      btn.style.color = '';
+      btn.style.borderColor = '';
+    }, 1500);
+  }).catch(err => {
+    btn.textContent = '複製失敗';
+    console.error('clipboard write failed', err);
+    setTimeout(() => { btn.textContent = '複製'; }, 1500);
+  });
+}
+
 function onPick(id, input) {
   const f = input.files[0];
   const status = document.getElementById('s-' + id);
