@@ -47,6 +47,13 @@ html, body { background: #080A10; font-family: var(--font-sans); -webkit-font-sm
 .purg-embers-c .ember { position: absolute; bottom: -10px; width: 3px; height: 3px; background: #FF8A3D; border-radius: 50%; box-shadow: 0 0 6px #FFB347, 0 0 12px #FF6B1A; animation: emberRise linear infinite; }
 @keyframes emberRise { 0% { transform: translateY(0) translateX(0); opacity: 1; } 70% { opacity: 1; } 100% { transform: translateY(-800px) translateX(var(--drift, 40px)); opacity: 0; } }
 .purg-haze { position: absolute; inset: 0; z-index: 4; pointer-events: none; background: linear-gradient(to top, rgba(255,107,26,0.12) 0%, transparent 40%); animation: heatShimmer 3.6s ease-in-out infinite; }
+/* .purg-only:預設藏起;只有 stage 在 purgatory mode 時才顯示。
+   讓火焰/星火/熱浪可以放在 scr-question 等共用畫面裡,但只在煉獄題出現時才亮。 */
+.purg-only { display: none; }
+.stage[data-mode="purgatory"] .purg-only { display: block; }
+/* scr-question 上的火焰縮小一點,不擋題目;星火密度也少一點 */
+#scr-question .fire-blob { height: 320px; width: 220px; opacity: 0.55; filter: blur(38px); }
+#scr-question .purg-haze { background: linear-gradient(to top, rgba(255,107,26,0.08) 0%, transparent 30%); }
 @keyframes heatShimmer { 0%,100% { opacity: 0.6; transform: translateY(0); } 50% { opacity: 0.9; transform: translateY(-4px); } }
 .purg-arr-content { position: relative; z-index: 5; text-align: center; animation: purgTextRise 1400ms var(--ease); }
 @keyframes purgTextRise { from { opacity: 0; transform: translateY(30px) scale(0.92); letter-spacing: 0.6em; filter: blur(8px); } 60% { opacity: 1; filter: blur(0); } to { opacity: 1; transform: translateY(0) scale(1); letter-spacing: 0.22em; } }
@@ -972,9 +979,16 @@ html, body { background: #080A10; font-family: var(--font-sans); -webkit-font-sm
            SCREEN I · 題目
            ============================================================ -->
       <div class="screen" id="scr-question">
-        <!-- 煉獄星火層:summonPurgatory 時填充,endPurgatory 時清空。
-             題目 + 公佈答案階段都共享(同一個 scr-question 切 hidden/shown class)。 -->
-        <div class="purg-embers-c" id="purg-embers-question"></div>
+        <!-- 煉獄特效層:summonPurgatory 時填充火星 + 顯示火焰,endPurgatory 時清空。
+             題目 + 公佈答案階段都共享(同一個 scr-question 切 hidden/shown class)。
+             用 .purg-only 包起來,只在 stage[data-mode="purgatory"] 時顯示,
+             一般難度題目不會看到火焰背景。 -->
+        <div class="purg-fire purg-only">
+          <div class="fire-blob"></div><div class="fire-blob"></div><div class="fire-blob"></div>
+          <div class="fire-blob"></div><div class="fire-blob"></div><div class="fire-blob"></div>
+        </div>
+        <div class="purg-embers-c purg-only" id="purg-embers-question"></div>
+        <div class="purg-haze purg-only"></div>
         <div class="screen-header">
           <div class="stage-title" id="q-id-label">Question</div>
           <div class="stage-meta">

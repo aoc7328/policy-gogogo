@@ -187,12 +187,14 @@ export function pickQuestion(input: PickInput): PickOk | PickError {
 
   if (input.purgArmed) {
     // Path (b): assistant explicitly armed purgatory — force purgatory tier.
+    // Phase 4 fix:武裝煉獄是「秘技 / 強制覆蓋」,要繞過 custom mode 的 type
+    // whitelist。煉獄只有 multiple_choice + essay 兩種題型,如果 user custom
+    // 勾「短答 / 計算 / 一字千金」,套 typeWhitelist 後 0 題 → bug:user
+    // 按了「確定煉獄」結果報「煉獄已抽完」。武裝就是要強制觸發,什麼題型
+    // 都得跳到煉獄(從 multiple_choice / essay 隨機抽)。
     candidates = ALL_QUESTIONS.filter(
       (q) => q.difficulty === 'purgatory' && !input.usedIds.has(q.id)
     );
-    if (input.typeWhitelist) {
-      candidates = candidates.filter((q) => input.typeWhitelist!.includes(q.type));
-    }
     if (candidates.length === 0) {
       return { ok: false, reason: 'no_purgatory_left' };
     }

@@ -2492,6 +2492,15 @@ function confirmCategory() {
   cBtn.disabled = true;
   setStatus('已送出抽題指令 · 等待 server 回題');
   PartyBus.emit('category_confirm', { fid: S.currentCat });
+  // Phase 4:武裝煉獄是「一觸即發」秘技 — 送出 category_confirm 後立刻清掉
+  // 本機 flag + .armed 樣式。server 收到 category_confirm 時會用它存的
+  // purgArmed 強制走煉獄路徑,然後也會把 server 端 flag 清掉。
+  // 不在此清的話 user 看到按鈕一直亮著,以為還會持續觸發。
+  if (S.purgArmed) {
+    S.purgArmed = false;
+    const purgBtn = document.getElementById('cat-purg-btn');
+    if (purgBtn) purgBtn.classList.remove('armed');
+  }
 }
 
 /* 「確定煉獄」武裝/解除(秘技;只有助理本機可見,主持人投影完全無感) */
