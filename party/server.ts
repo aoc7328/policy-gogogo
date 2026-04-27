@@ -181,9 +181,9 @@ export default class PolicyGogogoServer implements Party.Server {
       case 'score_adjust':
         return this.onScoreAdjust(cmd.payload);
       case 'start_rush':
-        return this.onStartRush(cmd.payload?.rerush ?? false);
+        return this.onStartRush(cmd.payload?.rerush ?? false, sender);
       case 'enter_category':
-        return this.onEnterCategory();
+        return this.onEnterCategory(sender);
       case 'category_preview':
         return this.onCategoryPreview(cmd.payload);
       case 'category_confirm':
@@ -191,11 +191,11 @@ export default class PolicyGogogoServer implements Party.Server {
       case 'category_reset':
         return this.onCategoryReset();
       case 'reveal_answer':
-        return this.onRevealAnswer();
+        return this.onRevealAnswer(sender);
       case 'next_question':
-        return this.onNextQuestion();
+        return this.onNextQuestion(sender);
       case 'skip_question':
-        return this.onSkipQuestion();
+        return this.onSkipQuestion(sender);
       case 'game_restart':
         return this.onGameRestart();
       case 'arm_purgatory':
@@ -257,21 +257,29 @@ export default class PolicyGogogoServer implements Party.Server {
     });
   }
 
-  private onStartRush(rerush: boolean): void {
-    // Accepted phases:
-    //   - idle:    fresh round (initial start_rush)
-    //   - rushing: cancel current rush + restart (rushStart calls abort first)
-    //   - won:     after winner card, before assistant pressed enter_category
-    //   - picking: 9-grid is open but no category locked yet (re-rush before pick)
-    // Anything past picking (answering / revealed / ended) means we're past
-    // the rush phase entirely; reject silently.
+  private onStartRush(rerush: boolean, sender: Party.Connection<ConnState>): void {
+    // Accepted phases: idle / rushing / won / picking. Anything past picking
+    // (answering / revealed / ended / lobby) we now SEND ERROR instead of
+    // silent return — Phase 4 lesson: silent server rejections + assistant's
+    // expectations create deadlocks no one can debug.
     const ok = ['idle', 'rushing', 'won', 'picking'].includes(this.state.phase);
-    if (!ok) return;
+    if (!ok) {
+      this.sendError(sender, 'wrong_phase',
+        `start_rush 不能在 ${this.state.phase} 階段送(只接受 idle/rushing/won/picking)。` +
+        `若 server 在 lobby,代表 server 失去本場狀態(可能是 partykit dev hot-reload 重建 DO),` +
+        `請按「重新開始」整場重置。`);
+      return;
+    }
     rushStart(this.state, (e) => this.broadcast(e), { rerush });
   }
 
-  private onEnterCategory(): void {
-    if (this.state.phase !== 'won') return;
+  private onEnterCategory(sender: Party.Connection<ConnState>): void {
+    if (this.state.phase !== 'won') {
+      this.sendError(sender, 'wrong_phase',
+        `enter_category 只能在 won 階段送(目前 server phase=${this.state.phase})。` +
+        `若 server 在 lobby,請按「重新開始」整場重置。`);
+      return;
+    }
     this.state.phase = 'picking';
     this.state.currentCat = null;
     this.state.catLocked = false;
@@ -381,14 +389,24 @@ export default class PolicyGogogoServer implements Party.Server {
     this.broadcast({ type: 'category_reset', payload: {} });
   }
 
-  private onRevealAnswer(): void {
-    if (this.state.phase !== 'answering') return;
+  private onRevealAnswer(sender: Party.Connection<ConnState>): void {
+    if (this.state.phase !== 'answering') {
+      this.sendError(sender, 'wrong_phase',
+        `reveal_answer 只能在 answering 階段送(目前 server phase=${this.state.phase})。` +
+        `若 server 在 lobby,請按「重新開始」整場重置。`);
+      return;
+    }
     this.state.phase = 'revealed';
     this.broadcast({ type: 'reveal_answer', payload: {} });
   }
 
-  private onNextQuestion(): void {
-    if (this.state.phase !== 'revealed' && this.state.phase !== 'answering') return;
+  private onNextQuestion(sender: Party.Connection<ConnState>): void {
+    if (this.state.phase !== 'revealed' && this.state.phase !== 'answering') {
+      this.sendError(sender, 'wrong_phase',
+        `next_question 只能在 answering/revealed 階段送(目前 server phase=${this.state.phase})。` +
+        `若 server 在 lobby,請按「重新開始」整場重置。`);
+      return;
+    }
     // Was the question a purgatory one? If so, end the FX before transitioning.
     if (this.state.currentQuestion?.difficulty === 'purgatory') {
       this.broadcast({ type: 'purgatory_end', payload: {} });
@@ -404,8 +422,13 @@ export default class PolicyGogogoServer implements Party.Server {
     }
   }
 
-  private onSkipQuestion(): void {
-    if (this.state.phase !== 'answering' && this.state.phase !== 'revealed') return;
+  private onSkipQuestion(sender: Party.Connection<ConnState>): void {
+    if (this.state.phase !== 'answering' && this.state.phase !== 'revealed') {
+      this.sendError(sender, 'wrong_phase',
+        `skip_question 只能在 answering/revealed 階段送(目前 server phase=${this.state.phase})。` +
+        `若 server 在 lobby,請按「重新開始」整場重置。`);
+      return;
+    }
     if (this.state.currentQuestion?.difficulty === 'purgatory') {
       this.broadcast({ type: 'purgatory_end', payload: {} });
     }
