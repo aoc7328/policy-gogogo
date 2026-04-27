@@ -43,6 +43,20 @@ html,body{height:100%;background:#050912;color:#F2EDE1;font-family:"Noto Sans TC
   cursor:pointer;
 }
 
+/* server 連線狀態指示燈 */
+.tb-status{
+  display:flex;align-items:center;gap:8px;
+  font-family:"JetBrains Mono",monospace;font-size:9px;
+  letter-spacing:.12em;color:#5C6480;text-transform:uppercase;
+  padding:0 8px;
+}
+.tb-status .dot{
+  width:6px;height:6px;border-radius:50%;background:#5C6480;
+  transition:background 200ms;
+}
+.tb-status .dot.ok{background:#3DAA5C;box-shadow:0 0 6px rgba(61,170,92,.6)}
+.tb-status .dot.fail{background:#D8344A;box-shadow:0 0 6px rgba(216,52,74,.6)}
+
 /* 三欄主區 */
 .tb-stage{
   height:calc(100vh - 42px);
@@ -118,6 +132,17 @@ html,body{height:100%;background:#050912;color:#F2EDE1;font-family:"Noto Sans TC
 
 <div class="tb-bar">
   <div class="tb-title">保險知識星攻略<span class="sub">DEV TESTBED</span></div>
+
+  <!-- server 連線狀態(PartyKit 1999 + 靜態 server 3000) -->
+  <div class="tb-status">
+    <span class="dot" id="dot-pk"></span>
+    <span>PartyKit:1999</span>
+  </div>
+  <div class="tb-status">
+    <span class="dot" id="dot-static"></span>
+    <span>Static:3000</span>
+  </div>
+
   <div class="tb-zoom">
     <span class="lbl">Zoom</span>
     <select id="tb-zoom-sel" onchange="setZoom(this.value)">
@@ -130,8 +155,7 @@ html,body{height:100%;background:#050912;color:#F2EDE1;font-family:"Noto Sans TC
   </div>
   <div class="tb-spacer"></div>
   <button class="tb-btn" onclick="reloadAll()">重整全部</button>
-  <button class="tb-btn" onclick="clearBus()">清 PartyBus</button>
-  <button class="tb-btn danger" onclick="clearBank()">清題庫</button>
+  <button class="tb-btn" onclick="clearSession()">清 session</button>
   <button class="tb-btn danger" onclick="resetAll()">完全重置</button>
 </div>
 
@@ -190,20 +214,25 @@ html,body{height:100%;background:#050912;color:#F2EDE1;font-family:"Noto Sans TC
 </div>
 
 <script>
-/* 縮放:用 transform scale 縮 iframe,讓畫面更舒服
-   參賽者欄不縮放(已是手機尺寸) */
+/* ════════════════════════════════════════════════════════
+   TestBed for PartyKit 架構
+   - 三端 iframe 載入(已透過 PartyKit websocket 跟 server 1999 連線)
+   - 不再需要清 BroadcastChannel(改 ws,自然不會有 localStorage 殘留)
+   - 不再需要清 BANK localStorage(已改 server fetch /data/*.json)
+   - 改清 sessionStorage(controlCode 等 PartyKit 認證資訊)
+   ════════════════════════════════════════════════════════ */
+
+/* 縮放:用 transform scale 縮 iframe,讓畫面更舒服 */
 function setZoom(z) {
   z = parseFloat(z);
   ['presenter', 'assistant'].forEach(role => {
     const f = document.getElementById('if-' + role);
     if (!f) return;
-    const body = f.parentElement;
     f.style.transform = `scale(${z})`;
     f.style.width = `${100 / z}%`;
     f.style.height = `${100 / z}%`;
   });
 }
-// 等 iframe 載完再套用初始縮放(避免閃爍)
 window.addEventListener('load', () => {
   setTimeout(() => setZoom(document.getElementById('tb-zoom-sel').value), 200);
 });
@@ -212,7 +241,6 @@ window.addEventListener('load', () => {
 function reloadFrame(role) {
   const f = document.getElementById('if-' + role);
   if (!f) return;
-  // 用 src 重設觸發 reload
   const src = f.src;
   f.src = 'about:blank';
   setTimeout(() => { f.src = src; }, 50);
@@ -223,11 +251,10 @@ function reloadAll() {
   ['presenter', 'assistant', 'participant'].forEach(reloadFrame);
 }
 
-/* 把某 iframe 開到獨立視窗(脫離 testbed) */
+/* 把某 iframe 開到獨立視窗 */
 function popout(role) {
   const f = document.getElementById('if-' + role);
   if (!f) return;
-  // 用原始路徑開新分頁(去除 about:blank 等暫態)
   const src = f.getAttribute('src');
   if (src && src !== 'about:blank') {
     window.open(src, '_blank');
@@ -236,32 +263,21 @@ function popout(role) {
   }
 }
 
-/* 清掉 PartyBus 殘留(localStorage 的 pgg_party_event key) */
-function clearBus() {
+/* 清 session(sessionStorage 裡的 PartyKit 相關 keys + reload)
+   PartyKit 架構下,controlCode / 玩家 token 等都在 sessionStorage */
+function clearSession() {
+  if (!confirm('清掉三端的 sessionStorage(controlCode / 玩家 token 等),然後重整。確定?')) return;
   try {
-    localStorage.removeItem('pgg_party_event');
-    // 各 iframe 內也清(iframe 同 origin 可直接存取)
+    // testbed 自己的 sessionStorage(以防萬一)
+    Object.keys(sessionStorage).filter(k => k.startsWith('pgg_')).forEach(k => sessionStorage.removeItem(k));
+    // 三端 iframe(同 origin)
     ['presenter', 'assistant', 'participant'].forEach(role => {
       try {
         const f = document.getElementById('if-' + role);
-        f?.contentWindow?.localStorage?.removeItem('pgg_party_event');
-      } catch (e) {}
-    });
-    alert('PartyBus 殘留已清除');
-  } catch (e) {
-    alert('清除失敗: ' + e.message);
-  }
-}
-
-/* 清掉題庫(localStorage 的 pgg_quiz_bank_v1 key)+ 重整 */
-function clearBank() {
-  if (!confirm('確定要清除已掛載的題庫?之後要重新上傳。')) return;
-  try {
-    localStorage.removeItem('pgg_quiz_bank_v1');
-    ['presenter', 'assistant', 'participant'].forEach(role => {
-      try {
-        const f = document.getElementById('if-' + role);
-        f?.contentWindow?.localStorage?.removeItem('pgg_quiz_bank_v1');
+        const ss = f?.contentWindow?.sessionStorage;
+        if (ss) {
+          Object.keys(ss).filter(k => k.startsWith('pgg_')).forEach(k => ss.removeItem(k));
+        }
       } catch (e) {}
     });
     reloadAll();
@@ -270,16 +286,23 @@ function clearBank() {
   }
 }
 
-/* 完全重置(清所有 pgg_* + 重整) */
+/* 完全重置:sessionStorage + localStorage 所有 pgg_* + reload
+   注意:這不會清掉 PartyKit server 端的房間狀態
+   要清 server 狀態請在 PartyKit 視窗 Ctrl+C,再 npm run dev 重啟 */
 function resetAll() {
-  if (!confirm('完全重置會清除題庫、PartyBus、所有狀態,確定?')) return;
+  if (!confirm('完全重置會清除三端所有 pgg_* storage(session + local)然後重整。\n\n注意:這只清 client 端,不清 PartyKit server 端房間狀態。要清 server 請在 PartyKit cmd 視窗 Ctrl+C 重啟。\n\n確定?')) return;
   try {
+    // testbed 本身
     Object.keys(localStorage).filter(k => k.startsWith('pgg_')).forEach(k => localStorage.removeItem(k));
+    Object.keys(sessionStorage).filter(k => k.startsWith('pgg_')).forEach(k => sessionStorage.removeItem(k));
+    // 三端 iframe
     ['presenter', 'assistant', 'participant'].forEach(role => {
       try {
         const f = document.getElementById('if-' + role);
         const ls = f?.contentWindow?.localStorage;
+        const ss = f?.contentWindow?.sessionStorage;
         if (ls) Object.keys(ls).filter(k => k.startsWith('pgg_')).forEach(k => ls.removeItem(k));
+        if (ss) Object.keys(ss).filter(k => k.startsWith('pgg_')).forEach(k => ss.removeItem(k));
       } catch (e) {}
     });
     reloadAll();
@@ -296,6 +319,35 @@ function resetAll() {
     if (loading) loading.style.display = 'none';
   });
 });
+
+/* ── server 健康檢查 ──
+   每 5 秒 ping 一次 PartyKit (1999) 跟靜態 server (3000),頂部燈號顯示狀態 */
+async function checkServer(url) {
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 2000);
+    await fetch(url, { mode: 'no-cors', signal: ctrl.signal });
+    clearTimeout(timer);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+async function pollServers() {
+  const [pkOk, staticOk] = await Promise.all([
+    checkServer('http://localhost:1999/'),
+    checkServer('http://localhost:3000/'),
+  ]);
+  const pkDot = document.getElementById('dot-pk');
+  const stDot = document.getElementById('dot-static');
+  if (pkDot) pkDot.className = 'dot ' + (pkOk ? 'ok' : 'fail');
+  if (stDot) stDot.className = 'dot ' + (staticOk ? 'ok' : 'fail');
+}
+
+// 開始輪詢
+pollServers();
+setInterval(pollServers, 5000);
 </script>
 
 </body>

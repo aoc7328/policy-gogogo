@@ -33,40 +33,44 @@ const TYPE_CODES = {
   word_game: 'WG',
 };
 
+// Frameworks here are stored as Chinese display labels to match the real
+// BANK's `topic` field (e.g. "保險基礎與法規"), so server picker filtering
+// works against either fixture or real BANK without translation.
+// See party/bank.ts FRAMEWORK_BY_SHORT_ID for the F1-F9 / L1-L4 mapping.
 const DIFFICULTIES = {
   easy: {
     label: '簡單',
     prefix: 'E',
     types: ['short_answer', 'multiple_choice', 'essay', 'calculation'],
-    frameworks: ['f5_product_planning', 'f1_insurance_basics'],
+    frameworks: ['險種規劃與商品', '保險基礎與法規'],
     system: 'A',
   },
   medium: {
     label: '中等',
     prefix: 'M',
     types: ['short_answer', 'multiple_choice', 'essay', 'calculation', 'word_game'],
-    frameworks: ['f5_product_planning', 'f9_premium_calc'],
+    frameworks: ['險種規劃與商品', '保費、保單運用與計算'],
     system: 'A',
   },
   hard: {
     label: '困難',
     prefix: 'H',
     types: ['short_answer', 'multiple_choice', 'essay', 'calculation', 'word_game'],
-    frameworks: ['f6_actuarial', 'f5_product_planning'],
+    frameworks: ['精算、財務與監理', '險種規劃與商品'],
     system: 'A',
   },
   hell: {
     label: '地獄',
     prefix: 'X',
     types: ['short_answer', 'multiple_choice', 'essay', 'calculation', 'word_game'],
-    frameworks: ['f7_wealth_tax', 'f5_product_planning'],
+    frameworks: ['高資產與稅務傳承', '險種規劃與商品'],
     system: 'A',
   },
   purgatory: {
     label: '煉獄',
     prefix: 'P',
     types: ['multiple_choice', 'essay'],
-    frameworks: ['l2_customer', 'l3_ethics'],
+    frameworks: ['客戶溝通', '道德判斷'],
     system: 'B',
   },
 };

@@ -29,20 +29,34 @@ export interface NormalizedQuestion {
 // Framework / mode static tables (mirror BANK_SCHEMA in assistant.html)
 // ──────────────────────────────────────────────────────────────────────
 
+/**
+ * Maps the 9-grid + purgatory short ids (shown to the assistant) to the
+ * `topic` string used inside the BANK JSON files.
+ *
+ * The real BANK uses Chinese display labels as the topic (matches
+ * quiz-bank-metadata.json `available_frameworks[].label`). The fixture
+ * generator (scripts/generate-bank-fixtures.mjs) has been updated to use
+ * the same Chinese labels — keep these two in sync.
+ *
+ * History: previously this table mapped to technical ids
+ * ('f1_insurance_basics' etc), which matched the original fixture but
+ * NOT the real BANK — so every category lookup failed with
+ * 'framework_not_in_bank' once Vincent dropped real bank into /public/data/.
+ */
 export const FRAMEWORK_BY_SHORT_ID: Record<string, string> = {
-  F1: 'f1_insurance_basics',
-  F2: 'f2_contract_terms',
-  F3: 'f3_underwriting',
-  F4: 'f4_claims',
-  F5: 'f5_product_planning',
-  F6: 'f6_actuarial',
-  F7: 'f7_wealth_tax',
-  F8: 'f8_ethics_compliance',
-  F9: 'f9_premium_calc',
-  L1: 'l1_cross_dept',
-  L2: 'l2_customer',
-  L3: 'l3_ethics',
-  L4: 'l4_time_scale',
+  F1: '保險基礎與法規',
+  F2: '契約條款與效力',
+  F3: '核保與健康告知',
+  F4: '理賠實務與爭議',
+  F5: '險種規劃與商品',
+  F6: '精算、財務與監理',
+  F7: '高資產與稅務傳承',
+  F8: '業務倫理與合規',
+  F9: '保費、保單運用與計算',
+  L1: '跨部門溝通',
+  L2: '客戶溝通',
+  L3: '道德判斷',
+  L4: '時間尺度',
 };
 
 export const MODE_TIER_POOL: Record<Exclude<GameMode, 'custom'>, Difficulty[]> = {
