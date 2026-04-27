@@ -2606,46 +2606,49 @@ PartyBus.on('start_rush', payload => {
   status.className = 'btn-status active-mid';
   status.textContent = '請等待倒數結束';
 
-  // 倒數
+  // 倒數 3-2-1 → "GO" 800ms → armBuzz。三端必須同步:
+  // - presenter 倒數同樣 3-2-1 + GO 800ms,total 3800ms 後轉 scr-buzzing
+  // - server ARM_COUNTDOWN_MS = 3800,從那一刻才接受 buzz_press
+  // 這個 800ms GO hold 之前漏寫,造成 user-reported bug:狂點奪魁 GO
+  // 期間就能按、participant 比 presenter 早 800ms 開放。
   let count = 3;
   cdEl.textContent = count;
   const tick = setInterval(() => {
     count--;
     if (count > 0) {
       cdEl.textContent = count;
-    } else {
-      clearInterval(tick);
-      // 開始搶答 — 依模式進入不同 UI 狀態
+      return;
+    }
+    clearInterval(tick);
+    // 顯示 "GO" 800ms,期間 buzz 仍鎖死;之後才 armBuzz + 進入模式 UI
+    cdEl.textContent = 'GO';
+    cdEl.classList.add('go-flash');
+    setTimeout(() => {
       cdEl.style.display = 'none';
+      cdEl.classList.remove('go-flash');
       document.getElementById('qw-title').textContent = meta.label;
       armBuzz();
       const ahPanel = document.getElementById('qw-allhands-panel');
       if (G.rushMode === 'count') {
-        // 狂點奪魁:模式 chip + 規則保留;開啟計數面板;紅鈕進「可狂點」狀態
         if (cpanel) cpanel.style.display = 'flex';
-        // 規則文字改為動態行動文案
         ruleEl.textContent = '猛點搶答鈕!分數會即時上升';
         status.textContent = '狂點 5 秒!';
         status.className = 'btn-status active-ok';
       } else if (G.rushMode === 'allhands') {
-        // 全組到位:開啟進度面板
         if (ahPanel) ahPanel.style.display = 'flex';
         ruleEl.textContent = '按一下搶答鈕,讓全組到位';
         status.textContent = '5 秒內全組過半到位!';
         status.className = 'btn-status active-ok';
       } else if (G.rushMode === 'lightning') {
-        // 閃電一按:armed 後 0~3 秒按下淘汰、3 秒後第一個按到的贏
         G.lightningArmedAt = Date.now();
         G.lightningEliminated = false;
         ruleEl.textContent = '3 秒前不要按!';
         status.textContent = '危險 · 暫勿按下';
         status.className = 'btn-status active-err';
-        // 3 秒後切到「可按」狀態(視覺與底部訊息)
         setTimeout(() => {
-          // 若已被淘汰或已 unarmed → 不更新
           if (G.lightningEliminated) return;
           const wait = document.getElementById('q-wait');
-          if (!wait || wait.style.display === 'none') return;  // 已切到結果頁
+          if (!wait || wait.style.display === 'none') return;
           ruleEl.textContent = '可以按了 · 最快搶到!';
           status.textContent = '搶答開放中';
           status.className = 'btn-status active-ok';
@@ -2653,7 +2656,7 @@ PartyBus.on('start_rush', payload => {
       } else {
         status.textContent = '搶答開放中';
       }
-    }
+    }, 800);
   }, 1000);
 });
 

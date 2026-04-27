@@ -24,7 +24,14 @@ export interface RushCtx {
 // Intervals are in ms relative to either startedAt (t0) or armedAt
 // (= startedAt + ARM_COUNTDOWN_MS).
 
-export const ARM_COUNTDOWN_MS = 3000;       // 3-2-1 countdown after start_rush
+// 3-2-1 countdown (3000ms) + "GO" hold (800ms) before buzz becomes valid.
+// All three clients should synchronously gate buzz UI until armedAt:
+//   - presenter scr-countdown 跑完 GO 才轉 scr-buzzing
+//   - participant 倒數完 + GO 800ms 才 armBuzz
+//   - server 從 startedAt + 3800 才接受 buzz_press
+// 計時錯位曾造成 user-reported bug:狂點奪魁 GO 期間就能按,
+// participant 比 presenter 早 800ms 進入可按狀態。
+export const ARM_COUNTDOWN_MS = 3800;       // 3000 (3-2-1) + 800 (GO hold)
 export const RANDOM_REVEAL_MS = 5000;       // random mode reveal window
 
 export const SPEED_FALLBACK_MS = 8000;       // ms after armedAt
