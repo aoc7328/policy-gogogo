@@ -1474,6 +1474,26 @@ PartyBus.on('ping', p => {
   console.log(`[PGG] PING from ${p.from} @ ${p.t}: ${p.msg}`);
 });
 
+/* 接收 server snapshot 中的 frameworks(從 bank metadata 讀):
+   標籤跟著題庫走,而不是寫死在 client。換主題題庫後,server bundle 重 deploy
+   會帶來新的 frameworks,WebSocket 重連時透過 __room_state__ 抵達本端。 */
+PartyBus.on('__room_state__', snap => {
+  const fa = snap?.frameworks?.A;
+  const fb = snap?.frameworks?.B;
+  if (Array.isArray(fa) && fa.length > 0) {
+    BANK_SCHEMA.frameworksA = fa.map((label, i) => ({
+      id: label, shortId: `F${i + 1}`, label,
+    }));
+  }
+  if (Array.isArray(fb) && fb.length > 0) {
+    BANK_SCHEMA.frameworksB = fb.map((label, i) => ({
+      id: label, shortId: `L${i + 1}`, label,
+    }));
+  }
+  // 9 宮格已渲染(scr-select 階段)的話,重畫一次套上新標籤
+  if (typeof updateCategoryGridPresenter === 'function') updateCategoryGridPresenter();
+});
+
 /* 當前題目快取(每收到 question_pick 就更新) */
 let currentQuestion = null;
 let currentDifficulty = null;

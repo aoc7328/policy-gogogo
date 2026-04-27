@@ -1217,6 +1217,29 @@ PartyBus.on('__welcome__', payload => {
   }
 });
 
+/* 接收 server snapshot 中的 frameworks(從 bank metadata 讀):
+   標籤跟著題庫走,而不是寫死在 client。換主題題庫後,server bundle 重 deploy
+   會帶來新的 frameworks,WebSocket 重連時透過 __room_state__ 抵達本端。
+
+   舊題庫(metadata 沒有 frameworks 欄位)→ server 用 fallback 保險預設值,
+   本端收到的也就是保險預設,跟 hardcoded 一致,沒有視覺差異。 */
+PartyBus.on('__room_state__', snap => {
+  const fa = snap?.frameworks?.A;
+  const fb = snap?.frameworks?.B;
+  if (Array.isArray(fa) && fa.length > 0) {
+    BANK_SCHEMA.frameworksA = fa.map((label, i) => ({
+      id: label, shortId: `F${i + 1}`, label,
+    }));
+  }
+  if (Array.isArray(fb) && fb.length > 0) {
+    BANK_SCHEMA.frameworksB = fb.map((label, i) => ({
+      id: label, shortId: `L${i + 1}`, label,
+    }));
+  }
+  // grid 還沒掛在頁面上的話 updateCategoryGrid 沒事做;若已渲染就重畫一次套新標籤
+  if (typeof updateCategoryGrid === 'function') updateCategoryGrid();
+});
+
 /* 連線狀態 → 既有 #sts 狀態文字(不新增 DOM 節點)
    遊戲進行中(已有具體狀態文字)時,只在斷線時覆蓋,避免被連線 OK
    訊息洗掉真正的遊戲訊息。 */

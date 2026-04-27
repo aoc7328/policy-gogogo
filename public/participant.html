@@ -1406,6 +1406,21 @@ PartyBus.on('__error__', (err) => {
    能立刻把按鈕鎖灰(不必等下一次 claim broadcast)。 */
 PartyBus.on('__room_state__', (snap) => {
   if (snap?.presenterClaimed) setPresenterClaimedUI();
+  // 接收 server snapshot 中的 frameworks(從 bank metadata 讀):標籤跟著題庫走,
+  // 換成歷史/地理題庫後 server 會帶新的 framework 標籤,本端的 _findFwByTopic
+  // 之類的查找會自動套上新值。
+  const fa = snap?.frameworks?.A;
+  const fb = snap?.frameworks?.B;
+  if (Array.isArray(fa) && fa.length > 0) {
+    BANK_SCHEMA_P.frameworksA = fa.map((label, i) => ({
+      id: label, shortId: `F${i + 1}`, label,
+    }));
+  }
+  if (Array.isArray(fb) && fb.length > 0) {
+    BANK_SCHEMA_P.frameworksB = fb.map((label, i) => ({
+      id: label, shortId: `L${i + 1}`, label,
+    }));
+  }
 });
 
 /* ══ 事件:模式切換(PartyKit 接管後由主持人端廣播) ══ */

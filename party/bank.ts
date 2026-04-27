@@ -30,33 +30,52 @@ export interface NormalizedQuestion {
 // ──────────────────────────────────────────────────────────────────────
 
 /**
- * Maps the 9-grid + purgatory short ids (shown to the assistant) to the
- * `topic` string used inside the BANK JSON files.
+ * Frameworks come from the bank's own metadata.frameworks field — NOT
+ * hardcoded in this file anymore. Swap the JSON files to change topic
+ * (insurance → history → geography → ...) and the framework labels follow.
  *
- * The real BANK uses Chinese display labels as the topic (matches
- * quiz-bank-metadata.json `available_frameworks[].label`). The fixture
- * generator (scripts/generate-bank-fixtures.mjs) has been updated to use
- * the same Chinese labels — keep these two in sync.
+ * Framework A (the 9-grid in normal modes) is read from the easy bank.
+ * Framework B (the 4-grid in purgatory mode) is read from the purgatory bank.
+ * Each declares its own metadata.frameworks.{A|B} — an array of label strings.
  *
- * History: previously this table mapped to technical ids
- * ('f1_insurance_basics' etc), which matched the original fixture but
- * NOT the real BANK — so every category lookup failed with
- * 'framework_not_in_bank' once Vincent dropped real bank into /public/data/.
+ * shortId (F1..F9, L1..L4) is just the 1-based index — index 0 of A is F1,
+ * index 0 of B is L1. Clients use shortId for grid cell positioning;
+ * server uses the label string to filter questions by topic.
+ *
+ * Backward-compat fallbacks below: if a bank predates the frameworks field,
+ * we use the original insurance labels so the picker still works.
+ */
+
+const FALLBACK_FRAMEWORKS_A = [
+  '保險基礎與法規', '契約條款與效力', '核保與健康告知',
+  '理賠實務與爭議', '險種規劃與商品', '精算、財務與監理',
+  '高資產與稅務傳承', '業務倫理與合規', '保費、保單運用與計算',
+];
+const FALLBACK_FRAMEWORKS_B = [
+  '跨部門溝通', '客戶溝通', '道德判斷', '時間尺度',
+];
+
+function readFrameworks(file: unknown, key: 'A' | 'B'): string[] {
+  const meta = (file as { metadata?: { frameworks?: { A?: unknown; B?: unknown } } })
+    .metadata?.frameworks?.[key];
+  if (Array.isArray(meta) && meta.every((x) => typeof x === 'string')) {
+    return meta as string[];
+  }
+  return key === 'A' ? FALLBACK_FRAMEWORKS_A : FALLBACK_FRAMEWORKS_B;
+}
+
+export const FRAMEWORKS_A: string[] = readFrameworks(easyJson, 'A');
+export const FRAMEWORKS_B: string[] = readFrameworks(purgatoryJson, 'B');
+
+/**
+ * shortId → topic-label map. Synthesized from FRAMEWORKS_{A,B} arrays:
+ *   index 0 of A → 'F1', index 0 of B → 'L1', etc.
+ * Server's enter_category handler converts the shortId payload into the
+ * topic-label string used by pickQuestion's filter.
  */
 export const FRAMEWORK_BY_SHORT_ID: Record<string, string> = {
-  F1: '保險基礎與法規',
-  F2: '契約條款與效力',
-  F3: '核保與健康告知',
-  F4: '理賠實務與爭議',
-  F5: '險種規劃與商品',
-  F6: '精算、財務與監理',
-  F7: '高資產與稅務傳承',
-  F8: '業務倫理與合規',
-  F9: '保費、保單運用與計算',
-  L1: '跨部門溝通',
-  L2: '客戶溝通',
-  L3: '道德判斷',
-  L4: '時間尺度',
+  ...Object.fromEntries(FRAMEWORKS_A.map((label, i) => [`F${i + 1}`, label])),
+  ...Object.fromEntries(FRAMEWORKS_B.map((label, i) => [`L${i + 1}`, label])),
 };
 
 export const MODE_TIER_POOL: Record<Exclude<GameMode, 'custom'>, Difficulty[]> = {

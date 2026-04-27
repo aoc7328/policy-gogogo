@@ -16,6 +16,7 @@ import type {
   RushMode,
   RoomStateSnapshot,
 } from './protocol';
+import { FRAMEWORKS_A, FRAMEWORKS_B } from './bank';
 
 // ──────────────────────────────────────────────────────────────────────
 // Rush session sub-types
@@ -376,5 +377,8 @@ export function snapshot(state: RoomState): RoomStateSnapshot {
     })),
     askedIds: [...state.usedIds],
     presenterClaimed: state.presenterClaimed,
+    // Topic-domain frameworks: read once at module load from bank metadata,
+    // shipped on every snapshot so clients don't need their own copy.
+    frameworks: { A: [...FRAMEWORKS_A], B: [...FRAMEWORKS_B] },
   };
 }

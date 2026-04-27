@@ -105,28 +105,38 @@ ${DIFFICULTIES.map(d => `<label class="row" for="f-${d.id}">
 <p>type 是題型代碼:<code>SA</code>(簡答)/ <code>MC</code>(選擇)/ <code>ES</code>(申論)/ <code>CALC</code>(計算)/ <code>WG</code>(玩字遊戲)。</p>
 <p>id <strong>必須在同一檔案裡 unique</strong>(不能重複),否則 server 抽題會錯亂。建議連號 001、002...。</p>
 
-<h3>4. topic 欄位必須對應到框架</h3>
-<p>每題都有 <code>topic</code> 欄位。topic 字串<strong>必須完全一致</strong>於下面的清單,否則 server 那題會被排除。</p>
-<p><strong>框架 A(9 個)</strong> — 簡單/中等/困難/地獄使用:</p>
+<h3>4. 框架(分類)— 跟著題庫走</h3>
+<p>題庫的 <code>metadata</code> 必須宣告自己的框架(分類)清單,server 跟三端 UI 全部都讀這個。換主題就是換清單,不再寫死保險。</p>
+<p>結構長這樣:</p>
+<pre style="background:#050912;color:#88C765;padding:12px;font-size:12px;line-height:1.6;overflow-x:auto;border:1px solid #2a3040">{
+  "metadata": {
+    "name": "中國史題庫",
+    "frameworks": {
+      "A": [
+        "上古傳說", "夏商周", "春秋戰國",
+        "秦漢", "魏晉南北朝", "隋唐",
+        "宋元", "明清", "近現代"
+      ],
+      "B": [
+        "重大戰役", "文化思潮", "制度變革", "人物評價"
+      ]
+    }
+  },
+  "questions": { ... }
+}</pre>
 <ul>
-<li>保險基礎與法規</li>
-<li>契約條款與效力</li>
-<li>核保與健康告知</li>
-<li>理賠實務與爭議</li>
-<li>險種規劃與商品</li>
-<li>精算、財務與監理</li>
-<li>高資產與稅務傳承</li>
-<li>業務倫理與合規</li>
-<li>保費、保單運用與計算</li>
+<li><strong>frameworks.A</strong> — 1~9 個分類,簡單/中等/困難/地獄共用。對應到 9 宮格 UI(<code>F1</code> = 第一個、<code>F2</code> = 第二個...,以陣列順序)</li>
+<li><strong>frameworks.B</strong> — 1~4 個分類,煉獄專用。對應到煉獄畫面(<code>L1</code>~<code>L4</code>)</li>
+<li><strong>少於 9 / 4 個怎麼辦?</strong> — 也行,UI 會把多餘格子變灰色不可選。但<strong>建議湊滿</strong>,使用者體驗較完整</li>
 </ul>
-<p><strong>框架 B(4 個)</strong> — 煉獄使用:</p>
-<ul>
-<li>跨部門溝通(L1)</li>
-<li>客戶溝通(L2)</li>
-<li>道德判斷(L3)</li>
-<li>時間尺度(L4)</li>
-</ul>
-<p>(換主題到歷史/地理時,如果想改 topic 名稱 — 例如改成「中國上古史」、「臺灣本島地理」等,需要同步改 server 端的 framework 表。先不要動 topic 名稱,跟 Claude 說「我要換主題,topic 也要改」由 Claude 幫你處理。)</p>
+<p>每題的 <code>topic</code> 欄位<strong>必須完全等於 frameworks 清單裡的某一個字串</strong>(連標點都要一樣),否則 server 抽題時這題會被排除。</p>
+<p>例如,中國史 metadata 宣告「上古傳說」是 framework A 的第一格,題目就要寫:</p>
+<pre style="background:#050912;color:#88C765;padding:12px;font-size:12px;line-height:1.6;border:1px solid #2a3040">{
+  "id": "E-MC-001",
+  "topic": "上古傳說",
+  "question": "..."
+}</pre>
+<p>(三端 UI 不再認識「保險基礎與法規」這 9 個固定保險分類了 — 從這次重構之後,完全跟著 metadata 走。所以你想換成歷史、地理、人文、自然,都只要改 metadata + 題目的 topic,三端會自動切。)</p>
 
 <h3>5. 各題型必填欄位</h3>
 <ul>

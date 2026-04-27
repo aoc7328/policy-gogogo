@@ -35,7 +35,20 @@
         "name": "計算題"
       }
     ],
-    "counts_per_type_per_difficulty": 15
+    "counts_per_type_per_difficulty": 15,
+    "frameworks": {
+      "A": [
+        "保險基礎與法規",
+        "契約條款與效力",
+        "核保與健康告知",
+        "理賠實務與爭議",
+        "險種規劃與商品",
+        "精算、財務與監理",
+        "高資產與稅務傳承",
+        "業務倫理與合規",
+        "保費、保單運用與計算"
+      ]
+    }
   },
   "questions": {
     "easy": {

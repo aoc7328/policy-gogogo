@@ -261,6 +261,15 @@ export interface RoomStateSnapshot {
   participants: { name: string; team: string }[];
   askedIds: string[];
   presenterClaimed: boolean;
+  /**
+   * Topic-domain frameworks read from the bank's metadata.frameworks.
+   * - frameworksA: 1..9 labels for the 3x3 grid in normal modes.
+   *   Fewer than 9 → trailing cells render empty/disabled in client UI.
+   * - frameworksB: 1..4 labels for purgatory mode.
+   * Server is authoritative — these are baked into the bundled bank at
+   * `npm run deploy` time, NOT from client localStorage.
+   */
+  frameworks: { A: string[]; B: string[] };
 }
 
 export type RoomStateEvent = {
