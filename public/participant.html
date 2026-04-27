@@ -2916,6 +2916,9 @@ PartyBus.on('game_restart', () => {
   if (qBody) qBody.style.display = 'none';
   const qWait = document.getElementById('q-wait');
   if (qWait) qWait.style.display = 'flex';
+  // 把 q-wait 內部 sub-panel 切回 idle 狀態(沒這行的話 winner 結果頁會卡住,
+  // user-reported Phase 4 bug:重新開始 participant 還顯示「電光石火 第三組 12 搶答耗時」)
+  if (typeof resetWaitToIdle === 'function') resetWaitToIdle();
   if (typeof lockBuzz === 'function') lockBuzz();
   // status 文字
   const btnStatus = document.getElementById('btn-status');
