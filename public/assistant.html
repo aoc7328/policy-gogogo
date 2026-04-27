@@ -2557,6 +2557,9 @@ function _doRestartImpl(){
   S.catPreview = null;
   S.catLocked = false;
   S.purgArmed = false;
+  // 若當前在煉獄題畫面,清掉本機煉獄樣式(server 也會 broadcast purgatory_end
+  // 給其他端,但本機不等 echo,直接同步清掉)
+  if (typeof endPurgatory === 'function') endPurgatory();
   S.currQ = 0;
   S.selectedIdx = null;
   S.pendingIdx = null;

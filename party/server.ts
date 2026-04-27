@@ -416,6 +416,13 @@ export default class PolicyGogogoServer implements Party.Server {
   }
 
   private onGameRestart(): void {
+    // 若當前題目是煉獄,先廣播 purgatory_end 讓三端清掉煉獄特效。
+    // 沒這行的話,user 在煉獄題顯示中按重新開始 → 三端 UI 雖然回到 idle,
+    // 但 .purg-on / stage[data-mode="purgatory"] / 火星粒子全部殘留,
+    // 看起來像 bug(user-reported Phase 4)。
+    if (this.state.currentQuestion?.difficulty === 'purgatory') {
+      this.broadcast({ type: 'purgatory_end', payload: {} });
+    }
     rushAbort(this.state);
     stateRestartGame(this.state);
     this.broadcast({ type: 'game_restart', payload: {} });
