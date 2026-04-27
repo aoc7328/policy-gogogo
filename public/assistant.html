@@ -861,7 +861,7 @@ input::placeholder{color:var(--ink-3)}
           </div>
           <div class="fld">
             <span class="flbl">分幾組</span>
-            <input type="number" id="i-n" value="4" min="2" max="10" oninput="rebuildNames()">
+            <input type="number" id="i-n" value="2" min="2" max="10" oninput="onTeamCountInputChange()">
           </div>
         </div>
         <div class="group-names" id="group-names"></div>
@@ -1208,6 +1208,14 @@ PartyBus.on('__welcome__', payload => {
     const el = document.getElementById('host-code');
     if (el) el.textContent = S.hostCode;
   }
+  // 助理連上線後立刻把當前「分幾組」推給 server,作為這場 lobby 的權威值。
+  // server 端 onPlayerJoin 有 lazy-init fallback(2 組)應付 testbed 同時連線
+  // 的 race;這裡的明確 emit 確保正常情況下 server 的 groups 跟助理 UI 一致。
+  const nEl = document.getElementById('i-n');
+  const n = nEl ? parseInt(nEl.value) : NaN;
+  if (Number.isFinite(n) && n >= 2 && n <= 10) {
+    PartyBus.emit('team_count_changed', { count: n });
+  }
 });
 
 /* 連線狀態 → 既有 #sts 狀態文字(不新增 DOM 節點)
@@ -1313,6 +1321,29 @@ PartyBus.on('player_join', payload => {
     addLog(payload.name, '加入', 'join', group.name);
   }
   // 重渲染分組表/計分表(讓組員列即時顯示)
+  if (typeof renderGroups === 'function') renderGroups();
+  if (typeof renderScores === 'function') renderScores();
+});
+
+/* server 重新洗牌(助理改了組數 / 第一個 participant 進來時 server lazy-init):
+   payload.groups 是新的權威分組,本端用它覆蓋 S.groups 的 members,並保留
+   既有的 score(雖然 lobby 階段都是 0)。組數有變(N→M)時也要重畫
+   gn-X input 列(rebuildNames 會讀 i-n,所以先 sync i-n 再呼叫)。 */
+PartyBus.on('roster_reshuffled', payload => {
+  if (!Array.isArray(payload?.groups)) return;
+  const oldByName = new Map((S.groups || []).map(g => [g.name, g]));
+  S.groups = payload.groups.map(g => ({
+    id: `GROUP ${String(g.idx + 1).padStart(2, '0')}`,
+    name: g.name,
+    score: oldByName.get(g.name)?.score || 0,
+    members: Array.isArray(g.members) ? [...g.members] : [],
+  }));
+  // 同步 i-n input(server 是權威,如果跟 UI 不一致就以 server 為準)
+  const nEl = document.getElementById('i-n');
+  if (nEl && parseInt(nEl.value) !== S.groups.length) {
+    nEl.value = String(S.groups.length);
+    if (typeof rebuildNames === 'function') rebuildNames();
+  }
   if (typeof renderGroups === 'function') renderGroups();
   if (typeof renderScores === 'function') renderScores();
 });
@@ -1957,19 +1988,35 @@ function getGroupSizes(){
 }
 
 function rebuildNames(){
-  const n=parseInt(document.getElementById('i-n').value)||4;
+  const n=parseInt(document.getElementById('i-n').value)||2;
   const dflt=['第一組','第二組','第三組','第四組','第五組','第六組','第七組','第八組','第九組','第十組'];
   const sizes=getGroupSizes();
   document.getElementById('group-names').innerHTML=
-    Array.from({length:n},(_,i)=>`
-      <div class="gn-row">
-        <span class="gn-badge">${dflt[i]||'第'+(i+1)+'組'} / ${sizes[i]}人</span>
-        <input type="text" id="gn-${i}" value="${dflt[i]||'第'+(i+1)+'組'}" placeholder="組名" maxlength="8" oninput="onGroupNameInput(event)">
+    Array.from({length:n},(_,i)=>{
+      // 保留既有自訂組名(team_rename 過的);沒有就用預設
+      const nm = S.groups?.[i]?.name || dflt[i] || `第${i+1}組`;
+      return `<div class="gn-row">
+        <span class="gn-badge">${nm} / ${sizes[i]}人</span>
+        <input type="text" id="gn-${i}" value="${nm}" placeholder="組名" maxlength="8" oninput="onGroupNameInput(event)">
         <span class="gn-err" id="gn-err-${i}"></span>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   syncGroupsFromInputs();
   chk();
 }
+
+/* i-n input 變動 → 本地重畫 + 通知 server。
+   server 收到 team_count_changed 會重設 N 組 + 隨機洗牌所有 lobby 中的
+   participant,然後廣播 roster_reshuffled 回來,本端再從 payload 同步
+   members。phase != lobby 時 server 會回 __error__('phase_mismatch'),
+   理論上 i-n 在 startGame 後會 disabled,不會觸發,但 server 是權威。 */
+function onTeamCountInputChange() {
+  const n = parseInt(document.getElementById('i-n').value);
+  if (!Number.isFinite(n) || n < 2 || n > 10) return;
+  rebuildNames();
+  PartyBus.emit('team_count_changed', { count: n });
+}
+window.onTeamCountInputChange = onTeamCountInputChange;
 
 /* 從設定頁的 input 同步到 S.groups(讓分組表/計分表能即時預覽,
    即使尚未按開始遊戲) */
@@ -2095,6 +2142,10 @@ function startGame(){
   });
   // Phase 3:不再本地 emit 初始 score_update;server 收到 game_start
   // 命令後會自己廣播一次 score_update(全 0 baseline)給三端。
+  // 鎖死「分幾組」(server 端也會拒絕 lobby 之外的 team_count_changed,
+  // UI 鎖只是讓使用者一目瞭然遊戲已開始就不能再動結構)
+  const inN = document.getElementById('i-n');
+  if (inN) inN.disabled = true;
   // 進入 idle 狀態(等助理按開始搶答)
   setPhase('idle');
   setStatus('遊戲已開始 · 按「開始搶答」進入下一輪');
@@ -2582,6 +2633,9 @@ function doEnd(){
 function _doRestartImpl(){
   // 1. 重置助理本機狀態
   S.gameStarted = false;
+  // 解鎖「分幾組」(回到 lobby phase 後又能調整)
+  const inN = document.getElementById('i-n');
+  if (inN) inN.disabled = false;
   S.usedIds = new Set();
   S.askedQuestions = [];
   S.currentQuestion = null;

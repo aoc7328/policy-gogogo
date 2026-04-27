@@ -154,7 +154,9 @@ export type ExportResultCommand = {
 // Participant — unprivileged
 export type PlayerJoinCommand = {
   type: 'player_join';
-  payload: { name: string; team: string };
+  // team is server-decided (auto-assigned by smallest-team logic).
+  // Client may still send it for backwards compat; server ignores it.
+  payload: { name: string; team?: string };
 };
 
 export type BuzzPressCommand = {
@@ -165,6 +167,17 @@ export type BuzzPressCommand = {
 export type TeamRenameCommand = {
   type: 'team_rename';
   payload: { oldName: string; newName: string; by: string };
+  controlCode?: string;
+};
+
+/**
+ * Assistant changes team count (lobby only). Server replaces state.groups
+ * with N teams, randomly redistributes all currently-connected participants,
+ * and broadcasts roster_reshuffled. Phase mismatch → __error__ to sender.
+ */
+export type TeamCountChangedCommand = {
+  type: 'team_count_changed';
+  payload: { count: number };
   controlCode?: string;
 };
 
@@ -208,6 +221,7 @@ export type ClientCommand =
   | PlayerJoinCommand
   | BuzzPressCommand
   | TeamRenameCommand
+  | TeamCountChangedCommand
   | ClaimPresenterCommand;
 
 // ──────────────────────────────────────────────────────────────────────
@@ -488,6 +502,19 @@ export type PlayerLeaveEvent = {
   payload: { name: string; team: string };
 };
 
+/**
+ * Broadcast after server reshuffles all participants across the team set
+ * (e.g. assistant changed team count in lobby). Each participant scans
+ * groups[].members[] for their own name to update G.team; assistant uses
+ * the full snapshot to re-render the roster grid.
+ */
+export type RosterReshuffledEvent = {
+  type: 'roster_reshuffled';
+  payload: {
+    groups: { idx: number; name: string; members: string[] }[];
+  };
+};
+
 export type ServerEvent =
   | WelcomeEvent
   | RoomStateEvent
@@ -520,7 +547,8 @@ export type ServerEvent =
   | PresenterShowQrEvent
   | PlayerJoinEvent
   | PlayerLeaveEvent
-  | PresenterClaimedEvent;
+  | PresenterClaimedEvent
+  | RosterReshuffledEvent;
 
 // ──────────────────────────────────────────────────────────────────────
 // Privileged command type guard
@@ -545,6 +573,7 @@ export const PRIVILEGED_COMMAND_TYPES = new Set<string>([
   'rush_mode_changed',
   'presenter_show_qr',
   'export_result',
+  'team_count_changed',
 ]);
 
 export function isPrivilegedCommand(

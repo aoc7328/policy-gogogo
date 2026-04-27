@@ -1199,12 +1199,24 @@ input{-webkit-appearance:none;border-radius:0}
    - Phase 5 部署時把預設 host 改成 policy-gogogo.<account>.partykit.dev
    ═══════════════════════════════════════════════════════════════ */
 const _PGG_QS = new URLSearchParams(window.location.search);
-// URL 沒帶 ?room= 時,先試 localStorage 'pgg_last_room'(助理端開啟時會
-// 寫的 hint,讓三端在同 origin 自動對齊到同一房);最終 fallback 'DEMO01'。
+// URL 沒帶 ?room= 時,試 localStorage 'pgg_last_room'(同裝置/同 origin
+// 上的 testbed 可拿到助理寫的 hint)。仍然沒有 → 顯示錯誤、停止初始化,
+// 不 fallback 到 'DEMO01'(會誤連到孤兒房,跨裝置永遠看不到彼此)。
 function _readLastRoomHint() {
   try { return localStorage.getItem('pgg_last_room'); } catch { return null; }
 }
-const PGG_ROOM_CODE = _PGG_QS.get('room') || _readLastRoomHint() || 'DEMO01';
+const PGG_ROOM_CODE = _PGG_QS.get('room') || _readLastRoomHint() || null;
+if (!PGG_ROOM_CODE) {
+  document.addEventListener('DOMContentLoaded', () => {
+    document.body.innerHTML =
+      '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;'
+      + 'background:#050912;color:#F2EDE1;font-family:\'Noto Sans TC\',system-ui,sans-serif;'
+      + 'text-align:center;padding:40px 24px;line-height:1.7">'
+      + '<div><div style="font-size:18px;font-weight:700;margin-bottom:8px">無法進入</div>'
+      + '<div style="font-size:14px;color:#9BA3B5">請從主持人提供的 QR Code 進入</div></div></div>';
+  });
+  throw new Error('PGG_ROOM_CODE missing — refusing to connect to default room');
+}
 const PGG_JOIN_URL = window.location.origin + '/r/' + PGG_ROOM_CODE;
 // 部署環境:預設指向正式 PartyKit URL;本機開發可用 ?host=localhost:1999 覆寫。
 const PGG_PARTY_HOST = _PGG_QS.get('host') || 'policy-gogogo.aoc7328.partykit.dev';
@@ -1269,7 +1281,7 @@ const PGG_DEVICE_ID = getOrCreateDeviceId();
 /* ══ 全域狀態 ══ */
 const G = {
   name: '',
-  team: '第三組',
+  team: '',  // server 在 player_join 廣播回來時才會填,本端不預設(避免「幽靈第三組」)
   mode: '',
   round: 0,
   totalQ: 0,        // 總題數,由助理端設定;正式版透過 PartyKit 帶入
@@ -1412,26 +1424,20 @@ function doLogin() {
   if (!v) return;
   G.name = v;
   document.getElementById('gs-name').textContent = v;
-  document.getElementById('gs-team').textContent = G.team;
+  // 組別還沒拿到 — 顯示佔位,等 server 在 player_join 廣播回來才填真值
+  document.getElementById('gs-team').textContent = '—';
   document.getElementById('gs-round').textContent = '—';
-  // DEMO:從 MOCK_TEAMS 載入組員;正式版由 PartyKit 從助理端 broadcast 帶入
-  const myTeam = MOCK_TEAMS.find(t => t.name === G.team);
-  if (myTeam) {
-    const roster = myTeam.members.map(n => ({ name: n, online: true }));
-    // 確保我自己在名單中
-    if (!roster.find(p => p.name === v)) roster.unshift({ name: v, online: true });
-    updateTeamRoster(roster);
-  }
-  // 進入遊戲 = 立刻開放組名編輯(直到助理按開始遊戲後 5 秒鎖死)
+  // 進入遊戲 = 立刻開放組名編輯(實際上 G.team 為空時 startEditTeamNameInBar
+  // 會被 line 1891 的 guard 擋掉,等 G.team 來才能改)
   G.canRenameTeam = true;
   setTeamNameEditable(true);
-  // PartyBus 在 page load 已經連線(role='participant',沒帶 name/team,
-   // 所以 server.onConnect 不會 broadcast player_join)。doLogin 走到這裡
-   // 才 emit player_join 命令給 server,讓它把這個連線升級成「正式參賽者」
-   // (server.onPlayerJoin 會 upsertParticipant + broadcast player_join 一次)。
-   // saveStoredParticipant 寫 localStorage 給同 origin 的其他 tab / reload 用。
-  saveStoredParticipant(v, G.team);
-  PartyBus.emit('player_join', { name: v, team: G.team });
+  // 只存 name(team 由 server 決定)。reload / multi-tab 重連時,server 會用
+  // groups[].members 找到這個 name 對應的原組,不會跳組。
+  saveStoredParticipant(v, '');
+  // emit 不帶 team — server 端 onPlayerJoin 自動分配「最少人那組」,然後
+  // 廣播 player_join { name, team: 決定的組 } 給所有人,本端 listener
+  // (下方 PartyBus.on('player_join'))認領自己的那筆來填 G.team。
+  PartyBus.emit('player_join', { name: v });
   // 若助理已經按開始遊戲,直接補跑進 game 流程(套主題色 + 開組名編輯倒數)
   if (G._gameStarted) {
     enterGameStage();
@@ -1440,6 +1446,43 @@ function doLogin() {
     goStage('game');
   }
 }
+
+/* server 認證完 / 自動分組完後會廣播 player_join 給「所有人」(包含自己),
+   本端認自己的名字,把 server 決定的 team 填進 G.team + UI。 */
+PartyBus.on('player_join', payload => {
+  if (!payload?.name || !payload?.team) return;
+  if (payload.name !== G.name) return;
+  if (G.team === payload.team) return;  // 已經對齊,免得重複觸發
+  G.team = payload.team;
+  const tEl = document.getElementById('gs-team');
+  if (tEl) tEl.textContent = G.team;
+  // 補存正確的 team 給下次 reload(同名重連時 server 會找回原組,但本機
+  // 也存一份比較順)
+  if (G.name) saveStoredParticipant(G.name, G.team);
+  // DEMO:用新組名重抓 mock roster(正式版由 server 的 roster 廣播帶入)
+  const myTeam = MOCK_TEAMS.find(t => t.name === G.team);
+  if (myTeam && typeof updateTeamRoster === 'function') {
+    const roster = myTeam.members.map(n => ({ name: n, online: true }));
+    if (!roster.find(p => p.name === G.name)) {
+      roster.unshift({ name: G.name, online: true });
+    }
+    updateTeamRoster(roster);
+  }
+});
+
+/* server 重洗(助理改組數)→ 找自己 → 同步 G.team。
+   組名改變的話 UI 上方 badge 也要跟著更新。 */
+PartyBus.on('roster_reshuffled', payload => {
+  if (!Array.isArray(payload?.groups) || !G.name) return;
+  const mine = payload.groups.find(
+    g => Array.isArray(g.members) && g.members.includes(G.name)
+  );
+  if (!mine || mine.name === G.team) return;
+  G.team = mine.name;
+  const tEl = document.getElementById('gs-team');
+  if (tEl) tEl.textContent = G.team;
+  if (G.name) saveStoredParticipant(G.name, G.team);
+});
 
 /* ══ 階段切換 ══ */
 function goStage(id) {
@@ -3249,8 +3292,9 @@ PartyBus.on('__kicked__', () => {
 (function tryAutoRejoin() {
   const stored = loadStoredParticipant();
   if (!stored) return;
-  // 把 G.team 設好,然後填 name input + 觸發 doLogin
-  G.team = stored.team;
+  // team 由 server 重新分配 — 不從 localStorage 復原(server 在 player_join
+  // 時會用 groups[].members 比對名字,reconnect 同名會自動回到原組,所以
+  // 本端不需要先猜)。
   const inp = document.getElementById('inp-name');
   if (inp) {
     inp.value = stored.name;

@@ -32,6 +32,9 @@ import {
   upsertParticipant,
   removeParticipantByConn,
   renameTeam,
+  setupTeams,
+  pickTeamForParticipant,
+  reshuffleParticipants,
   snapshot,
   type RoomState,
   type BuzzRecord,
@@ -251,6 +254,8 @@ export default class PolicyGogogoServer implements Party.Server {
         return this.onBuzzPress(cmd.payload, sender);
       case 'team_rename':
         return this.onTeamRename(cmd.payload);
+      case 'team_count_changed':
+        return this.onTeamCountChanged(cmd.payload, sender);
       default: {
         const _exhaustive: never = cmd;
         void _exhaustive;
@@ -649,19 +654,57 @@ export default class PolicyGogogoServer implements Party.Server {
   // ────────────────────────────────────────────────────────────
 
   private onPlayerJoin(
-    payload: { name: string; team: string },
+    payload: { name: string; team?: string },
     sender: Party.Connection<ConnState>
   ): void {
-    if (!payload.name || !payload.team) return;
-    upsertParticipant(this.state, sender.id, payload.name, payload.team);
+    if (!payload.name) return;
+    // Server is authoritative for team assignment — ignore client's payload.team.
+    // Defensive lazy-init: if no teams set up yet (race on testbed where all
+    // three windows open together, or assistant connected later), bootstrap
+    // with the default 2 teams. Assistant's subsequent team_count_changed
+    // (with their actual i-n value) will reshuffle.
+    if (this.state.groups.length === 0) {
+      setupTeams(this.state, 2);
+    }
+    const team = pickTeamForParticipant(this.state, payload.name);
+    if (!team) return;
+    upsertParticipant(this.state, sender.id, payload.name, team);
     sender.setState({
       role: 'participant',
       name: payload.name,
-      team: payload.team,
+      team,
       deviceId: sender.state?.deviceId ?? null,
       verified: false,
     });
-    this.broadcast({ type: 'player_join', payload });
+    this.broadcast({ type: 'player_join', payload: { name: payload.name, team } });
+  }
+
+  private onTeamCountChanged(
+    payload: { count: number },
+    sender: Party.Connection<ConnState>
+  ): void {
+    // Lobby-only — once game starts, team count is locked.
+    if (this.state.phase !== 'lobby') {
+      this.sendError(
+        sender,
+        'phase_mismatch',
+        '遊戲已開始,無法調整組數',
+      );
+      return;
+    }
+    const n = Math.max(2, Math.min(10, Math.floor(payload.count)));
+    setupTeams(this.state, n);
+    reshuffleParticipants(this.state);
+    this.broadcast({
+      type: 'roster_reshuffled',
+      payload: {
+        groups: this.state.groups.map((g) => ({
+          idx: g.idx,
+          name: g.name,
+          members: [...g.members],
+        })),
+      },
+    });
   }
 
   private onBuzzPress(

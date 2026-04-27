@@ -242,6 +242,76 @@ export function upsertParticipant(
   }
 }
 
+// ──────────────────────────────────────────────────────────────────────
+// Team setup + auto-assignment (server-authoritative)
+// ──────────────────────────────────────────────────────────────────────
+
+const DEFAULT_TEAM_NAMES = [
+  '第一組', '第二組', '第三組', '第四組', '第五組',
+  '第六組', '第七組', '第八組', '第九組', '第十組',
+];
+
+/**
+ * Replace state.groups with `count` teams. Existing names + scores are
+ * preserved for the first min(count, existing) teams; new teams get
+ * default names. Members are cleared — caller is expected to follow
+ * with reshuffleParticipants(), or let subsequent player_join calls
+ * repopulate via pickTeamForParticipant.
+ */
+export function setupTeams(state: RoomState, count: number): void {
+  const newGroups: TeamState[] = [];
+  for (let i = 0; i < count; i++) {
+    const existing = state.groups[i];
+    newGroups.push({
+      idx: i,
+      name: existing?.name ?? DEFAULT_TEAM_NAMES[i] ?? `第${i + 1}組`,
+      score: existing?.score ?? 0,
+      members: [],
+    });
+  }
+  state.groups = newGroups;
+}
+
+/**
+ * Decide which team a joining participant belongs to.
+ * - Reconnect: name already lives in some team's members[] (we never
+ *   strip on disconnect) → reuse that team so reload doesn't re-shuffle.
+ * - New player: smallest team wins; random tiebreak when sizes tie.
+ * Returns null only if state.groups is empty (caller must initialize first).
+ */
+export function pickTeamForParticipant(
+  state: RoomState,
+  name: string
+): string | null {
+  if (state.groups.length === 0) return null;
+  const existing = state.groups.find((g) => g.members.includes(name));
+  if (existing) return existing.name;
+  const minSize = Math.min(...state.groups.map((g) => g.members.length));
+  const candidates = state.groups.filter((g) => g.members.length === minSize);
+  return candidates[Math.floor(Math.random() * candidates.length)].name;
+}
+
+/**
+ * Random redistribute every currently-connected participant across the
+ * existing state.groups. Used after the assistant changes team count
+ * (lobby only). Members are cleared first; participant.team is updated
+ * in lockstep so subsequent state queries see the new assignment.
+ */
+export function reshuffleParticipants(state: RoomState): void {
+  if (state.groups.length === 0) return;
+  state.groups.forEach((g) => (g.members = []));
+  const players = [...state.participants.values()];
+  for (let i = players.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [players[i], players[j]] = [players[j], players[i]];
+  }
+  players.forEach((p, i) => {
+    const team = state.groups[i % state.groups.length];
+    team.members.push(p.name);
+    p.team = team.name;
+  });
+}
+
 export function removeParticipantByConn(
   state: RoomState,
   connId: string
