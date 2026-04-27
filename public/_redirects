@@ -1,1 +1,1 @@
-/:code  /participant.html?room=:code  302
+/r/:code  /participant.html?room=:code  302
