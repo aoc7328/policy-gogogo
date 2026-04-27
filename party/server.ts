@@ -286,8 +286,22 @@ export default class PolicyGogogoServer implements Party.Server {
     payload: { fid: string },
     sender: Party.Connection<ConnState>
   ): void {
-    if (this.state.phase !== 'picking') return;
-    if (!this.state.game) return;
+    // Reject visibly so the assistant client can unstuck its optimistic
+    // cat-picker UI on its __error__ listener, instead of hanging at
+    // "等待抽題…" forever (user-reported Phase 4 bug).
+    if (this.state.phase !== 'picking') {
+      this.sendError(
+        sender,
+        'wrong_phase',
+        `category_confirm 只能在 picking 階段送(目前 server phase=${this.state.phase})。` +
+          `按「重新搶答」回 picking,或「重新開始」整場重置。`
+      );
+      return;
+    }
+    if (!this.state.game) {
+      this.sendError(sender, 'no_game', 'server 沒有進行中的 game,請先按「開始遊戲」');
+      return;
+    }
 
     // Try the pick FIRST — no state change, no broadcast yet. If it fails,
     // we send a private error to the sender (assistant) so they can retry

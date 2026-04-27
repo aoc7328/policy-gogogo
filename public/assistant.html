@@ -1490,8 +1490,16 @@ PartyBus.on('purgatory_end', () => {
   if (typeof window.endPurgatory === 'function') window.endPurgatory();
 });
 
-/* server 私訊 __error__ — 在 #sts 顯示紅字提示;若是 no_question(抽題失敗),
-   還原 cat picker 的 optimistic lock 讓助理重試。 */
+/* server 私訊 __error__ — 在 #sts 顯示紅字提示 + 視 code 還原 UI 卡死狀態。
+   原本只在 'no_question' 時還原 cat picker,但 server 也會回 'wrong_phase' /
+   'no_game' / 'unauth' 等,如果不還原,UI 就永遠卡在「等待抽題…」。
+   原則:**任何**跟抽題相關的 error code 都要把 cat picker 還原可重試。 */
+const _CAT_PICKER_ERROR_CODES = new Set([
+  'no_question',     // pickQuestion 失敗(框架沒題 / 池空)
+  'wrong_phase',     // server 不在 picking 階段(被 rerush / restart 重置過)
+  'no_game',         // server 沒 game(被 game_restart 過)
+  'unauth',          // controlCode 不對(罕見,但避免卡死)
+]);
 PartyBus.on('__error__', payload => {
   if (!payload || typeof payload !== 'object') return;
   const code = payload.code || 'unknown';
@@ -1501,8 +1509,7 @@ PartyBus.on('__error__', payload => {
     sts.innerHTML = `<span style="color:var(--err,#E55353)">⚠ ${msg}</span>`;
   }
   console.warn(`[PGG server error] ${code}: ${msg}`);
-  // no_question:抽題失敗,還原 cat picker UI
-  if (code === 'no_question') {
+  if (_CAT_PICKER_ERROR_CODES.has(code)) {
     S.catLocked = false;
     document.getElementById('cat-grid')?.classList.remove('locked');
     const cBtn = document.getElementById('cat-confirm-btn');
