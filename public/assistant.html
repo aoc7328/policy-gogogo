@@ -746,13 +746,6 @@ input::placeholder{color:var(--ink-3)}
       </div>
       <p class="hint">將此 QR Code 或短網址提供給參賽者掃描加入。主持人介面的 QR 會在 1 分鐘後自動消失,可隨時按上方按鈕讓它重新出現。遊戲開始後 QR 永久消失。</p>
     </div>
-
-    <div class="room-block">
-      <div class="sec-label">進退場紀錄</div>
-      <div class="log-list" id="log-list">
-        <div class="log-empty">尚無進退場紀錄</div>
-      </div>
-    </div>
   </div>
 
   <!-- ===== SETUP ===== -->
@@ -868,6 +861,13 @@ input::placeholder{color:var(--ink-3)}
       </div>
 
       <button class="start-btn" id="start-btn" onclick="startGame()" disabled>確定、開始遊戲 →</button>
+
+      <div class="setup-block">
+        <div class="sec-label">進退場紀錄</div>
+        <div class="log-list" id="log-list">
+          <div class="log-empty">尚無進退場紀錄</div>
+        </div>
+      </div>
 
     </div>
   </div>
