@@ -150,7 +150,16 @@ export interface PickInput {
 
 export interface PickError {
   ok: false;
-  reason: 'pool_empty' | 'no_purgatory_left';
+  reason: 'pool_empty' | 'no_purgatory_left' | 'framework_not_in_bank';
+  /** Diagnostics so the assistant UI can tell user "load real bank into /public/data/" */
+  diag?: {
+    tierPool: Difficulty[];
+    framework: string | null;
+    bankSizeForFramework: number;     // questions in bank matching framework (any tier)
+    bankSizeInPool: number;           // questions in bank matching tier pool (any framework)
+    crossSize: number;                // questions matching both
+    usedInCross: number;              // of crossSize, how many in usedIds
+  };
 }
 export interface PickOk {
   ok: true;
@@ -182,9 +191,33 @@ export function pickQuestion(input: PickInput): PickOk | PickError {
     if (input.typeWhitelist) {
       candidates = candidates.filter((q) => input.typeWhitelist!.includes(q.type));
     }
+    const beforeUsedFilter = candidates.length;
     candidates = candidates.filter((q) => !input.usedIds.has(q.id));
     if (candidates.length === 0) {
-      return { ok: false, reason: 'pool_empty' };
+      // Diagnose: was this framework empty in the server bank to start with,
+      // or did we exhaust it via usedIds? Big difference for the user:
+      //   - empty in bank  → server BANK is fixture, real bank not synced
+      //   - exhausted      → genuine "asked everything in this category"
+      const bankSizeForFramework = input.framework
+        ? ALL_QUESTIONS.filter((q) => q.framework === input.framework).length
+        : ALL_QUESTIONS.length;
+      const bankSizeInPool = ALL_QUESTIONS.filter((q) =>
+        input.tierPool.includes(q.difficulty)
+      ).length;
+      const reason: PickError['reason'] =
+        beforeUsedFilter === 0 ? 'framework_not_in_bank' : 'pool_empty';
+      return {
+        ok: false,
+        reason,
+        diag: {
+          tierPool: input.tierPool,
+          framework: input.framework,
+          bankSizeForFramework,
+          bankSizeInPool,
+          crossSize: beforeUsedFilter,
+          usedInCross: 0, // by definition: if cross-size > 0 we'd have picked
+        },
+      };
     }
   }
 

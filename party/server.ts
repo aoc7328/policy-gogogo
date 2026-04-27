@@ -256,11 +256,15 @@ export default class PolicyGogogoServer implements Party.Server {
   }
 
   private onStartRush(rerush: boolean): void {
-    if (this.state.phase !== 'idle' && this.state.phase !== 'won') {
-      // Allow re-rush from "won" too (the assistant can rebuzz a tied round).
-      // From any other phase it's a no-op.
-      return;
-    }
+    // Accepted phases:
+    //   - idle:    fresh round (initial start_rush)
+    //   - rushing: cancel current rush + restart (rushStart calls abort first)
+    //   - won:     after winner card, before assistant pressed enter_category
+    //   - picking: 9-grid is open but no category locked yet (re-rush before pick)
+    // Anything past picking (answering / revealed / ended) means we're past
+    // the rush phase entirely; reject silently.
+    const ok = ['idle', 'rushing', 'won', 'picking'].includes(this.state.phase);
+    if (!ok) return;
     rushStart(this.state, (e) => this.broadcast(e), { rerush });
   }
 
@@ -302,9 +306,20 @@ export default class PolicyGogogoServer implements Party.Server {
     });
 
     if (!result.ok) {
-      const friendly = result.reason === 'no_purgatory_left'
-        ? '煉獄題庫已抽完(此分類無剩餘煉獄題)'
-        : '此分類已無可抽題目(難度池或框架被用盡)';
+      let friendly: string;
+      if (result.reason === 'no_purgatory_left') {
+        friendly = '煉獄題庫已抽完(此分類無剩餘煉獄題)';
+      } else if (result.reason === 'framework_not_in_bank') {
+        // Most common dev-time cause: assistant uploaded real bank to its own
+        // localStorage but server still has the fixture in /public/data/.
+        const fid = result.diag?.framework ?? '(?)';
+        friendly =
+          `此分類在 server 端 BANK 沒題目(framework=${fid}, pool=${result.diag?.bankSizeInPool} 題)。` +
+          `如果你已經上傳真題庫到助理介面,記得也要把 5 個 JSON 放進 /public/data/ 並重啟 partykit dev — ` +
+          `server BANK 是 build 時 bundled 的,不會自動跟 client localStorage 同步。`;
+      } else {
+        friendly = '此分類已無可抽題目(難度池或框架已被用盡)';
+      }
       this.sendError(sender, 'no_question', friendly);
       return;
     }

@@ -1178,7 +1178,16 @@ function backToSelect() {
   goto('scr-select');
 }
 function startRush() { goto('scr-countdown'); runCD(3); }
+/* 倒數結束/換 tick 前先檢查 scr-countdown 是否還是 active screen。
+   speed 模式下 server 收到 buzz 立刻發 rush_winner(可能在 t=3.5s 時),
+   presenter 已切到 scr-winner;此時若放任 runCD 的 setTimeout 跑完 ~t=3.8s
+   還會 goto('scr-buzzing'),把 winner 卡片蓋掉 → 觀眾看不到「恭喜搶答」。
+   guard 後若 countdown 不是 active(已被別處 goto 走) → 直接 return,放棄殘留動畫。 */
+function _isCountdownActive() {
+  return !!document.getElementById('scr-countdown')?.classList.contains('active');
+}
 function runCD(n) {
+  if (!_isCountdownActive()) return;  // 場景已被搶走,別再 tick / goto
   const el = document.getElementById('cd-num');
   if (n === 0) {
     el.className = 'cd-num go-flash'; el.textContent = 'GO';
@@ -1188,6 +1197,7 @@ function runCD(n) {
       setTimeout(() => { void r.offsetWidth; r.classList.add('burst'); }, i * 70);
     });
     setTimeout(() => {
+      if (!_isCountdownActive()) return;  // rush_winner 已搶先換場,放棄
       // 進搶答畫面前,依當前 rushMode 切換 scr-buzzing 子畫面
       const buzzScr = document.getElementById('scr-buzzing');
       if (buzzScr) {
