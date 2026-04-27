@@ -972,6 +972,9 @@ html, body { background: #080A10; font-family: var(--font-sans); -webkit-font-sm
            SCREEN I · 題目
            ============================================================ -->
       <div class="screen" id="scr-question">
+        <!-- 煉獄星火層:summonPurgatory 時填充,endPurgatory 時清空。
+             題目 + 公佈答案階段都共享(同一個 scr-question 切 hidden/shown class)。 -->
+        <div class="purg-embers-c" id="purg-embers-question"></div>
         <div class="screen-header">
           <div class="stage-title" id="q-id-label">Question</div>
           <div class="stage-meta">
@@ -1744,22 +1747,27 @@ window.mockPlayers = function(n = 35) {
 window.clearPlayers = function() { document.getElementById('pp-list').innerHTML = '<div class="pp-empty">等待玩家加入</div>'; };
 
 /* ══ 煉獄降臨(機率性事件,由主持人端透過 PartyKit 廣播給三端) ══ */
-function generatePurgEmbersArr() {
-  const c = document.getElementById('purg-embers-arr');
+/* 通用版:任何 .purg-embers-c 容器都可以填上隨機飄升的火星粒子。
+   參數 count 控制密度(arrival 35 顆密集、scr-question 25 顆稍稀以免擋題目) */
+function fillPurgEmbers(elementId, count) {
+  const c = document.getElementById(elementId);
   if (!c) return;
   c.innerHTML = '';
-  for (let i = 0; i < 35; i++) {
+  for (let i = 0; i < count; i++) {
     const e = document.createElement('div');
     e.className = 'ember';
     e.style.left = Math.random() * 100 + '%';
-    e.style.animationDuration = (3 + Math.random()*3) + 's';
-    e.style.animationDelay = (Math.random()*4) + 's';
-    e.style.setProperty('--drift', (Math.random()*120 - 60) + 'px');
-    const sz = (2 + Math.random()*3) + 'px';
+    e.style.animationDuration = (3 + Math.random() * 3) + 's';
+    e.style.animationDelay = (Math.random() * 4) + 's';
+    e.style.setProperty('--drift', (Math.random() * 120 - 60) + 'px');
+    const sz = (2 + Math.random() * 3) + 'px';
     e.style.width = sz; e.style.height = sz;
     c.appendChild(e);
   }
 }
+function generatePurgEmbersArr() { fillPurgEmbers('purg-embers-arr', 35); }
+function generatePurgEmbersQuestion() { fillPurgEmbers('purg-embers-question', 25); }
+
 let purgArrivalTimer = null;
 let categoryLockTimer = null;
 
@@ -1770,6 +1778,9 @@ function summonPurgatory() {
   // 切到煉獄底色 + 進入降臨頁
   stage.dataset.mode = 'purgatory';
   generatePurgEmbersArr();
+  // 同步把 scr-question 那層星火也填好,2.5s 後 goto scr-question 時就接著看到火星
+  // (不會等下一個 frame 才生成、避免畫面突然空白一兩秒)
+  generatePurgEmbersQuestion();
   goto('scr-purg-arrival');
   // 2500ms 後自動切到題目頁(讓特效播完 + 給觀眾驚嘆時間)
   if (purgArrivalTimer) clearTimeout(purgArrivalTimer);
@@ -1787,8 +1798,10 @@ function summonPurgatory() {
 function endPurgatory() {
   // 切回正常模式底色,清掉煉獄殘留;畫面交由後續流程切換(不主動 goto)
   if (currentMode) stage.dataset.mode = currentMode;
-  const c = document.getElementById('purg-embers-arr');
-  if (c) c.innerHTML = '';
+  const arrEl = document.getElementById('purg-embers-arr');
+  if (arrEl) arrEl.innerHTML = '';
+  const qEl = document.getElementById('purg-embers-question');
+  if (qEl) qEl.innerHTML = '';
   if (purgArrivalTimer) { clearTimeout(purgArrivalTimer); purgArrivalTimer = null; }
 }
 window.summonPurgatory = summonPurgatory;
@@ -1890,6 +1903,7 @@ window.clearCategoryHighlight = clearCategoryHighlight;
    依當前模式(由助理 game_start 廣播)統計各 F1-F9 題數,0 題格灰掉
    ════════════════════════════════════════════════════════════════════ */
 let presenterCustomTiers = [];   // 自由模式時由助理 game_start 帶入
+let presenterCustomTypes = [];   // 自由模式時由助理 game_start / custom_tiers_changed 帶入
 let presenterUsedIds     = new Set();
 
 function _fwIdByShortId(shortId) {
@@ -1909,11 +1923,19 @@ function updateCategoryGridPresenter() {
   if (!grid) return;
   const difficulties = _activeDifficulties().filter(d => BANK[d]);
   const remaining = {};
+  // Phase 4 fix:自由模式下,只算「presenterCustomTypes 也包含」的題型,
+  // 跟 assistant updateCategoryGrid 對齊,跟 server pickQuestion 對齊。
+  const typeOK = (q) => {
+    if (currentMode !== 'custom') return true;
+    if (!presenterCustomTypes || presenterCustomTypes.length === 0) return true;
+    return presenterCustomTypes.includes(q.type);
+  };
   difficulties.forEach(d => {
     const bank = BANK[d];
     if (!bank?.questions) return;
     bank.questions.forEach(q => {
       if (presenterUsedIds.has(q.id)) return;
+      if (!typeOK(q)) return;
       const fw = _findFwByTopic(q.topic);
       if (!fw) return;
       remaining[fw.id] = (remaining[fw.id] || 0) + 1;
@@ -1955,6 +1977,11 @@ PartyBus.on('mode_preview', payload => {
 /* 助理修改自由模式次選項 → 主持人 chip active 狀態同步 */
 PartyBus.on('custom_tiers_changed', payload => {
   syncCustomChips(payload?.customTiers, payload?.customTypes);
+  // Phase 4 fix:同步 presenterCustomTypes,讓 updateCategoryGridPresenter
+  // 跟 server pickQuestion 一致過濾(若已在 scr-category 也要重算九宮格)
+  if (Array.isArray(payload?.customTiers)) presenterCustomTiers = payload.customTiers;
+  if (Array.isArray(payload?.customTypes)) presenterCustomTypes = payload.customTypes;
+  if (typeof updateCategoryGridPresenter === 'function') updateCategoryGridPresenter();
 });
 
 /* 同步主持人 scr-select 就地展開的 chip active 狀態 */
@@ -1995,6 +2022,7 @@ PartyBus.on('game_start', payload => {
   pendingMode  = payload.mode;
   currentMode  = payload.mode;
   presenterCustomTiers = payload.customTiers || [];
+  presenterCustomTypes = payload.customTypes || [];
   presenterUsedIds = new Set();
   presenterRushMode = payload.rushMode || 'speed';
   round = 1;

@@ -1676,11 +1676,20 @@ function updateCategoryGrid() {
   // 統計各 fw.id 剩餘題數(扣掉已抽過的)
   // 用 _findFwByTopic 把題目的 topic 規範化成 fw.id 才比對
   const remaining = {};
+  // Phase 4 fix:自由模式下,只算「customTypes 也包含」的題型,
+  // 不然九宮格會顯示「F2 有 8 題」但 server 套上 type whitelist 後其實 0 題,
+  // 點下去抽不到、卡 wrong_phase / framework_not_in_bank。
+  const typeOK = (q) => {
+    if (S.mode !== 'custom') return true;
+    if (!S.customTypes || S.customTypes.length === 0) return true;
+    return S.customTypes.includes(q.type);
+  };
   difficulties.forEach(d => {
     const bank = BANK[d];
     if (!bank?.questions) return;
     bank.questions.forEach(q => {
       if (S.usedIds.has(q.id)) return;
+      if (!typeOK(q)) return;
       const fw = _findFwByTopic(q.topic);
       if (!fw) return;
       remaining[fw.id] = (remaining[fw.id] || 0) + 1;
