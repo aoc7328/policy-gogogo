@@ -20,6 +20,8 @@ const ROOT = resolve(__dirname, '..');
 const DATA_DIR = resolve(ROOT, 'public', 'data');
 const PORT = 3001;
 const MAX_BODY = 5 * 1024 * 1024;
+// 對外 production 網域(寫死;將來換成自訂網域時來這邊改一行)
+const LIVE_URL_BASE = 'https://policy-gogogo.pages.dev';
 
 // 5 個難度題庫的上傳槽。檔名固定 — 工具自動改名,使用者電腦上的原檔叫
 // 什麼都行。顯示設定(branding + frameworks)由「顯示設定」tab 的表單編輯,
@@ -69,6 +71,13 @@ main{max-width:720px;margin:0 auto}
 .copy-btn{position:absolute;top:8px;right:8px;background:#0B1020;border:1px solid #5C6480;color:#D4A34B;padding:4px 10px;font-family:monospace;font-size:11px;letter-spacing:.1em;cursor:pointer;z-index:1}
 .copy-btn:hover{border-color:#D4A34B;background:#141B2E}
 .copy-wrap pre{margin:0;padding-right:80px}
+/* live URL bar (永遠顯示助理端網址) */
+.urlbar{max-width:720px;margin:0 auto 16px;padding:10px 14px;background:#0B1020;border:1px solid #2a3040;display:flex;align-items:center;gap:12px}
+.urlbar-label{font-family:monospace;font-size:11px;letter-spacing:.16em;color:#5C6480;text-transform:uppercase;flex-shrink:0}
+.urlbar-link{color:#D4A34B;text-decoration:none;font-family:monospace;font-size:13px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.urlbar-link:hover{text-decoration:underline}
+.urlbar-copy{background:transparent;border:1px solid #5C6480;color:#9BA3B5;padding:5px 12px;font-family:monospace;font-size:11px;letter-spacing:.1em;cursor:pointer;flex-shrink:0}
+.urlbar-copy:hover{border-color:#D4A34B;color:#D4A34B}
 /* tab navigation + panels */
 .tabs{display:flex;gap:0;max-width:720px;margin:0 auto 24px;border-bottom:1px solid #2a3040}
 .tab-btn{background:transparent;border:none;color:#5C6480;padding:12px 24px;font-family:monospace;letter-spacing:.14em;font-size:13px;cursor:pointer;border-bottom:2px solid transparent;transition:all 200ms;font-weight:600}
@@ -90,6 +99,13 @@ main{max-width:720px;margin:0 auto}
 <h1>保險知識星攻略 · 題庫更新工具</h1>
 <button class="help-btn" onclick="document.getElementById('help-modal').classList.remove('hidden')">說明</button>
 </header>
+
+<div class="urlbar">
+<span class="urlbar-label">助理端網址</span>
+<a class="urlbar-link" href="${LIVE_URL_BASE}/assistant.html" target="_blank" rel="noopener">${LIVE_URL_BASE}/assistant.html</a>
+<button class="urlbar-copy" onclick="copyText(this, '${LIVE_URL_BASE}/assistant.html')">複製</button>
+</div>
+
 <nav class="tabs">
 <button class="tab-btn active" data-tab="upload" onclick="switchTab('upload')">題庫上傳</button>
 <button class="tab-btn" data-tab="config" onclick="switchTab('config')">顯示設定</button>
@@ -334,6 +350,25 @@ async function doSaveConfig() {
     btn.disabled = false;
     btn.textContent = '重試';
   }
+}
+
+// 通用一鍵複製(任何字串都行,例如 URL bar 的網址)
+function copyText(btn, text) {
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = '已複製 ✓';
+    btn.style.color = '#88C765';
+    btn.style.borderColor = '#88C765';
+    setTimeout(() => {
+      btn.textContent = orig;
+      btn.style.color = '';
+      btn.style.borderColor = '';
+    }, 1500);
+  }).catch(err => {
+    console.error('clipboard write failed', err);
+    btn.textContent = '複製失敗';
+    setTimeout(() => { btn.textContent = '複製'; }, 1500);
+  });
 }
 
 // 一鍵複製:讀按鈕 next sibling(<pre>)的純文字內容到剪貼簿。
@@ -653,8 +688,16 @@ const server = http.createServer(async (req, res) => {
 
 server.on('error', err => {
   if (err.code === 'EADDRINUSE') {
-    console.error(`Port ${PORT} 已經被佔用 — 可能你已經有開一個視窗在跑這個工具。先關掉那個再重開。`);
-    process.exit(1);
+    // 既有的 bank-uploader 還活著(可能上次沒等到 8 秒自動關閉、或還在
+    // 30 分鐘 idle 範圍內)。VBS 啟動是隱藏視窗,使用者看不到錯誤訊息,
+    // 之前這條路徑會 process.exit(1) 直接死掉 → 雙擊 VBS 沒反應的 bug。
+    // 改成「直接叫瀏覽器開到既有 instance」,使用者體感就是「再雙擊一次
+    // 又把分頁打開了」,功能不中斷。
+    spawn('cmd', ['/c', 'start', '', `http://localhost:${PORT}`], {
+      detached: true,
+      stdio: 'ignore',
+    }).unref();
+    process.exit(0);
   }
   throw err;
 });
