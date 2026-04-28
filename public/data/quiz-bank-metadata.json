@@ -1,11 +1,6 @@
 {
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "last_updated": "2026-04-28",
-  "branding": {
-    "title_prefix": "保險知識",
-    "title_suffix": "星攻略",
-    "_note": "title_prefix 1~4 字、可換主題;title_suffix 固定 3 字、不可改(三端 UI 寫死格式)"
-  },
   "total_questions": 437,
   "description": "保險知識星攻略 · 題庫元資料、供 App 讀取、減少載入完整題目的成本",
   "difficulties": [
@@ -367,74 +362,6 @@
       "notes": "正解位置分布已做 block randomization"
     }
   ],
-  "topic_frameworks": {
-    "system_A_standard_9": {
-      "description": "標準 9 框架、適用於簡單/中等/困難/地獄",
-      "frameworks": [
-        {
-          "id": "f1_insurance_basics",
-          "label": "保險基礎與法規"
-        },
-        {
-          "id": "f2_contract_terms",
-          "label": "契約條款與效力"
-        },
-        {
-          "id": "f3_underwriting",
-          "label": "核保與健康告知"
-        },
-        {
-          "id": "f4_claims",
-          "label": "理賠實務與爭議"
-        },
-        {
-          "id": "f5_product_planning",
-          "label": "險種規劃與商品"
-        },
-        {
-          "id": "f6_actuarial",
-          "label": "精算、財務與監理"
-        },
-        {
-          "id": "f7_wealth_tax",
-          "label": "高資產與稅務傳承"
-        },
-        {
-          "id": "f8_ethics_compliance",
-          "label": "業務倫理與合規"
-        },
-        {
-          "id": "f9_premium_calc",
-          "label": "保費、保單運用與計算"
-        }
-      ]
-    },
-    "system_B_purgatory_4": {
-      "description": "煉獄專用 4 框架（L1-L4 能力分層）、與系統 A 無對應關係",
-      "frameworks": [
-        {
-          "id": "l1_cross_dept",
-          "label": "跨部門溝通",
-          "description": "L1 橫向能力"
-        },
-        {
-          "id": "l2_customer",
-          "label": "客戶溝通",
-          "description": "L2 外向能力"
-        },
-        {
-          "id": "l3_ethics",
-          "label": "道德判斷",
-          "description": "L3 內向能力"
-        },
-        {
-          "id": "l4_time_scale",
-          "label": "時間尺度",
-          "description": "L4 時間判斷"
-        }
-      ]
-    }
-  },
   "data_structure_notes": {
     "file_layout": {
       "easy": "questions.easy.<type> 巢狀物件",
@@ -685,5 +612,6 @@
         "max_consecutive": 2
       }
     }
-  }
+  },
+  "_note_runtime_config": "本檔已純化為文件用、server 不讀。執行期會用到的 branding 跟 topic_frameworks 已搬到 quiz-app-config.json,要修改 F1~F9 / L1~L4 標籤或遊戲標題請改那一支。"
 }

@@ -21,11 +21,13 @@ const DATA_DIR = resolve(ROOT, 'public', 'data');
 const PORT = 3001;
 const MAX_BODY = 5 * 1024 * 1024;
 
-// 第 1 格是 metadata,後 5 格是各難度題庫。檔名固定 — 工具自動改名,使用者
-// 電腦上的原檔叫什麼都行。metadata 是 frameworks(F1-F9 / L1-L4 標籤)+
-// branding(遊戲標題前綴)的單一來源,server bundle 跟三端 UI 都讀它。
+// 第 1 格是「顯示設定」(branding + frameworks),後 5 格是各難度題庫。
+// 檔名固定 — 工具自動改名,使用者電腦上的原檔叫什麼都行。顯示設定檔
+// (quiz-app-config.json)是 server 真正讀的、會影響遊戲畫面的設定;
+// quiz-bank-metadata.json(設計者文件 / 統計報表)server 不讀,所以這裡
+// 不開上傳槽 — 想改文件直接 git 編輯就好。
 const UPLOAD_SLOTS = [
-  { id: 'metadata',  label: 'metadata', filename: 'quiz-bank-metadata.json' },
+  { id: 'config',    label: '顯示設定', filename: 'quiz-app-config.json' },
   { id: 'easy',      label: '簡單',    filename: 'insurance-quiz-bank-easy.json' },
   { id: 'medium',    label: '中等',    filename: 'insurance-quiz-bank-medium.json' },
   { id: 'hard',      label: '困難',    filename: 'insurance-quiz-bank-hard.json' },
@@ -93,12 +95,12 @@ ${UPLOAD_SLOTS.map(d => `<label class="row" for="f-${d.id}">
 <h3>1. 檔名 — 不用管</h3>
 <p>你電腦上的檔名隨便取,工具會自動改成正確的檔名再寫入專案。固定 6 個目標檔名:</p>
 <ul>
-<li><code>quiz-bank-metadata.json</code>(metadata 槽)</li>
+<li><code>quiz-app-config.json</code>(顯示設定槽 — server 真的讀的那一份)</li>
 <li><code>insurance-quiz-bank-{easy/medium/hard/hell/purgatory}.json</code>(5 個題庫槽)</li>
 </ul>
 
-<h3>2. metadata.json 是新主題的「總開關」</h3>
-<p>三端的 9 宮格 / 4 宮格 / 標題,**通通**從這支檔讀。換主題的時候,基本上**只動這支** + 6 個題庫的 questions(後者改 topic 就好)。結構長這樣(右上角可一鍵複製):</p>
+<h3>2. quiz-app-config.json 是新主題的「總開關」</h3>
+<p>三端的 9 宮格 / 4 宮格 / 標題,**通通**從這支檔讀。換主題的時候,基本上**只動這支** + 5 個題庫的 questions(後者改 topic 就好)。<code>quiz-bank-metadata.json</code> 是設計者用的文件 / 統計報表(題型欄位、題數、id 範圍),server 完全不讀,改它不會影響遊戲。結構長這樣(右上角可一鍵複製):</p>
 <div class="copy-wrap">
 <button class="copy-btn" onclick="copyPre(this)">複製</button>
 <pre style="background:#050912;color:#88C765;padding:12px;font-size:12px;line-height:1.6;overflow-x:auto;border:1px solid #2a3040">{
@@ -143,7 +145,7 @@ ${UPLOAD_SLOTS.map(d => `<label class="row" for="f-${d.id}">
 </ul>
 
 <h3>3. 題庫 JSON 結構</h3>
-<p>每個題庫檔頂層只需要 <code>questions</code>(metadata 已經在 metadata.json 處理掉,題庫檔的 metadata 區塊現在純粹是文件性質,server 不讀)。「煉獄」的 <code>questions</code> 是<strong>扁平陣列</strong>(framework B),其他四個難度是<strong>巢狀物件</strong>(按題型分組,framework A)。直接打開現有的 JSON 仿照寫。</p>
+<p>每個題庫檔頂層只需要 <code>questions</code>(branding + frameworks 已經在 quiz-app-config.json 處理掉,題庫檔的 metadata 區塊現在純粹是文件性質,server 不讀)。「煉獄」的 <code>questions</code> 是<strong>扁平陣列</strong>(framework B),其他四個難度是<strong>巢狀物件</strong>(按題型分組,framework A)。直接打開現有的 JSON 仿照寫。</p>
 
 <h3>4. 題目 ID 規則</h3>
 <p>每一題都有 <code>id</code>,格式 <code>{prefix}-{type}-{number}</code>。prefix 是難度識別碼:</p>

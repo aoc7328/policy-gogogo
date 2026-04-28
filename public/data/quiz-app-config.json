@@ -1,0 +1,34 @@
+{
+  "schema_version": "1.0",
+  "_purpose": "App runtime config — server reads this for game title + topic frameworks. Edit here to change branding or framework labels (Phase 2 will add a UI editor for this file). quiz-bank-metadata.json next to this is documentation-only and is NOT read by the server at runtime.",
+  "branding": {
+    "title_prefix": "保險知識",
+    "title_suffix": "星攻略",
+    "_note": "title_prefix 1~4 字、可換主題;title_suffix 固定 3 字、不可改(三端 UI 寫死格式)"
+  },
+  "topic_frameworks": {
+    "system_A_standard_9": {
+      "_description": "標準 9 框架、適用於簡單 / 中等 / 困難 / 地獄四個難度",
+      "frameworks": [
+        { "id": "f1_insurance_basics", "label": "保險基礎與法規" },
+        { "id": "f2_contract_terms",   "label": "契約條款與效力" },
+        { "id": "f3_underwriting",     "label": "核保與健康告知" },
+        { "id": "f4_claims",           "label": "理賠實務與爭議" },
+        { "id": "f5_product_planning", "label": "險種規劃與商品" },
+        { "id": "f6_actuarial",        "label": "精算、財務與監理" },
+        { "id": "f7_wealth_tax",       "label": "高資產與稅務傳承" },
+        { "id": "f8_ethics_compliance","label": "業務倫理與合規" },
+        { "id": "f9_premium_calc",     "label": "保費、保單運用與計算" }
+      ]
+    },
+    "system_B_purgatory_4": {
+      "_description": "煉獄專用 4 框架(L1-L4 能力分層)、與系統 A 無對應關係",
+      "frameworks": [
+        { "id": "l1_cross_dept", "label": "跨部門溝通", "_description": "L1 橫向能力" },
+        { "id": "l2_customer",   "label": "客戶溝通",   "_description": "L2 外向能力" },
+        { "id": "l3_ethics",     "label": "道德判斷",   "_description": "L3 內向能力" },
+        { "id": "l4_time_scale", "label": "時間尺度",   "_description": "L4 時間判斷" }
+      ]
+    }
+  }
+}

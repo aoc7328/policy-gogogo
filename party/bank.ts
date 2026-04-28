@@ -15,7 +15,7 @@ import mediumJson from '../public/data/insurance-quiz-bank-medium.json';
 import hardJson from '../public/data/insurance-quiz-bank-hard.json';
 import hellJson from '../public/data/insurance-quiz-bank-hell.json';
 import purgatoryJson from '../public/data/insurance-quiz-bank-purgatory.json';
-import metadataJson from '../public/data/quiz-bank-metadata.json';
+import appConfigJson from '../public/data/quiz-app-config.json';
 
 import type { Difficulty, GameMode } from './protocol';
 
@@ -31,25 +31,27 @@ export interface NormalizedQuestion {
 // ──────────────────────────────────────────────────────────────────────
 
 /**
- * Frameworks + branding come from quiz-bank-metadata.json — the single
+ * Frameworks + branding come from quiz-app-config.json — the single
  * source of truth for "what topics are in this bank, what should the game
- * be called". Swap that file alone (rather than 5 banks + 3 HTML files) to
- * change topic from insurance to history/geography/anything-else.
+ * be called". (Phase-1 split:until 2db1450 these lived in quiz-bank-metadata.json
+ * along with the documentation-only stats; they got promoted to their own
+ * file so designers can read the metadata file without accidentally editing
+ * stuff that hits production.)
  *
  * Framework A (9-grid in normal modes) → topic_frameworks.system_A_standard_9
  * Framework B (4-grid in purgatory)    → topic_frameworks.system_B_purgatory_4
  *
- * Each declares an array of `{id, label}` objects in metadata; we extract
- * the `label` string (because question.topic stores the Chinese label
- * directly, not the technical id).
+ * Each declares an array of `{id, label}` objects; we extract the `label`
+ * string (because question.topic stores the Chinese label directly, not
+ * the technical id).
  *
  * shortId (F1..F9, L1..L4) is the 1-based index of the array.
  * Client uses shortId for grid cell positioning; server uses the label
  * string to filter questions by topic.
  *
- * Backward-compat fallbacks: if metadata is malformed/missing the expected
- * shape, we use the original insurance labels so the picker still works
- * rather than crash on bank load.
+ * Backward-compat fallbacks: if app-config is malformed/missing the
+ * expected shape, we use the original insurance labels so the picker
+ * still works rather than crash on bank load.
  */
 
 const FALLBACK_FRAMEWORKS_A = [
@@ -63,19 +65,19 @@ const FALLBACK_FRAMEWORKS_B = [
 const FALLBACK_TITLE_PREFIX = '保險知識';
 const FALLBACK_TITLE_SUFFIX = '星攻略';
 
-interface MetadataFramework {
+interface ConfigFramework {
   id?: string;
   label?: string;
 }
-interface MetadataShape {
+interface AppConfigShape {
   branding?: { title_prefix?: string; title_suffix?: string };
   topic_frameworks?: {
-    system_A_standard_9?: { frameworks?: MetadataFramework[] };
-    system_B_purgatory_4?: { frameworks?: MetadataFramework[] };
+    system_A_standard_9?: { frameworks?: ConfigFramework[] };
+    system_B_purgatory_4?: { frameworks?: ConfigFramework[] };
   };
 }
 
-function extractLabels(arr: MetadataFramework[] | undefined, fallback: string[]): string[] {
+function extractLabels(arr: ConfigFramework[] | undefined, fallback: string[]): string[] {
   if (!Array.isArray(arr)) return fallback;
   const labels = arr
     .map((fw) => fw?.label)
@@ -83,23 +85,23 @@ function extractLabels(arr: MetadataFramework[] | undefined, fallback: string[])
   return labels.length > 0 ? labels : fallback;
 }
 
-const _meta = metadataJson as MetadataShape;
+const _cfg = appConfigJson as AppConfigShape;
 
 export const FRAMEWORKS_A: string[] = extractLabels(
-  _meta.topic_frameworks?.system_A_standard_9?.frameworks,
+  _cfg.topic_frameworks?.system_A_standard_9?.frameworks,
   FALLBACK_FRAMEWORKS_A
 );
 export const FRAMEWORKS_B: string[] = extractLabels(
-  _meta.topic_frameworks?.system_B_purgatory_4?.frameworks,
+  _cfg.topic_frameworks?.system_B_purgatory_4?.frameworks,
   FALLBACK_FRAMEWORKS_B
 );
 
 export const BRANDING = {
-  titlePrefix: typeof _meta.branding?.title_prefix === 'string' && _meta.branding.title_prefix.length > 0
-    ? _meta.branding.title_prefix
+  titlePrefix: typeof _cfg.branding?.title_prefix === 'string' && _cfg.branding.title_prefix.length > 0
+    ? _cfg.branding.title_prefix
     : FALLBACK_TITLE_PREFIX,
-  titleSuffix: typeof _meta.branding?.title_suffix === 'string' && _meta.branding.title_suffix.length > 0
-    ? _meta.branding.title_suffix
+  titleSuffix: typeof _cfg.branding?.title_suffix === 'string' && _cfg.branding.title_suffix.length > 0
+    ? _cfg.branding.title_suffix
     : FALLBACK_TITLE_SUFFIX,
 };
 
