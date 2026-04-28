@@ -21,18 +21,16 @@ const DATA_DIR = resolve(ROOT, 'public', 'data');
 const PORT = 3001;
 const MAX_BODY = 5 * 1024 * 1024;
 
-// 第 1 格是「顯示設定」(branding + frameworks),後 5 格是各難度題庫。
-// 檔名固定 — 工具自動改名,使用者電腦上的原檔叫什麼都行。顯示設定檔
-// (quiz-app-config.json)是 server 真正讀的、會影響遊戲畫面的設定;
-// quiz-bank-metadata.json(設計者文件 / 統計報表)server 不讀,所以這裡
-// 不開上傳槽 — 想改文件直接 git 編輯就好。
+// 5 個難度題庫的上傳槽。檔名固定 — 工具自動改名,使用者電腦上的原檔叫
+// 什麼都行。顯示設定(branding + frameworks)由「顯示設定」tab 的表單編輯,
+// 不在這上傳;quiz-bank-metadata.json 是設計者文件,server 不讀,需要改
+// 直接 git 編輯。
 const UPLOAD_SLOTS = [
-  { id: 'config',    label: '顯示設定', filename: 'quiz-app-config.json' },
-  { id: 'easy',      label: '簡單',    filename: 'insurance-quiz-bank-easy.json' },
-  { id: 'medium',    label: '中等',    filename: 'insurance-quiz-bank-medium.json' },
-  { id: 'hard',      label: '困難',    filename: 'insurance-quiz-bank-hard.json' },
-  { id: 'hell',      label: '地獄',    filename: 'insurance-quiz-bank-hell.json' },
-  { id: 'purgatory', label: '煉獄',    filename: 'insurance-quiz-bank-purgatory.json' },
+  { id: 'easy',      label: '簡單', filename: 'insurance-quiz-bank-easy.json' },
+  { id: 'medium',    label: '中等', filename: 'insurance-quiz-bank-medium.json' },
+  { id: 'hard',      label: '困難', filename: 'insurance-quiz-bank-hard.json' },
+  { id: 'hell',      label: '地獄', filename: 'insurance-quiz-bank-hell.json' },
+  { id: 'purgatory', label: '煉獄', filename: 'insurance-quiz-bank-purgatory.json' },
 ];
 
 const HTML = `<!DOCTYPE html>
@@ -99,7 +97,7 @@ main{max-width:720px;margin:0 auto}
 <main>
 
 <section class="panel active" id="panel-upload">
-<p class="intro">第 1 格是 <strong>顯示設定</strong>(JSON 整檔上傳 — 例如從 ChatGPT 拿來的成品),後 5 格是各難度的題庫。沒選的不會被動到。如果只想改標題或某個分類名稱,直接到「顯示設定」分頁用表單編就好,不必走 JSON 上傳。</p>
+<p class="intro">5 個難度的題庫各自選好(沒選的不會被動到 — 例如只想換煉獄就只選那一格)。電腦上的檔名隨便取,工具會自動改成正確檔名再放進去。<br><br>想改遊戲標題或 9+4 分類標籤,點上方「<strong>顯示設定</strong>」分頁,**用表單編輯就好**(不用上傳 JSON)。</p>
 ${UPLOAD_SLOTS.map(d => `<label class="row" for="f-${d.id}">
 <span class="label">${d.label}</span>
 <input type="file" id="f-${d.id}" accept=".json" onchange="onPick('${d.id}', this)">
@@ -144,11 +142,11 @@ ${[1,2,3,4].map(n => `<div class="cfg-row">
 <h2>使用說明 / 重要規範</h2>
 
 <h3>1. 檔名 — 不用管</h3>
-<p>你電腦上的檔名隨便取,工具會自動改成正確的檔名再寫入專案。固定 6 個目標檔名:</p>
+<p>你電腦上的檔名隨便取,工具會自動改成正確的檔名再寫入專案。「題庫上傳」分頁的 5 個目標檔名:</p>
 <ul>
-<li><code>quiz-app-config.json</code>(顯示設定槽 — server 真的讀的那一份)</li>
-<li><code>insurance-quiz-bank-{easy/medium/hard/hell/purgatory}.json</code>(5 個題庫槽)</li>
+<li><code>insurance-quiz-bank-{easy/medium/hard/hell/purgatory}.json</code></li>
 </ul>
+<p>遊戲標題跟 9+4 分類標籤(<code>quiz-app-config.json</code>)請走「<strong>顯示設定</strong>」分頁的表單編輯,不在這裡上傳。</p>
 
 <h3>2. quiz-app-config.json 是新主題的「總開關」</h3>
 <p>三端的 9 宮格 / 4 宮格 / 標題,**通通**從這支檔讀。換主題的時候,基本上**只動這支** + 5 個題庫的 questions(後者改 topic 就好)。<code>quiz-bank-metadata.json</code> 是設計者用的文件 / 統計報表(題型欄位、題數、id 範圍),server 完全不讀,改它不會影響遊戲。結構長這樣(右上角可一鍵複製):</p>
