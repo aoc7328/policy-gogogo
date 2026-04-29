@@ -149,7 +149,7 @@ html,body{height:100%;background:#050912;color:#F2EDE1;font-family:"Noto Sans TC
     </div>
     <div class="tb-col-body">
       <div class="tb-loading">Loading presenter...</div>
-      <iframe id="if-presenter" src="presenter.html" allow="autoplay"></iframe>
+      <iframe id="if-presenter" data-src="presenter.html" allow="autoplay"></iframe>
     </div>
   </div>
 
@@ -165,7 +165,7 @@ html,body{height:100%;background:#050912;color:#F2EDE1;font-family:"Noto Sans TC
     </div>
     <div class="tb-col-body">
       <div class="tb-loading">Loading assistant...</div>
-      <iframe id="if-assistant" src="assistant.html"></iframe>
+      <iframe id="if-assistant" data-src="assistant.html"></iframe>
     </div>
   </div>
 
@@ -182,7 +182,7 @@ html,body{height:100%;background:#050912;color:#F2EDE1;font-family:"Noto Sans TC
     <div class="tb-col-body">
       <div class="frame-wrap">
         <div class="tb-loading">Loading participant...</div>
-        <iframe id="if-participant" src="participant.html"></iframe>
+        <iframe id="if-participant" data-src="participant.html"></iframe>
       </div>
     </div>
   </div>
@@ -190,6 +190,31 @@ html,body{height:100%;background:#050912;color:#F2EDE1;font-family:"Noto Sans TC
 </div>
 
 <script>
+/* testbed 自己產一個房號 → 帶 ?room=XXXX 餵給三個 iframe。
+   不這樣做會出 race:DEMO01 被拿掉之後,presenter / participant 沒帶
+   ?room= 又比 assistant 早讀 localStorage 的話會跳「無法進入」錯誤頁。
+   testbed 跟 iframe 同 origin,寫 localStorage 也一併讓「在另一台裝置
+   開 participant 不帶 ?room= 但同 origin」的舊路徑能 fallback。 */
+(function injectIframeRooms() {
+  const qs = new URLSearchParams(window.location.search);
+  const room = qs.get('room') || String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+  try { localStorage.setItem('pgg_last_room', room); } catch {}
+  ['presenter', 'assistant', 'participant'].forEach(role => {
+    const f = document.getElementById('if-' + role);
+    if (!f) return;
+    const base = f.getAttribute('data-src');
+    if (base) f.src = base + '?room=' + encodeURIComponent(room);
+  });
+  // 順手把房號顯示在頂部 zoom 旁邊,方便除錯時對房號
+  const bar = document.querySelector('.tb-bar');
+  if (bar) {
+    const tag = document.createElement('span');
+    tag.style.cssText = 'font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.18em;color:#5C6480;text-transform:uppercase;margin-right:8px';
+    tag.textContent = 'ROOM ' + room;
+    bar.insertBefore(tag, bar.lastElementChild);
+  }
+})();
+
 /* 縮放:用 transform scale 縮 iframe,讓畫面更舒服
    參賽者欄不縮放(已是手機尺寸) */
 function setZoom(z) {
