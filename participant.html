@@ -125,23 +125,21 @@ input{-webkit-appearance:none;border-radius:0}
 .stage{position:absolute;inset:0;display:flex;flex-direction:column;opacity:0;pointer-events:none;transition:opacity 480ms ease-out;z-index:1}
 .stage.active{opacity:1;pointer-events:all}
 
-/* ── 主持人登入入口（只在「輸入名字頁」顯示;進入答題後消失） ── */
+/* ── 主持人登入入口（小圖示;只在「輸入名字頁」顯示;進入答題後消失） ── */
 .host-login-btn{
-  position:fixed;top:8px;right:12px;z-index:1000;
+  position:fixed;bottom:14px;right:14px;z-index:1000;
+  width:34px;height:34px;padding:0;
   background:rgba(5,9,18,.92);border:1px solid rgba(212,163,75,.4);
-  color:#D4A34B;font-family:"JetBrains Mono",monospace;
-  font-size:10px;letter-spacing:.16em;padding:6px 12px;
-  text-transform:uppercase;display:none;align-items:center;gap:7px;
+  color:#D4A34B;border-radius:50%;
+  display:none;align-items:center;justify-content:center;
   backdrop-filter:blur(8px);transition:all 200ms;cursor:pointer;
 }
 body:has(#stage-login.active) .host-login-btn{display:flex}
 .host-login-btn:hover:not(:disabled){border-color:#D4A34B;background:rgba(212,163,75,.12);color:#EDC266}
-.host-login-btn .hl-dot{width:5px;height:5px;border-radius:50%;background:currentColor;box-shadow:0 0 8px currentColor;animation:hlPulse 2.4s ease-in-out infinite}
-@keyframes hlPulse{0%,100%{opacity:.5}50%{opacity:1}}
+.host-login-btn .hl-icon{width:18px;height:18px;display:block}
 .host-login-btn:disabled,.host-login-btn.taken{
   opacity:.45;cursor:not-allowed;border-color:rgba(155,163,181,.22);color:rgba(155,163,181,.6)
 }
-.host-login-btn:disabled .hl-dot,.host-login-btn.taken .hl-dot{animation:none;background:rgba(155,163,181,.5);box-shadow:none}
 
 /* ── 主持人登入 Modal ── */
 .host-modal{position:fixed;inset:0;z-index:2000;display:none;align-items:center;justify-content:center;padding:20px}
@@ -917,9 +915,11 @@ body:has(#stage-login.active) .host-login-btn{display:flex}
 <body>
 
 <!-- ═══════ 主持人登入入口（永久存在；Demo bar 之外） ═══════ -->
-<button id="host-login-btn" class="host-login-btn" onclick="openHostModal()">
-  <span class="hl-dot"></span>
-  <span class="hl-text">主持人登入</span>
+<button id="host-login-btn" class="host-login-btn" onclick="openHostModal()" aria-label="主持人登入" title="主持人登入">
+  <svg class="hl-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <circle cx="12" cy="8" r="4"/>
+    <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/>
+  </svg>
 </button>
 
 <!-- ═══════ 主持人登入彈窗 ═══════ -->
@@ -1252,16 +1252,17 @@ if (_bc) {
 
 function updateHostBtnState() {
   const btn = document.getElementById('host-login-btn');
-  const text = btn?.querySelector('.hl-text');
-  if (!btn || !text) return;
+  if (!btn) return;
   if (isHostChannelTaken()) {
     btn.classList.add('taken');
     btn.disabled = true;
-    text.textContent = '主持人已登入';
+    btn.title = '主持人已登入';
+    btn.setAttribute('aria-label', '主持人已登入');
   } else {
     btn.classList.remove('taken');
     btn.disabled = false;
-    text.textContent = '主持人登入';
+    btn.title = '主持人登入';
+    btn.setAttribute('aria-label', '主持人登入');
   }
 }
 
