@@ -130,20 +130,18 @@ input{-webkit-appearance:none;border-radius:0}
    stage-login,看不到按鈕 → 拿不到 presenter 角色。改成一直顯示,
    被 claim 後 .taken / disabled 狀態自然會把它鎖灰。 */
 .host-login-btn{
-  position:fixed;bottom:12px;right:12px;z-index:1000;
+  position:fixed;bottom:14px;right:14px;z-index:1000;
+  width:34px;height:34px;padding:0;
   background:rgba(5,9,18,.92);border:1px solid rgba(212,163,75,.4);
-  color:#D4A34B;font-family:"JetBrains Mono",monospace;
-  font-size:10px;letter-spacing:.16em;padding:6px 12px;
-  text-transform:uppercase;display:flex;align-items:center;gap:7px;
+  color:#D4A34B;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
   backdrop-filter:blur(8px);transition:all 200ms;cursor:pointer;
 }
 .host-login-btn:hover:not(:disabled){border-color:#D4A34B;background:rgba(212,163,75,.12);color:#EDC266}
-.host-login-btn .hl-dot{width:5px;height:5px;border-radius:50%;background:currentColor;box-shadow:0 0 8px currentColor;animation:hlPulse 2.4s ease-in-out infinite}
-@keyframes hlPulse{0%,100%{opacity:.5}50%{opacity:1}}
+.host-login-btn .hl-icon{width:18px;height:18px;display:block}
 .host-login-btn:disabled,.host-login-btn.taken{
   opacity:.45;cursor:not-allowed;border-color:rgba(155,163,181,.22);color:rgba(155,163,181,.6)
 }
-.host-login-btn:disabled .hl-dot,.host-login-btn.taken .hl-dot{animation:none;background:rgba(155,163,181,.5);box-shadow:none}
 
 /* ── 主持人登入 Modal ── */
 .host-modal{position:fixed;inset:0;z-index:2000;display:none;align-items:center;justify-content:center;padding:20px}
@@ -922,9 +920,11 @@ input{-webkit-appearance:none;border-radius:0}
 <body>
 
 <!-- ═══════ 主持人登入入口（永久存在；Demo bar 之外） ═══════ -->
-<button id="host-login-btn" class="host-login-btn" onclick="openHostModal()">
-  <span class="hl-dot"></span>
-  <span class="hl-text">主持人登入</span>
+<button id="host-login-btn" class="host-login-btn" onclick="openHostModal()" aria-label="主持人登入" title="主持人登入">
+  <svg class="hl-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <circle cx="12" cy="8" r="4"/>
+    <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/>
+  </svg>
 </button>
 
 <!-- ═══════ 主持人登入彈窗 ═══════ -->
