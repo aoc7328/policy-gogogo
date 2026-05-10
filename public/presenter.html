@@ -615,6 +615,42 @@ html, body { background: #080A10; font-family: var(--font-sans); -webkit-font-sm
  .custom-main-title { font-size: 72px; }
 }
 
+/* ============================================================
+   SCREEN K · 遊戲結束 / 總成績(由助理 export_result 觸發)
+   ============================================================ */
+#scr-end { padding: 0; flex-direction: column; align-items: stretch; justify-content: flex-start; }
+#scr-end .end-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; padding: 56px 64px; }
+#scr-end .end-hd { text-align: center; animation: fadeUp 600ms var(--ease) both; }
+#scr-end .end-badge { display: inline-block; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.42em; color: var(--accent); text-transform: uppercase; padding: 6px 14px; border: 1px solid var(--line-strong); margin-bottom: 18px; }
+#scr-end .end-title { font-family: var(--font-serif); font-weight: 900; font-size: 76px; line-height: 1; color: var(--ink-1); letter-spacing: 0.14em; }
+#scr-end .end-meta { margin-top: 14px; font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); letter-spacing: 0.18em; text-transform: uppercase; }
+#scr-end .scoreboard { width: 100%; max-width: 880px; display: flex; flex-direction: column; gap: 12px; padding: 28px 32px; background: rgba(155,163,181,0.04); border: 1px solid var(--line); animation: fadeUp 700ms var(--ease) 120ms both; }
+#scr-end .sb-eyebrow { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.32em; color: var(--accent); text-transform: uppercase; margin-bottom: 6px; }
+#scr-end .sb-row { display: grid; grid-template-columns: 56px 180px 1fr 110px; align-items: center; gap: 16px; padding: 10px 0; border-top: 1px solid var(--line); }
+#scr-end .sb-row:first-of-type { border-top: 0; }
+#scr-end .sb-rank { font-family: var(--font-mono); font-size: 22px; font-weight: 300; color: var(--ink-3); text-align: center; }
+#scr-end .sb-name { font-family: var(--font-serif); font-weight: 700; font-size: 22px; color: var(--ink-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#scr-end .sb-track { position: relative; height: 18px; background: rgba(155,163,181,0.08); border: 1px solid var(--line); overflow: hidden; }
+#scr-end .sb-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--ink-3); transition: width 800ms var(--ease); }
+#scr-end .sb-val { font-family: var(--font-mono); font-size: 24px; font-weight: 300; color: var(--ink-2); text-align: right; }
+#scr-end .sb-row.r1 .sb-rank, #scr-end .sb-row.r1 .sb-val { color: var(--accent-bright); }
+#scr-end .sb-row.r1 .sb-fill { background: var(--accent-bright); box-shadow: 0 0 14px var(--glow); }
+#scr-end .sb-row.r2 .sb-rank, #scr-end .sb-row.r2 .sb-val { color: var(--ink-1); }
+#scr-end .sb-row.r2 .sb-fill { background: var(--ink-2); }
+#scr-end .sb-row.r3 .sb-rank, #scr-end .sb-row.r3 .sb-val { color: var(--accent); }
+#scr-end .sb-row.r3 .sb-fill { background: var(--accent); opacity: 0.78; }
+#scr-end .end-foot { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); letter-spacing: 0.18em; text-transform: uppercase; opacity: 0.7; }
+
+@media (max-width: 640px) {
+  #scr-end .end-wrap { padding: 28px 18px; gap: 18px; }
+  #scr-end .end-title { font-size: 44px; letter-spacing: 0.08em; }
+  #scr-end .scoreboard { padding: 18px 16px; }
+  #scr-end .sb-row { grid-template-columns: 38px 96px 1fr 60px; gap: 10px; }
+  #scr-end .sb-name { font-size: 16px; }
+  #scr-end .sb-val { font-size: 18px; }
+  #scr-end .sb-rank { font-size: 16px; }
+}
+
 </style>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script src="lib/partybus.js"></script>
@@ -1014,6 +1050,24 @@ html, body { background: #080A10; font-family: var(--font-sans); -webkit-font-sm
           <div class="purg-arr-omen">Fate Has Chosen</div>
           <div class="purg-arr-title">煉獄</div>
           <div class="purg-arr-sub">Purgatory · 命運降臨</div>
+        </div>
+      </div>
+
+      <!-- ============================================================
+           SCREEN K · 遊戲結束 / 總成績(由助理 export_result 廣播觸發)
+           ============================================================ -->
+      <div class="screen" id="scr-end">
+        <div class="end-wrap">
+          <div class="end-hd">
+            <div class="end-badge">Game Over</div>
+            <div class="end-title">遊戲已結束</div>
+            <div class="end-meta" id="end-meta">—</div>
+          </div>
+          <div class="scoreboard" id="end-scoreboard">
+            <div class="sb-eyebrow">Final Standings · 總成績</div>
+            <!-- 動態插入 .sb-row -->
+          </div>
+          <div class="end-foot" id="end-foot">本場已結束 · 助理可按重新開始</div>
         </div>
       </div>
 
@@ -2464,6 +2518,56 @@ PartyBus.on('team_rename', payload => {
     }
   }
 });
+
+/* 助理按結束本場 → 主持人切到「遊戲已結束」總成績頁 */
+PartyBus.on('export_result', payload => {
+  console.log('[PGG/presenter] received export_result', payload);
+  if (!payload) return;
+  renderEndScreen(payload);
+  goto('scr-end');
+});
+
+const MODE_LABEL_END = { ordinary: '普通模式', hell: '地獄模式', paradise: '極樂模式', custom: '自由模式' };
+
+function renderEndScreen(payload) {
+  // meta 列:模式 · 共 X 題
+  const modeLabel = payload.modeLabel || MODE_LABEL_END[payload.mode] || (currentMode ? MODE_LABEL_END[currentMode] : '—');
+  const actualQ = payload.actualQ ?? (payload.askedQuestions?.length ?? 0);
+  const meta = document.getElementById('end-meta');
+  if (meta) meta.textContent = `${modeLabel} · 共 ${actualQ} 題`;
+
+  // 排序:server 已給 sortedGroups,缺就 fallback 自己排
+  const sorted = (payload.sortedGroups && payload.sortedGroups.length)
+    ? payload.sortedGroups
+    : [...(payload.groups || [])].sort((a, b) => (b.score || 0) - (a.score || 0));
+  const maxScore = Math.max(...sorted.map(g => g.score || 0), 1);
+
+  const board = document.getElementById('end-scoreboard');
+  if (!board) return;
+  // 移除舊的 .sb-row(保留 .sb-eyebrow)
+  board.querySelectorAll('.sb-row').forEach(el => el.remove());
+
+  sorted.forEach((g, i) => {
+    const rank = i + 1;
+    const pct = Math.round(((g.score || 0) / maxScore) * 100);
+    const row = document.createElement('div');
+    row.className = `sb-row r${rank <= 3 ? rank : 'n'}`;
+    row.innerHTML = `
+      <div class="sb-rank">${rank}</div>
+      <div class="sb-name">${g.name || '—'}</div>
+      <div class="sb-track"><div class="sb-fill" data-pct="${pct}"></div></div>
+      <div class="sb-val">${g.score ?? 0}</div>
+    `;
+    board.appendChild(row);
+  });
+
+  // 長條動畫(下一個 frame 才設 width,確保 transition 觸發)
+  requestAnimationFrame(() => {
+    board.querySelectorAll('.sb-fill').forEach(el => {
+      el.style.width = (el.dataset.pct || 0) + '%';
+    });
+  });
+}
 
 /* 重新開始:回到一開始的 scr-select 模式選擇頁 */
 PartyBus.on('game_restart', () => {
