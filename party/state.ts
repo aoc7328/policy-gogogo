@@ -122,6 +122,9 @@ export interface RoomState {
   purgArmed: boolean;                           // assistant 秘技 (Phase 0 Q4)
   usedIds: Set<string>;
   askedQuestions: { id: string; difficulty: Difficulty; framework: string }[];
+  // 一字千金 cap 計數:本場已抽出的 word_game 題數(含被 redraw 換掉的;
+  // 換掉的題目已在台上亮過,保守起見照算)。
+  wordGameAsked: number;
 
   // Rush mode selection (UI choice) + resolved mode for current/last rush
   rushMode: RushMode;
@@ -158,6 +161,7 @@ export function createInitialState(roomId: string, controlCode: string): RoomSta
     purgArmed: false,
     usedIds: new Set(),
     askedQuestions: [],
+    wordGameAsked: 0,
     rushMode: 'speed',
     rushModeActual: null,
     rushSession: null,
@@ -182,6 +186,7 @@ export function startGame(state: RoomState, config: GameConfig): void {
   state.purgArmed = false;
   state.usedIds = new Set();
   state.askedQuestions = [];
+  state.wordGameAsked = 0;
   state.groups = config.groups.map((g, i) => ({
     idx: i,
     name: g.name,

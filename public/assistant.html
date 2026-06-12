@@ -842,6 +842,15 @@ input::placeholder{color:var(--ink-3)}
             <div class="total-pill" id="total-pill">100 分</div>
           </div>
         </div>
+        <div class="fld" style="margin-top:10px">
+          <span class="flbl">一字千金出現上限(自由模式用題型勾選控制、不吃此設定)</span>
+          <div class="cust-chips" id="wg-cap-chips" style="margin-top:4px">
+            <button class="cust-chip active" data-wgcap=""  onclick="setWordGameCap(this)">不限</button>
+            <button class="cust-chip"        data-wgcap="1" onclick="setWordGameCap(this)">最多 1 題</button>
+            <button class="cust-chip"        data-wgcap="2" onclick="setWordGameCap(this)">最多 2 題</button>
+            <button class="cust-chip"        data-wgcap="0" onclick="setWordGameCap(this)">關閉</button>
+          </div>
+        </div>
       </div>
 
       <div class="setup-block">
@@ -1108,6 +1117,9 @@ const S={
   // 自由模式次選項(預設只勾簡單 + 選擇題)
   customTiers:['easy'],
   customTypes:['multiple_choice'],
+  // 一字千金出現上限:null=不限(legacy)、0=關閉、N=每場最多 N 題。
+  // 只對普通/地獄/極樂生效;自由模式用題型勾選控制,server 端會忽略。
+  wordGameCap:null,
   // 當前題目分類(F1~F9,助理九宮格選擇)
   currentCat:null,
   // 九宮格兩階段選擇狀態
@@ -1930,6 +1942,15 @@ function pickMode(m){
 }
 
 /* 自由模式 chip 切換(不可全部取消,至少留一個) */
+/* 一字千金上限:單選 segmented control。data-wgcap="" → null(不限)。 */
+function setWordGameCap(el) {
+  const raw = el.dataset.wgcap;
+  S.wordGameCap = raw === '' ? null : parseInt(raw, 10);
+  document.querySelectorAll('#wg-cap-chips .cust-chip').forEach(c => {
+    c.classList.toggle('active', c === el);
+  });
+}
+
 function toggleCustChip(el) {
   const grp = el.dataset.grp;
   const val = el.dataset.val;
@@ -2182,6 +2203,7 @@ function startGame(){
     spq: S.spq,
     groups: S.groups.map(g => ({ name: g.name })),
     rushMode: S.rushMode,
+    wordGameCap: S.wordGameCap,
   });
   // Phase 3:不再本地 emit 初始 score_update;server 收到 game_start
   // 命令後會自己廣播一次 score_update(全 0 baseline)給三端。

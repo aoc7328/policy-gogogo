@@ -330,6 +330,20 @@ export default class PolicyGogogoServer implements Party.Server {
     this.broadcast({ type: 'category_preview', payload });
   }
 
+  /**
+   * 一字千金 cap → picker excludeTypes。
+   * - custom mode 不套用(有自己的 customTypes 勾選)
+   * - cap 是 null/undefined → 不限(legacy 行為)
+   * - 已抽出的 word_game 數 >= cap → 之後排除 word_game
+   */
+  private wordGameExcludeTypes(): string[] | null {
+    const game = this.state.game;
+    if (!game || game.mode === 'custom') return null;
+    const cap = game.wordGameCap;
+    if (cap === null || cap === undefined) return null;
+    return this.state.wordGameAsked >= cap ? ['word_game'] : null;
+  }
+
   private onCategoryConfirm(
     payload: { fid: string },
     sender: Party.Connection<ConnState>
@@ -363,6 +377,7 @@ export default class PolicyGogogoServer implements Party.Server {
         this.state.game.mode === 'custom' && this.state.game.customTypes.length > 0
           ? this.state.game.customTypes
           : null,
+      excludeTypes: this.wordGameExcludeTypes(),
       usedIds: this.state.usedIds,
       purgArmed: this.state.purgArmed,
     });
@@ -393,6 +408,7 @@ export default class PolicyGogogoServer implements Party.Server {
     this.state.currentCat = payload.fid;
     this.state.catLocked = true;
     this.state.usedIds.add(result.question.id);
+    if (result.question.type === 'word_game') this.state.wordGameAsked++;
     this.state.askedQuestions.push({
       id: result.question.id,
       difficulty: result.question.difficulty,
@@ -563,6 +579,7 @@ export default class PolicyGogogoServer implements Party.Server {
         this.state.game.mode === 'custom' && this.state.game.customTypes.length > 0
           ? this.state.game.customTypes
           : null,
+      excludeTypes: this.wordGameExcludeTypes(),
       usedIds: this.state.usedIds,
       purgArmed: false, // 重抽不消耗 purgArmed flag
     });
@@ -578,6 +595,7 @@ export default class PolicyGogogoServer implements Party.Server {
 
     // 替換 currentQuestion + askedQuestions 最後一筆
     this.state.usedIds.add(result.question.id);
+    if (result.question.type === 'word_game') this.state.wordGameAsked++;
     if (this.state.askedQuestions.length > 0) {
       this.state.askedQuestions[this.state.askedQuestions.length - 1] = {
         id: result.question.id,

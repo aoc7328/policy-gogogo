@@ -149,7 +149,7 @@ html,body{height:100%;background:#050912;color:#F2EDE1;font-family:"Noto Sans TC
     </div>
     <div class="tb-col-body">
       <div class="tb-loading">Loading presenter...</div>
-      <iframe id="if-presenter" data-src="presenter.html" allow="autoplay"></iframe>
+      <iframe id="if-presenter" data-src="presenter" allow="autoplay"></iframe>
     </div>
   </div>
 
@@ -165,7 +165,7 @@ html,body{height:100%;background:#050912;color:#F2EDE1;font-family:"Noto Sans TC
     </div>
     <div class="tb-col-body">
       <div class="tb-loading">Loading assistant...</div>
-      <iframe id="if-assistant" data-src="assistant.html"></iframe>
+      <iframe id="if-assistant" data-src="assistant"></iframe>
     </div>
   </div>
 
@@ -182,7 +182,7 @@ html,body{height:100%;background:#050912;color:#F2EDE1;font-family:"Noto Sans TC
     <div class="tb-col-body">
       <div class="frame-wrap">
         <div class="tb-loading">Loading participant...</div>
-        <iframe id="if-participant" data-src="participant.html"></iframe>
+        <iframe id="if-participant" data-src="participant"></iframe>
       </div>
     </div>
   </div>
@@ -198,12 +198,15 @@ html,body{height:100%;background:#050912;color:#F2EDE1;font-family:"Noto Sans TC
 (function injectIframeRooms() {
   const qs = new URLSearchParams(window.location.search);
   const room = qs.get('room') || String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+  // ?host=127.0.0.1:1999 一併轉發給三個 iframe,本機 partykit dev 測試用
+  const host = qs.get('host');
   try { localStorage.setItem('pgg_last_room', room); } catch {}
   ['presenter', 'assistant', 'participant'].forEach(role => {
     const f = document.getElementById('if-' + role);
     if (!f) return;
     const base = f.getAttribute('data-src');
-    if (base) f.src = base + '?room=' + encodeURIComponent(room);
+    if (base) f.src = base + '?room=' + encodeURIComponent(room)
+      + (host ? '&host=' + encodeURIComponent(host) : '');
   });
   // 順手把房號顯示在頂部 zoom 旁邊,方便除錯時對房號
   const bar = document.querySelector('.tb-bar');

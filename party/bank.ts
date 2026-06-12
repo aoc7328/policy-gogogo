@@ -208,6 +208,12 @@ export interface PickInput {
   framework: string | null;
   /** Allowed types (filters by `type` field). null = any type. */
   typeWhitelist: string[] | null;
+  /**
+   * Types to exclude from the draw (applied after typeWhitelist).
+   * Used for the word_game per-game cap. null/empty = exclude nothing.
+   * Ignored on the purgArmed path — 武裝煉獄是強制覆蓋。
+   */
+  excludeTypes?: string[] | null;
   /** Already-asked question ids; picker skips these. */
   usedIds: ReadonlySet<string>;
   /**
@@ -263,6 +269,9 @@ export function pickQuestion(input: PickInput): PickOk | PickError {
     }
     if (input.typeWhitelist) {
       candidates = candidates.filter((q) => input.typeWhitelist!.includes(q.type));
+    }
+    if (input.excludeTypes && input.excludeTypes.length > 0) {
+      candidates = candidates.filter((q) => !input.excludeTypes!.includes(q.type));
     }
     const beforeUsedFilter = candidates.length;
     candidates = candidates.filter((q) => !input.usedIds.has(q.id));

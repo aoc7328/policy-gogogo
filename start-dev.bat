@@ -2,7 +2,7 @@
 chcp 65001 >nul
 REM === policy-gogogo dev environment launcher ===
 
-set "PROJECT_DIR=C:\dev\policy-gogogo"
+set "PROJECT_DIR=F:\policy-gogogo"
 
 echo.
 echo  Starting policy-gogogo dev environment...

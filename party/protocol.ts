@@ -38,6 +38,14 @@ export interface GameConfig {
   spq: number;                        // score per question
   groups: { name: string }[];
   rushMode: RushMode;
+  /**
+   * 一字千金 (word_game) per-game cap for non-custom modes.
+   * null / undefined = unlimited (legacy behavior); 0 = never pick;
+   * N>0 = once N word_game questions have been picked this game, the
+   * picker excludes the type. Custom mode ignores this (it has its own
+   * customTypes whitelist).
+   */
+  wordGameCap?: number | null;
 }
 
 export interface TeamScore {

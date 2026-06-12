@@ -17,34 +17,34 @@
   --line:rgba(155,163,181,.14); --line-s:rgba(155,163,181,.28);
   --glow:rgba(212,163,75,.25);
 }
-/* 普通 — 暖金沙 */
+/* 普通 — 書院晨光:暖木深褐 + 墨金 */
 .tm-ordinary {
-  --bg:#14100A; --bg-s:#1E1810; --bg-r:#2A2116;
+  --bg:#191108; --bg-s:#221809; --bg-r:#2E2010;
   --ink-1:#F0E4C9; --ink-2:#BFA781; --ink-3:#8B7552; --ink-4:#5C4D33;
   --accent:#D4A34B; --accent-b:#EDC266; --accent-d:#8B6F3D;
   --accent-s:rgba(212,163,75,.16); --accent-l:rgba(212,163,75,.42);
-  --line:rgba(212,163,75,.18); --line-s:rgba(212,163,75,.4);
-  --glow:rgba(212,163,75,.25);
+  --line:rgba(212,163,75,.22); --line-s:rgba(212,163,75,.45);
+  --glow:rgba(237,194,102,.28);
 }
-/* 地獄 — 深藍底 + 赤紅(主) + 金(輔) */
+/* 地獄 — 餘燼煉場:炭黑 + 血紅(主) + 金(輔) */
 .tm-hell {
-  --bg:#040812; --bg-s:#0A0F26; --bg-r:#121B3A;
-  --ink-1:#E8E4D8; --ink-2:#8BA0C4; --ink-3:#556A88; --ink-4:#2E3A52;
+  --bg:#070509; --bg-s:#120912; --bg-r:#1C0F18;
+  --ink-1:#F2E4DC; --ink-2:#C08090; --ink-3:#7A4E5C; --ink-4:#46303A;
   --accent:#D8344A; --accent-b:#EC5068; --accent-d:#8B2030;
-  --accent-s:rgba(216,52,74,.18); --accent-l:rgba(216,52,74,.45);
+  --accent-s:rgba(216,52,74,.18); --accent-l:rgba(216,52,74,.48);
   --secondary:#D4A34B;
-  --line:rgba(216,52,74,.18); --line-s:rgba(216,52,74,.45);
-  --glow:rgba(216,52,74,.3);
+  --line:rgba(216,52,74,.22); --line-s:rgba(216,52,74,.5);
+  --glow:rgba(216,52,74,.38);
 }
-/* 極樂 — 深海藍底 + 金(主) + 紫/天光青白(輔) */
+/* 極樂 — 琉璃天界:紫曜穹頂 + 流光金(主) + 紫/冰藍(輔) */
 .tm-paradise {
-  --bg:#070614; --bg-s:#0E0B22; --bg-r:#1A1438;
-  --ink-1:#F0E8D0; --ink-2:#B8A8D8; --ink-3:#7D6A9C; --ink-4:#4F4068;
+  --bg:#120C30; --bg-s:#1B1244; --bg-r:#271A56;
+  --ink-1:#F0E8D0; --ink-2:#B8A8D8; --ink-3:#8D7AAC; --ink-4:#4F4068;
   --accent:#D4A34B; --accent-b:#F0C060; --accent-d:#8B6820;
   --accent-s:rgba(212,163,75,.16); --accent-l:rgba(212,163,75,.42);
   --secondary:#B48DD8; --tertiary:#7DABD8;
-  --line:rgba(212,163,75,.18); --line-s:rgba(212,163,75,.4);
-  --glow:rgba(180,141,216,.35);
+  --line:rgba(180,141,216,.22); --line-s:rgba(180,141,216,.48);
+  --glow:rgba(180,141,216,.42);
 }
 /* 自由 — 灰白米底 + 金棕(主) + 朱印紅(輔) · 文人風 */
 .tm-custom {
@@ -74,17 +74,25 @@ body::before{
   content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   transition:opacity 900ms cubic-bezier(.2,.7,.2,1),background 900ms cubic-bezier(.2,.7,.2,1);
 }
-/* 地獄:雙徑向漸層(赤紅 glow + 金色點綴) */
+/* 普通:書卷直欄格線 + 頂部晨光 */
+body.tm-ordinary::before{
+  background:
+    repeating-linear-gradient(90deg, transparent 0 43px, rgba(212,163,75,.05) 43px 44px),
+    linear-gradient(90deg, transparent, rgba(237,194,102,.7), transparent) 50% 0/220px 2px no-repeat,
+    radial-gradient(ellipse 130% 45% at 50% -14%, rgba(237,194,102,.2) 0%, transparent 60%);
+}
+/* 地獄:炭黑斜痕 + 底部餘燼湧光 */
 body.tm-hell::before{
   background:
-    radial-gradient(ellipse at 20% 15%, var(--glow) 0%, transparent 55%),
-    radial-gradient(ellipse at 85% 85%, rgba(212,163,75,.12) 0%, transparent 55%);
+    repeating-linear-gradient(135deg, transparent 0 56px, rgba(216,52,74,.08) 56px 58px),
+    radial-gradient(ellipse 130% 50% at 50% 112%, rgba(216,52,74,.45) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 35% at 90% -8%, rgba(216,52,74,.14) 0%, transparent 55%);
 }
-/* 極樂:星空粒子 + 中央紫色 glow,呼吸動畫 */
+/* 極樂:星空粒子 + 紫曜穹頂,呼吸動畫 */
 body.tm-paradise{
   background:
-    radial-gradient(ellipse 130% 70% at 50% -15%, rgba(20,65,110,.95) 0%, transparent 65%),
-    #050F20;
+    radial-gradient(ellipse 130% 70% at 50% -15%, rgba(58,36,118,.95) 0%, transparent 65%),
+    #0E0B22;
 }
 body.tm-paradise::before{
   background:
@@ -99,11 +107,14 @@ body.tm-paradise::before{
     radial-gradient(1.5px 1.5px at 35% 75%, rgba(212,163,75,.6), transparent 50%);
   animation:starBreathe 5s ease-in-out infinite;
 }
-/* 中央亮藍橢圓光暈(從上方天空撒下) */
+/* 中央天光光暈(紫曜) + 同心光環 */
 body.tm-paradise::after{
   content:'';position:fixed;top:-100px;left:50%;transform:translateX(-50%);
   width:500px;height:320px;
-  background:radial-gradient(ellipse, rgba(208,238,248,.40) 0%, rgba(160,203,232,.18) 35%, rgba(74,138,174,.05) 65%, transparent 85%);
+  background:
+    radial-gradient(circle at 50% 72%, transparent 88px, rgba(240,192,96,.3) 89px, rgba(240,192,96,.3) 90px, transparent 91px),
+    radial-gradient(circle at 50% 72%, transparent 106px, rgba(180,141,216,.26) 107px, rgba(180,141,216,.26) 108px, transparent 109px),
+    radial-gradient(ellipse, rgba(226,208,255,.38) 0%, rgba(180,141,216,.18) 35%, rgba(125,171,216,.05) 65%, transparent 85%);
   animation:skyPulse 5s ease-in-out infinite;
   pointer-events:none;z-index:0;
 }
@@ -589,6 +600,10 @@ input{-webkit-appearance:none;border-radius:0}
 /* 選擇題選項 */
 .opts{display:flex;flex-direction:column;gap:9px}
 .opt{display:flex;gap:12px;padding:12px 14px;background:var(--bg-s);border:1px solid var(--line);transition:all 480ms ease-out}
+/* 模式形狀語言(對齊主持人端):普通=方正墨線、地獄=紅刃左緣、極樂=右圓角 */
+body.tm-ordinary .opt{border-left:3px solid var(--accent-d)}
+body.tm-hell .opt{border-left:3px solid var(--accent)}
+body.tm-paradise .opt{border-radius:0 12px 12px 0;border-left:3px solid var(--secondary)}
 .opt .ol{font-family:"JetBrains Mono",monospace;font-size:12px;font-weight:500;color:var(--ink-3);flex-shrink:0;padding-top:2px}
 .opt .ot{font-size:15px;line-height:1.6;color:var(--ink-1)}
 .opt.ok{background:var(--accent);border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-s),0 0 28px var(--accent-s);transform:translateX(4px)}
