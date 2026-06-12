@@ -1342,15 +1342,13 @@ let _presenterClaimed = false;          // 收到 broadcast / room_state 設 tru
 let _claimingNow = false;               // 本機正在送 claim,等 server 回應
 
 function setPresenterClaimedUI() {
+  // 多投影機支援:不再隱藏/鎖定按鈕 — 大場地可能有 2~5 台投影電腦
+  // 都要走「短網址 → 人形圖示 → 控制碼」變成主持人畫面。控制碼本身
+  // 就是門檻,按鈕留著對一般參賽者無害(沒碼進不去)。
   _presenterClaimed = true;
-  // claim 完成後直接從 DOM 移除按鈕(不只是禁用變灰),避免佔位干擾 UI。
-  // 已 claim 的房間任何人都拿不回 presenter 角色,留著按鈕沒意義。
-  const btn = document.getElementById('host-login-btn');
-  if (btn) btn.style.display = 'none';
 }
 
 function openHostModal() {
-  if (_presenterClaimed) return;
   const m = document.getElementById('host-modal');
   m.classList.add('show');
   document.getElementById('hm-input').value = '';

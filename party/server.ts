@@ -527,9 +527,13 @@ export default class PolicyGogogoServer implements Party.Server {
   /**
    * 主持人介面 claim flow:
    * - 驗證 payload.code 與 state.controlCode 相符
-   * - 已被 claim → 回 __error__('already_claimed')
-   * - 否則設 flag + 廣播 presenter_claimed → 所有 participant 鎖按鈕,
-   *   呼叫端從 broadcast 知道自己 claim 成功(因為自己也會收到)
+   * - 多投影機支援:控制碼正確就放行,不再限一台(大場地一房可能
+   *   有 2~5 台投影電腦都要開主持人畫面;presenter 是純顯示端、
+   *   無搶訊號問題)。presenterClaimed 旗標保留(首次 claim 設起,
+   *   讓 participant 端知道「已有主持機」可顯示提示),重複 claim
+   *   為冪等成功。
+   * - 廣播 presenter_claimed → 呼叫端從 broadcast 知道自己 claim
+   *   成功(因為自己也會收到)
    */
   private onClaimPresenter(
     payload: { code: string },
@@ -542,10 +546,6 @@ export default class PolicyGogogoServer implements Party.Server {
     }
     if (code !== this.state.controlCode) {
       this.sendError(sender, 'bad_code', '控制碼錯誤,請向助理確認');
-      return;
-    }
-    if (this.state.presenterClaimed) {
-      this.sendError(sender, 'already_claimed', '主持人介面已被其他裝置開啟');
       return;
     }
     this.state.presenterClaimed = true;

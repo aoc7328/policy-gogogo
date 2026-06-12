@@ -1676,7 +1676,76 @@ PartyBus.on('__room_state__', snap => {
     document.querySelectorAll('.brand-suffix').forEach(el => { el.textContent = b.titleSuffix; });
     document.title = `${b.titlePrefix}${b.titleSuffix} · 主持人端`;
   }
+  // 多投影機:遊戲進行中/已結束時,用 server 快照還原現場畫面,
+  // 讓「中途開機/重整的第 2~5 台投影」不會卡在 scr-select。
+  if (snap && snap.phase && snap.phase !== 'lobby' && snap.game) {
+    hydratePresenterFromSnapshot(snap, 0);
+  }
 });
+
+/* 用 server __room_state__ 快照還原投影畫面(多投影機中途加入/重整用)。
+   題目內容要從本地 BANK 查,BANK 是非同步 fetch — 還原到題目畫面時若
+   BANK 還沒就緒,每 500ms 重試(最多 10 次)。純顯示還原,不送任何指令。 */
+function hydratePresenterFromSnapshot(snap, attempt) {
+  const needQ = !!(snap.currentQuestion && snap.currentQuestion.id);
+  if (needQ && !getQuestionById(snap.currentQuestion.id) && attempt < 10) {
+    setTimeout(() => hydratePresenterFromSnapshot(snap, attempt + 1), 500);
+    return;
+  }
+  const g = snap.game;
+  selectedMode = g.mode;
+  pendingMode  = g.mode;
+  currentMode  = g.mode;
+  presenterCustomTiers = g.customTiers || [];
+  presenterCustomTypes = g.customTypes || [];
+  presenterUsedIds = new Set(Array.isArray(snap.askedIds) ? snap.askedIds : []);
+  presenterRushMode = snap.rushModeActual || snap.rushMode || g.rushMode || 'speed';
+  // 模式視覺(同 game_start handler 的切換邏輯)
+  if (currentMode) stage.dataset.mode = currentMode;
+  document.querySelectorAll('.bg-layer').forEach(el => el.classList.remove('active'));
+  document.getElementById('bg-' + currentMode)?.classList.add('active');
+  document.getElementById('paradise-particles')?.classList.toggle('active', currentMode === 'paradise');
+  if (typeof updateCategoryGridPresenter === 'function') updateCategoryGridPresenter();
+  // round:answering/revealed 時 currQ 即本輪;其餘階段是「準備第 currQ+1 輪」
+  const inQuestion = (snap.phase === 'answering' || snap.phase === 'revealed');
+  round = Math.max(1, (snap.currQ || 0) + (inQuestion ? 0 : 1));
+  const sbRound = document.getElementById('standby-round');
+  if (sbRound) sbRound.textContent = `ROUND ${String(round).padStart(2, '0')}`;
+  if (typeof updateStandbyRushPreview === 'function') updateStandbyRushPreview();
+
+  if (snap.phase === 'ended') {
+    // 用快照分數合成結束畫面 payload(成員/題目清單非必要欄位)
+    renderEndScreen({
+      mode: g.mode,
+      actualQ: (snap.askedIds || []).length,
+      sortedGroups: [...(snap.groups || [])]
+        .sort((a, b) => (b.score || 0) - (a.score || 0))
+        .map(x => ({ name: x.name, score: x.score })),
+      groups: (snap.groups || []).map(x => ({ name: x.name, score: x.score, members: [] })),
+    });
+    goto('scr-end');
+    return;
+  }
+  if (inQuestion && needQ) {
+    currentQuestion = getQuestionById(snap.currentQuestion.id);
+    currentDifficulty = snap.currentQuestion.difficulty;
+    currentFramework = snap.currentQuestion.framework;
+    renderQuestion();
+    goto('scr-question');
+    if (snap.phase === 'revealed') revealAnswer();
+    return;
+  }
+  if (snap.phase === 'picking') {
+    if (typeof enterCategory === 'function') enterCategory();
+    if (snap.currentCat && !snap.catLocked && typeof previewCategory === 'function') {
+      previewCategory(snap.currentCat);
+    }
+    return;
+  }
+  // idle / rushing / won → 待命頁;後續事件(start_rush/rush_winner/
+  // enter_category)會自然把畫面接走。
+  goto('scr-standby');
+}
 
 /* 當前題目快取(每收到 question_pick 就更新) */
 let currentQuestion = null;
