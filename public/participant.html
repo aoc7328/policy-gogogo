@@ -662,33 +662,44 @@ body.tm-paradise .opt{border-radius:0 12px 12px 0;border-left:3px solid var(--se
   transition:transform 70ms ease-out,box-shadow 70ms ease-out,filter 70ms ease-out;
 }
 
-/* 紅色搶答鈕(縮小到佔螢幕 1/4 區塊內,~110px) */
+/* 搶答鈕 — 印璽風:吃各模式 --accent 系變數自動換色(普通金/地獄紅/極樂金紫/自由棕) */
 .buzz-btn{
   width:110px !important;height:110px !important;
-  background:radial-gradient(ellipse at 38% 28%, #F08898 0%, #C4202E 42%, #8A1020 100%);
+  background:radial-gradient(ellipse at 36% 26%, var(--accent-b) 0%, var(--accent) 46%, var(--accent-d) 100%);
   box-shadow:
-    0  3px 0 #780E1C,
-    0  6px 0 #640C18,
-    0  9px 0 #500A14,
-    0 12px 0 rgba(36,4,8,.85),
-    0 18px 26px rgba(48,6,12,.6),
-    inset 0 3px 6px rgba(255,255,255,.28),
-    inset 0 -3px 8px rgba(0,0,0,.28);
+    0  3px 0 var(--accent-d),
+    0  7px 0 rgba(0,0,0,.42),
+    0 11px 0 rgba(0,0,0,.28),
+    0 16px 22px rgba(0,0,0,.55),
+    inset 0 2px 5px rgba(255,255,255,.32),
+    inset 0 -4px 10px rgba(0,0,0,.30);
   cursor:pointer;
 }
+/* 內圈細環,印璽刻線感 */
+.buzz-btn::after{
+  content:'';position:absolute;inset:7px;border-radius:50%;
+  border:1px solid rgba(255,255,255,.30);pointer-events:none;
+}
 .buzz-btn:active,.buzz-btn.dn{
-  transform:translateY(10px);
+  transform:translateY(8px) scale(.97);
+  filter:brightness(1.12);
   box-shadow:
-    0 2px 0 #780E1C,
-    0 4px 0 rgba(36,4,8,.6),
-    0 6px 12px rgba(48,6,12,.45),
-    inset 0 3px 6px rgba(255,255,255,.28),
-    inset 0 -3px 8px rgba(0,0,0,.28);
+    0 2px 0 var(--accent-d),
+    0 4px 0 rgba(0,0,0,.35),
+    0 6px 10px rgba(0,0,0,.40),
+    inset 0 2px 5px rgba(255,255,255,.32),
+    inset 0 -4px 10px rgba(0,0,0,.30);
 }
 .buzz-btn .bb-label{
-  font-family:var(--font-serif);font-weight:900;font-size:22px;letter-spacing:.18em;
-  color:#fff;text-shadow:0 2px 4px rgba(0,0,0,.45),0 0 18px rgba(255,200,200,.35);
+  font-family:var(--font-serif);font-weight:900;font-size:22px;letter-spacing:.22em;
+  color:#fff;text-shadow:0 2px 4px rgba(0,0,0,.5),0 0 18px rgba(0,0,0,.25);
   pointer-events:none;
+}
+/* 按壓擴散光環(pointerdown 觸發,WAAPI 驅動,節點池複用) */
+.bz-ring{
+  position:absolute;inset:-6px;border-radius:50%;
+  border:2px solid var(--accent-b);opacity:0;
+  pointer-events:none;will-change:transform,opacity;
 }
 /* 搶答鈕脈動光環(開放搶答時顯示) */
 .buzz-btn.armed{
@@ -697,25 +708,23 @@ body.tm-paradise .opt{border-radius:0 12px 12px 0;border-left:3px solid var(--se
 @keyframes buzz-pulse{
   0%,100%{
     box-shadow:
-      0  3px 0 #780E1C,
-      0  6px 0 #640C18,
-      0  9px 0 #500A14,
-      0 12px 0 rgba(36,4,8,.85),
-      0 18px 26px rgba(48,6,12,.6),
-      0 0 0 0 rgba(255,80,100,.55),
-      inset 0 3px 6px rgba(255,255,255,.28),
-      inset 0 -3px 8px rgba(0,0,0,.28);
+      0  3px 0 var(--accent-d),
+      0  7px 0 rgba(0,0,0,.42),
+      0 11px 0 rgba(0,0,0,.28),
+      0 16px 22px rgba(0,0,0,.55),
+      0 0 0 0 var(--accent-l),
+      inset 0 2px 5px rgba(255,255,255,.32),
+      inset 0 -4px 10px rgba(0,0,0,.30);
   }
   50%{
     box-shadow:
-      0  3px 0 #780E1C,
-      0  6px 0 #640C18,
-      0  9px 0 #500A14,
-      0 12px 0 rgba(36,4,8,.85),
-      0 18px 26px rgba(48,6,12,.6),
-      0 0 0 18px rgba(255,80,100,0),
-      inset 0 3px 6px rgba(255,255,255,.28),
-      inset 0 -3px 8px rgba(0,0,0,.28);
+      0  3px 0 var(--accent-d),
+      0  7px 0 rgba(0,0,0,.42),
+      0 11px 0 rgba(0,0,0,.28),
+      0 16px 22px rgba(0,0,0,.55),
+      0 0 0 18px transparent,
+      inset 0 2px 5px rgba(255,255,255,.32),
+      inset 0 -4px 10px rgba(0,0,0,.30);
   }
 }
 
@@ -1844,6 +1853,68 @@ function lockBuzz() {
   // 清 allhands 冷卻覆蓋層(若殘留)
   _clearBuzzCooldown();
 }
+
+/* ══ 搶答鈕按壓回饋(pointerdown 路徑,毫秒級) ══
+   遊戲邏輯仍走 onclick=handleBuzz(語意不變);這裡只負責「按下去的感覺」:
+   1. .dn 壓下視覺 — pointerdown 立即加,pointerup/cancel 移除
+   2. 擴散光環 — 固定 6 顆節點池輪替,WAAPI 驅動(transform/opacity only,
+      狂點模式連點不產生新 DOM、不掉幀)
+   3. 按壓音 — WebAudio 現場合成短促「叩」聲,無音檔、無網路、單次 <1ms 排程
+   AudioContext 在第一次 pointerdown(user gesture)才建立,符合行動端自動播放政策 */
+(function initBuzzFeel() {
+  const btn = document.getElementById('btn-buzz');
+  if (!btn) return;
+  // 光環節點池
+  const POOL = 6;
+  const rings = [];
+  for (let i = 0; i < POOL; i++) {
+    const r = document.createElement('div');
+    r.className = 'bz-ring';
+    btn.appendChild(r);
+    rings.push(r);
+  }
+  let ringIdx = 0;
+  function burst() {
+    const r = rings[ringIdx];
+    ringIdx = (ringIdx + 1) % POOL;
+    r.animate(
+      [
+        { transform: 'scale(.55)', opacity: .9 },
+        { transform: 'scale(1.9)', opacity: 0 },
+      ],
+      { duration: 380, easing: 'cubic-bezier(.2,.7,.3,1)' }
+    );
+  }
+  // 合成按壓音:三角波 920Hz→420Hz 快速滑落 + 指數衰減,約 100ms
+  let ac = null;
+  function tick() {
+    try {
+      if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
+      if (ac.state === 'suspended') ac.resume();
+      const t = ac.currentTime;
+      const o = ac.createOscillator();
+      const g = ac.createGain();
+      o.type = 'triangle';
+      o.frequency.setValueAtTime(920, t);
+      o.frequency.exponentialRampToValueAtTime(420, t + 0.07);
+      g.gain.setValueAtTime(0.001, t);
+      g.gain.exponentialRampToValueAtTime(0.28, t + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.10);
+      o.connect(g); g.connect(ac.destination);
+      o.start(t); o.stop(t + 0.12);
+    } catch (e) { /* 無聲降級:WebAudio 不可用時不影響搶答 */ }
+  }
+  btn.addEventListener('pointerdown', () => {
+    if (btn.classList.contains('locked')) return;
+    btn.classList.add('dn');
+    burst();
+    tick();
+  }, { passive: true });
+  const release = () => btn.classList.remove('dn');
+  btn.addEventListener('pointerup', release, { passive: true });
+  btn.addEventListener('pointercancel', release, { passive: true });
+  btn.addEventListener('pointerleave', release, { passive: true });
+})();
 
 /* 清掉 allhands 冷卻倒數覆蓋層 + 重置冷卻狀態 + lightning 狀態 */
 function _clearBuzzCooldown() {
