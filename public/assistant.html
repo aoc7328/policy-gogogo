@@ -1255,7 +1255,72 @@ PartyBus.on('__room_state__', snap => {
   if (b && typeof b.titlePrefix === 'string' && typeof b.titleSuffix === 'string') {
     document.title = `${b.titlePrefix}${b.titleSuffix} · 助理端`;
   }
+  // 多助理:遊戲進行中/已結束時,用 server 快照完整還原本機 UI,
+  // 讓「中途加入的第 2、3 位助理」立即看到現場,而非卡在「尚未選擇模式」。
+  // lobby 階段不還原 — 此時助理還在設定頁編輯,不該被快照蓋掉。
+  if (snap && snap.phase && snap.phase !== 'lobby' && snap.game) {
+    hydrateFromSnapshot(snap);
+  }
 });
+
+/* 用 server __room_state__ 快照完整重建本機 S + UI(多助理中途加入/重連用)。
+   server 是權威;這裡只讀快照、不送任何指令。 */
+function hydrateFromSnapshot(snap){
+  const g = snap.game;
+  applyModeUI(g.mode, g.customTiers, g.customTypes);
+  S.totalQ = g.totalQ;
+  S.spq = g.spq;
+  S.rushMode = snap.rushMode || g.rushMode || S.rushMode;
+  S.wordGameCap = (g.wordGameCap === undefined ? null : g.wordGameCap);
+  S.currQ = snap.currQ || 0;
+  S.usedIds = new Set(Array.isArray(snap.askedIds) ? snap.askedIds : []);
+  S.currentCat = snap.currentCat || null;
+  S.catLocked = !!snap.catLocked;
+  S.purgArmed = !!snap.purgArmed;
+  // 重建分組(分數來自 snap.groups,成員由 snap.participants 依隊名歸戶)
+  const membersByTeam = {};
+  (snap.participants || []).forEach(p => {
+    if (!membersByTeam[p.team]) membersByTeam[p.team] = [];
+    if (!membersByTeam[p.team].includes(p.name)) membersByTeam[p.team].push(p.name);
+  });
+  S.groups = (snap.groups || []).map(grp => ({
+    id: `GROUP ${String(grp.idx + 1).padStart(2, '0')}`,
+    name: grp.name,
+    score: grp.score || 0,
+    members: membersByTeam[grp.name] || [],
+  }));
+  S.gameStarted = true;  // 進行中或已結束都算「曾開賽」→ 鎖設定頁、開放計分表
+  // 當前題目:用本地 BANK 依 id 查內容
+  if (snap.currentQuestion && snap.currentQuestion.id) {
+    const id = snap.currentQuestion.id;
+    const dSpec = BANK_SCHEMA.difficulties.find(d => d.prefix === id[0]);
+    const bank = dSpec ? BANK[dSpec.id] : null;
+    S.currentQuestion = (bank?.questions || []).find(x => x.id === id) || { id };
+    S.currentDifficulty = snap.currentQuestion.difficulty;
+    S.currentFramework = snap.currentQuestion.framework;
+  } else {
+    S.currentQuestion = null;
+    S.currentDifficulty = null;
+    S.currentFramework = null;
+  }
+  // 同步輸入框 + 計數器
+  const iq = document.getElementById('i-q'); if (iq) iq.value = S.totalQ;
+  const is = document.getElementById('i-s'); if (is) is.value = S.spq;
+  const inN = document.getElementById('i-n'); if (inN) { inN.value = String(S.groups.length); inN.disabled = true; }
+  const mq = document.getElementById('m-q'); if (mq) mq.textContent = `${S.currQ} / ${S.totalQ}`;
+  const mmax = document.getElementById('m-max'); if (mmax) mmax.textContent = `${S.totalQ * S.spq}`;
+  const totq = document.getElementById('tot-q'); if (totq) totq.textContent = S.totalQ;
+  const cq = document.getElementById('curr-q'); if (cq) cq.textContent = S.currQ;
+  const mr = document.getElementById('m-round'); if (mr) mr.textContent = String(Math.max(1, S.currQ)).padStart(2, '0');
+  // 重渲染 + 套 phase
+  if (typeof renderGroups === 'function') renderGroups();
+  if (typeof renderScores === 'function') renderScores();
+  if (typeof updateCategoryGrid === 'function') updateCategoryGrid();
+  setPhase(snap.phase);
+  if (typeof applyTabLock === 'function') applyTabLock();
+  sw('score');
+  setStatus('已同步現場狀態(多助理協作)');
+}
 
 /* 連線狀態 → 既有 #sts 狀態文字(不新增 DOM 節點)
    遊戲進行中(已有具體狀態文字)時,只在斷線時覆蓋,避免被連線 OK
@@ -1556,6 +1621,166 @@ PartyBus.on('question_pick', payload => {
   setStatus(isPurgatory
     ? `命運降臨 · 抽到煉獄題 · ${payload.id}`
     : `抽到 ${payload.id}`);
+});
+
+/* ════════════════════════════════════════════════════════════════════
+   多助理協作鏡射 listener
+   ─────────────────────────────────────────────────────────────────────
+   server 的 broadcast 會送給「所有」連線(含發送者本人)。下列 listener
+   把「別位助理的操作」鏡射到本機 UI,讓 2 位以上助理畫面恆同步。
+   紀律:listener 一律「只同步 UI、不送任何指令」(emit-free),否則自己的
+   echo 會再觸發一次 emit → 多助理間無限迴圈。每個 listener 都做成冪等,
+   發送者收到自己的 echo 時因為狀態已一致而自然 no-op。
+   ════════════════════════════════════════════════════════════════════ */
+
+/* 模式預覽(lobby):第 2、3 位助理同步看到所選模式 */
+PartyBus.on('mode_preview', payload => {
+  if (S.gameStarted || !payload?.mode) return;
+  applyModeUI(payload.mode, payload.customTiers, payload.customTypes);
+  if (typeof chk === 'function') chk();
+});
+
+/* 自由模式 chip 變更(lobby) */
+PartyBus.on('custom_tiers_changed', payload => {
+  if (S.gameStarted || !payload) return;
+  if (Array.isArray(payload.customTiers)) S.customTiers = [...payload.customTiers];
+  if (Array.isArray(payload.customTypes)) S.customTypes = [...payload.customTypes];
+  document.querySelectorAll('#cb-tier-chips .cust-chip').forEach(c => c.classList.toggle('active', S.customTiers.includes(c.dataset.val)));
+  document.querySelectorAll('#cb-type-chips .cust-chip').forEach(c => c.classList.toggle('active', S.customTypes.includes(c.dataset.val)));
+  if (typeof updateCustomPool === 'function') updateCustomPool();
+  updateCategoryGrid();
+  if (typeof chk === 'function') chk();
+});
+
+/* 搶答模式變更:同步卡片選中態 + 「當前」字樣 */
+PartyBus.on('rush_mode_changed', payload => {
+  if (!payload?.mode) return;
+  S.rushMode = payload.mode;
+  document.querySelectorAll('#rm-grid .rm-card').forEach(c => c.classList.toggle('sel', c.dataset.rm === payload.mode));
+  const cur = document.getElementById('rm-current');
+  if (cur && S.phase !== 'rushing') cur.textContent = `當前 · ${payload.label || RUSH_MODE_LABELS[payload.mode] || payload.mode}`;
+});
+
+/* 開始遊戲:第 2、3 位助理重建本機 session(保留已知成員、不再廣播) */
+PartyBus.on('game_start', cfg => {
+  if (!cfg || !cfg.mode) return;
+  applyModeUI(cfg.mode, cfg.customTiers, cfg.customTypes);
+  S.totalQ = cfg.totalQ;
+  S.spq = cfg.spq;
+  S.rushMode = cfg.rushMode || S.rushMode;
+  S.wordGameCap = (cfg.wordGameCap === undefined ? null : cfg.wordGameCap);
+  S.currQ = 0;
+  S.usedIds = new Set();
+  S.askedQuestions = [];
+  S.currentQuestion = null; S.currentDifficulty = null; S.currentFramework = null;
+  const prevByName = new Map((S.groups || []).map(g => [g.name, Array.isArray(g.members) ? g.members : []]));
+  S.groups = (cfg.groups || []).map((g, i) => ({
+    id: `GROUP ${String(i + 1).padStart(2, '0')}`,
+    name: g.name, score: 0,
+    members: prevByName.get(g.name) || [],
+  }));
+  S.gameStarted = true;
+  const iq = document.getElementById('i-q'); if (iq) iq.value = cfg.totalQ;
+  const is = document.getElementById('i-s'); if (is) is.value = cfg.spq;
+  const inN = document.getElementById('i-n'); if (inN) { inN.value = String(S.groups.length); inN.disabled = true; }
+  document.getElementById('m-round').textContent = '01';
+  document.getElementById('m-q').textContent = `0 / ${S.totalQ}`;
+  document.getElementById('m-max').textContent = `${S.totalQ * S.spq}`;
+  document.getElementById('tot-q').textContent = S.totalQ;
+  document.getElementById('curr-q').textContent = '0';
+  renderGroups(); renderScores(); updateCategoryGrid();
+  setPhase('idle');
+  applyTabLock();
+  sw('score');
+  setStatus('遊戲已開始 · 按「開始搶答」進入下一輪');
+});
+
+/* 進入九宮格選分類:第一個廣播回來就把所有助理切到 picking,
+   同時取消各自 onRushWinner 排的 3.5s 自動 enter_category 計時器
+   (該計時器回呼有 `S.phase !== 'won' return` 守衛,phase 一變就早退)。 */
+PartyBus.on('enter_category', () => {
+  if (!S.gameStarted || S.phase === 'picking') return;
+  if (S.phase === 'won') {
+    resetCategoryPicker(false);
+    setPhase('picking');
+    setStatus('搶答成功 · 點九宮格選分類');
+  }
+});
+
+/* 九宮格預覽:同步預覽高亮(尚未拍板時) */
+PartyBus.on('category_preview', payload => {
+  if (!payload?.fid || S.catLocked || S.phase !== 'picking') return;
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('preview'));
+  const btn = document.querySelector(`.cat-btn[data-fid="${payload.fid}"]`);
+  if (btn) btn.classList.add('preview');
+  S.catPreview = payload.fid;
+  const cBtn = document.getElementById('cat-confirm-btn');
+  if (cBtn) { cBtn.disabled = false; cBtn.textContent = '確定'; cBtn.classList.remove('locked'); }
+  const name = btn?.querySelector('.cb-name')?.textContent || payload.fid;
+  const hint = document.getElementById('cat-hint');
+  if (hint) hint.innerHTML = `預覽中 · <span class="accent">${payload.fid} ${name}</span> · 按確定拍板`;
+});
+
+/* 九宮格重置:回到未選分類等候態 */
+PartyBus.on('category_reset', () => {
+  if (S.phase !== 'picking' && S.phase !== 'won') return;
+  resetCategoryPicker(false);
+});
+
+/* 公佈答案:所有助理切到 revealed + 顯示計分按鈕 */
+PartyBus.on('reveal_answer', () => {
+  if (S.phase !== 'answering') return;
+  setPhase('revealed');
+  const acts = document.getElementById('rev-acts');
+  if (acts) acts.classList.add('show');
+  S.pendingIdx = S.selectedIdx;
+  if (S.pendingIdx !== null) {
+    const ok = document.getElementById('rev-ok');
+    if (ok) ok.textContent = `答對 · ${S.groups[S.pendingIdx]?.name} +${S.spq}分`;
+  }
+  setStatus('已公佈答案 · 請判斷是否計分');
+});
+
+/* 下一題:所有助理重置本輪狀態回 idle */
+PartyBus.on('next_question', () => {
+  if (!S.gameStarted || S.phase === 'idle') return;
+  if (typeof _clearLocalRushUITimers === 'function') _clearLocalRushUITimers();
+  S.rushSession = null;
+  document.getElementById('rev-acts')?.classList.remove('show');
+  S.pendingIdx = null; S.selectedIdx = null;
+  S.currentQuestion = null; S.currentDifficulty = null; S.currentFramework = null;
+  resetCategoryPicker(false);
+  renderScores();
+  setPhase('idle');
+  setStatus('已進入下一題 · 按「開始搶答」開始下輪');
+});
+
+/* 跳題:同下一題的重置 */
+PartyBus.on('skip_question', () => {
+  if (!S.gameStarted || S.phase === 'idle') return;
+  if (typeof _clearLocalRushUITimers === 'function') _clearLocalRushUITimers();
+  S.rushSession = null;
+  document.getElementById('rev-acts')?.classList.remove('show');
+  S.pendingIdx = null; S.selectedIdx = null;
+  S.currentQuestion = null; S.currentDifficulty = null; S.currentFramework = null;
+  resetCategoryPicker(false);
+  renderScores();
+  setPhase('idle');
+  setStatus('已跳過 · 按「開始搶答」開始下輪');
+});
+
+/* 重新開始:鏡射呼叫 _doRestartImpl(false) — 同步 UI、不再廣播 */
+PartyBus.on('game_restart', () => {
+  if (!S.gameStarted && S.phase === 'idle') return;
+  if (typeof _doRestartImpl === 'function') _doRestartImpl(false);
+});
+
+/* 結束本場:別位助理按了結束 → 本機也切到 ended(只在尚未 ended 時) */
+PartyBus.on('export_result', () => {
+  if (S.phase === 'ended') return;
+  setPhase('ended');
+  if (typeof applyTabLock === 'function') applyTabLock();
+  setStatus('本場遊戲結束 · 結果已推送至參賽者畫面');
 });
 
 /* server 廣播煉獄降臨/結束特效訊號 — assistant 端跑既有動畫函式 */
@@ -1919,18 +2144,30 @@ function renderLog(){
     </div>`).join('');
 }
 
-function pickMode(m){
+/* 純 UI 套用模式(無廣播)— pickMode 與多助理鏡射 listener 共用。
+   傳入 customTiers/customTypes 時(自由模式鏡射)一併同步 chip 勾選狀態。 */
+function applyModeUI(m, customTiers, customTypes){
+  if (!m) return;
   S.mode=m;
-  document.querySelectorAll('.mode-card').forEach(c=>c.classList.remove('sel'));
-  document.querySelector(`.mode-card[data-mode="${m}"]`).classList.add('sel');
-  document.getElementById('brand-mode').textContent=modeNames[m];
+  if (Array.isArray(customTiers)) S.customTiers=[...customTiers];
+  if (Array.isArray(customTypes)) S.customTypes=[...customTypes];
+  document.querySelectorAll('.mode-card').forEach(c=>c.classList.toggle('sel', c.dataset.mode===m));
+  const bm=document.getElementById('brand-mode'); if (bm) bm.textContent=modeNames[m]||'';
   // 整個 app 切到該模式 — accent 變數會自動跟著切換
   document.querySelector('.app').dataset.mode=m;
   // 自由模式才顯示次選項區塊
-  document.getElementById('custom-block').classList.toggle('show', m === 'custom');
-  if (m === 'custom') updateCustomPool();
+  document.getElementById('custom-block')?.classList.toggle('show', m === 'custom');
+  if (m === 'custom'){
+    document.querySelectorAll('#cb-tier-chips .cust-chip').forEach(c=>c.classList.toggle('active', S.customTiers.includes(c.dataset.val)));
+    document.querySelectorAll('#cb-type-chips .cust-chip').forEach(c=>c.classList.toggle('active', S.customTypes.includes(c.dataset.val)));
+    if (typeof updateCustomPool==='function') updateCustomPool();
+  }
   // 切模式時九宮格重新統計
   updateCategoryGrid();
+}
+
+function pickMode(m){
+  applyModeUI(m);
   // 廣播給主持人:即時跟隨切換背景與模式名,讓觀眾看到模式變化
   PartyBus.emit('mode_preview', {
     mode: m,
@@ -2694,8 +2931,12 @@ function doEnd(){
   });
 }
 
-/* 重新開始:完全重置遊戲狀態,主持人回 scr-select、參賽者回登入後等待頁 */
-function _doRestartImpl(){
+/* 重新開始:完全重置遊戲狀態,主持人回 scr-select、參賽者回登入後等待頁。
+   emit=true 時廣播 game_restart(本機按鈕觸發);emit=false 是別位助理的
+   game_restart 廣播鏡射過來,只同步本機 UI、不可再廣播(否則多助理互相
+   echo 成無限迴圈)。 */
+function _doRestartImpl(emit){
+  if (emit === undefined) emit = true;
   // 1. 重置助理本機狀態
   S.gameStarted = false;
   // 解鎖「分幾組」(回到 lobby phase 後又能調整)
@@ -2744,8 +2985,8 @@ function _doRestartImpl(){
   sw('setup');
   // 5. 解鎖分頁(回到「未開始遊戲」狀態)
   applyTabLock();
-  // 6. 廣播給主持人 / 參賽者
-  PartyBus.emit('game_restart', {});
+  // 6. 廣播給主持人 / 參賽者(鏡射呼叫時 emit=false,不再廣播)
+  if (emit) PartyBus.emit('game_restart', {});
   setStatus('遊戲已重置 · 主持人回模式選擇 · 參賽者回等待頁');
 }
 

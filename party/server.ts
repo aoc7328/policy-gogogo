@@ -312,6 +312,11 @@ export default class PolicyGogogoServer implements Party.Server {
   }
 
   private onEnterCategory(sender: Party.Connection<ConnState>): void {
+    // 冪等:多助理協作時,每位助理 onRushWinner 都排了 3.5s 計時器送
+    // enter_category。第一個把 won→picking 後,其餘的若還沒被自己的
+    // 廣播鏡射取消,會再送一次 — 此時 server 已在 picking,視為成功 no-op
+    // (不報錯、不重複廣播),避免其他助理畫面跳 wrong_phase 紅字。
+    if (this.state.phase === 'picking') return;
     if (this.state.phase !== 'won') {
       this.sendError(sender, 'wrong_phase',
         `enter_category 只能在 won 階段送(目前 server phase=${this.state.phase})。` +
