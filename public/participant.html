@@ -396,8 +396,10 @@ input{-webkit-appearance:none;border-radius:0}
 /* 答題倒數(參賽端,題目上方置中) */
 .p-timer{margin:0 auto 10px;width:fit-content;font-family:"JetBrains Mono",monospace;font-weight:700;font-size:22px;letter-spacing:.06em;color:var(--accent);padding:4px 16px;border:1px solid var(--accent-l);border-radius:6px;background:var(--accent-s)}
 .p-timer.urgent{color:#EC5068;border-color:#D8344A;background:rgba(216,52,74,.1);animation:pTimerPulse 1s ease-in-out infinite}
+.p-timer.critical{color:#FF3B52;border-color:#FF3B52;background:rgba(216,52,74,.16);box-shadow:0 0 22px rgba(216,52,74,.5);animation:pTimerHeartbeat .75s ease-out infinite;transform-origin:center}
 .p-timer.done{color:#EC5068;border-color:#D8344A}
 @keyframes pTimerPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+@keyframes pTimerHeartbeat{0%{transform:scale(1)}14%{transform:scale(1.45)}28%{transform:scale(1.04)}42%{transform:scale(1.24)}58%{transform:scale(1)}100%{transform:scale(1)}}
 /* 整組通知浮窗 */
 .pgg-notice-card{width:min(92vw,400px);background:var(--bg-s);border:1px solid var(--accent-l);padding:0;animation:hmIn 280ms cubic-bezier(.2,.7,.2,1);box-shadow:0 0 40px rgba(0,0,0,.6)}
 .pgg-notice-title{font-family:"Noto Serif TC",serif;font-weight:700;font-size:18px;color:var(--accent-b);padding:18px 22px 0;letter-spacing:.04em}
@@ -3400,14 +3402,20 @@ PartyBus.on('timer_update', payload => {
   if (remain <= 0) { if (box) { box.style.display = 'none'; box.classList.remove('urgent','done'); } return; }
   if (box) { box.style.display = ''; box.classList.remove('done'); }
   const fmt = s => s >= 60 ? `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}` : `${s}`;
-  const render = () => { if (val) val.textContent = fmt(remain); if (box) box.classList.toggle('urgent', remain <= 10); };
+  const render = () => {
+    if (val) val.textContent = fmt(remain);
+    if (box) {
+      box.classList.toggle('critical', remain <= 3 && remain > 0);   // 剩 3 秒:心跳加速
+      box.classList.toggle('urgent', remain <= 10 && remain > 3);
+    }
+  };
   render();
   _pTimerInt = setInterval(() => {
     remain--;
     if (remain <= 0) {
       clearInterval(_pTimerInt); _pTimerInt = null;
       if (val) val.textContent = '時間到';
-      if (box) { box.classList.remove('urgent'); box.classList.add('done'); }
+      if (box) { box.classList.remove('urgent','critical'); box.classList.add('done'); }
       if (navigator.vibrate) navigator.vibrate([200, 80, 200]);
       return;
     }

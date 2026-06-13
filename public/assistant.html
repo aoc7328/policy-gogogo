@@ -1002,9 +1002,11 @@ input::placeholder{color:var(--ink-3)}
       </div>
       <div class="ctrl-row" style="align-items:center">
         <span style="font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;color:var(--ink-3);text-transform:uppercase">答題倒數</span>
-        <button class="cb" id="btn-timer-off"   onclick="timerOff()"        title="停止本題倒數">關閉</button>
-        <button class="cb" id="btn-timer-minus" onclick="adjustTimer(-10)"  title="當前倒數 −10 秒">−10</button>
-        <button class="cb" id="btn-timer-plus"  onclick="adjustTimer(10)"   title="當前倒數 +10 秒">+10</button>
+        <button class="cb" id="btn-timer-off"    onclick="timerOff()"        title="停止本題倒數">關閉</button>
+        <button class="cb" id="btn-timer-m10"    onclick="adjustTimer(-10)"  title="當前倒數 −10 秒">−10</button>
+        <button class="cb" id="btn-timer-m5"     onclick="adjustTimer(-5)"   title="當前倒數 −5 秒">−5</button>
+        <button class="cb" id="btn-timer-p5"     onclick="adjustTimer(5)"    title="當前倒數 +5 秒">+5</button>
+        <button class="cb" id="btn-timer-p10"    onclick="adjustTimer(10)"   title="當前倒數 +10 秒">+10</button>
         <button class="cb" id="btn-timer-restart" onclick="restartQuestionTimer()" title="用此題型的預設秒數重新計時">↻ 重新計時</button>
         <span id="timer-readout" style="font-family:var(--font-mono);font-size:14px;color:var(--accent);min-width:48px;text-align:right;margin-left:auto"></span>
       </div>
