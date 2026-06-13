@@ -393,6 +393,11 @@ input{-webkit-appearance:none;border-radius:0}
 .tm-empty{font-family:var(--font-serif);font-style:italic;font-size:13px;color:var(--ink-3);text-align:center;padding:32px 0}
 /* 「你是組長」頭部徽章 */
 .gs-leader-badge{display:inline-flex;align-items:center;gap:4px;font-family:"Noto Sans TC",sans-serif;font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--bg);background:var(--accent);padding:3px 10px;border-radius:3px;margin-left:8px;box-shadow:0 0 12px var(--accent-s)}
+/* 答題倒數(參賽端,題目上方置中) */
+.p-timer{margin:0 auto 10px;width:fit-content;font-family:"JetBrains Mono",monospace;font-weight:700;font-size:22px;letter-spacing:.06em;color:var(--accent);padding:4px 16px;border:1px solid var(--accent-l);border-radius:6px;background:var(--accent-s)}
+.p-timer.urgent{color:#EC5068;border-color:#D8344A;background:rgba(216,52,74,.1);animation:pTimerPulse 1s ease-in-out infinite}
+.p-timer.done{color:#EC5068;border-color:#D8344A}
+@keyframes pTimerPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
 /* 整組通知浮窗 */
 .pgg-notice-card{width:min(92vw,400px);background:var(--bg-s);border:1px solid var(--accent-l);padding:0;animation:hmIn 280ms cubic-bezier(.2,.7,.2,1);box-shadow:0 0 40px rgba(0,0,0,.6)}
 .pgg-notice-title{font-family:"Noto Serif TC",serif;font-weight:700;font-size:18px;color:var(--accent-b);padding:18px 22px 0;letter-spacing:.04em}
@@ -1152,6 +1157,7 @@ body.tm-paradise .opt{border-radius:0 12px 12px 0;border-left:3px solid var(--se
       </div>
       <div class="qw-hint" id="qw-hint">主持人正在準備中</div>
     </div>
+    <div class="p-timer" id="p-timer" style="display:none">⏱ <span id="p-timer-val">--</span></div>
     <div class="q-body" id="q-body" style="display:none"></div>
     <div class="scroll-fade"></div>
   </div>
@@ -3378,6 +3384,46 @@ PartyBus.on('player_renamed', payload => {
   }
   rebuildMyRoster();
   if (typeof updateLeaderBadge === 'function') updateLeaderBadge();
+});
+
+/* 答題倒數計時(參賽端,題目上方;歸零震動。聲音由投影端負責) */
+let _pTimerInt = null;
+PartyBus.on('timer_update', payload => {
+  const box = document.getElementById('p-timer');
+  const val = document.getElementById('p-timer-val');
+  if (_pTimerInt) { clearInterval(_pTimerInt); _pTimerInt = null; }
+  let remain = Math.max(0, Math.round(payload?.remainingSec || 0));
+  if (remain <= 0) { if (box) { box.style.display = 'none'; box.classList.remove('urgent','done'); } return; }
+  if (box) { box.style.display = ''; box.classList.remove('done'); }
+  const fmt = s => s >= 60 ? `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}` : `${s}`;
+  const render = () => { if (val) val.textContent = fmt(remain); if (box) box.classList.toggle('urgent', remain <= 10); };
+  render();
+  _pTimerInt = setInterval(() => {
+    remain--;
+    if (remain <= 0) {
+      clearInterval(_pTimerInt); _pTimerInt = null;
+      if (val) val.textContent = '時間到';
+      if (box) { box.classList.remove('urgent'); box.classList.add('done'); }
+      if (navigator.vibrate) navigator.vibrate([200, 80, 200]);
+      return;
+    }
+    render();
+  }, 1000);
+});
+
+/* 同一題重新搶答後回到該題:用快取的題目重新顯示(不增題號、不換題) */
+PartyBus.on('resume_question', () => {
+  const c = G.currentBankQ;
+  if (!c) return;
+  G.revealed = false;
+  G.buzzed = false;
+  document.getElementById('q-wait').style.display = 'none';
+  const body = document.getElementById('q-body');
+  if (body) { body.style.display = 'block'; body.innerHTML = buildQFromBank(c.q, c.difficulty, c.framework); }
+  document.getElementById('q-zone').scrollTop = 0;
+  if (typeof lockBuzz === 'function') lockBuzz();
+  const st = document.getElementById('btn-status');
+  if (st) { st.textContent = '答題中'; st.className = 'btn-status'; }
 });
 
 /* ══ 自動回填登入(同 device 重新整理 / 開新分頁)══

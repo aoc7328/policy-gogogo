@@ -246,6 +246,32 @@ export type LeaveRoomCommand = {
 };
 
 /**
+ * 助理設定答題倒數計時。durationSec > 0 = (重新)開始倒數;0 = 停止。
+ * server 記下 deadline 並廣播 timer_update;投影/參賽者端顯示倒數,
+ * 歸零時投影端響鬧鐘。
+ */
+export type SetTimerCommand = {
+  type: 'set_timer';
+  payload: { durationSec: number };
+} & PrivilegedHeader;
+
+/**
+ * 同一題重新搶答:保留當前題目,重新開放搶答(答題者答不出來時用)。
+ * server 保留 currentQuestion/currentCat,設 rebuzzPending,跑一輪 rush。
+ */
+export type RebuzzSameCommand = {
+  type: 'rebuzz_same';
+} & PrivilegedHeader;
+
+/**
+ * 重新搶答後回到同一題作答(助理在 winner 卡片後送)。server 把 phase
+ * 拉回 answering(rush 模組會把它設成 won),並廣播 resume_question。
+ */
+export type ResumeQuestionCommand = {
+  type: 'resume_question';
+} & PrivilegedHeader;
+
+/**
  * Claim the presenter role for this room. Anyone can attempt; server checks
  * the embedded code matches state.controlCode AND that nobody has claimed yet.
  * On success, server broadcasts `presenter_claimed` (mutex flag for all
@@ -290,6 +316,9 @@ export type ClientCommand =
   | NotifyGroupCommand
   | RenameSelfCommand
   | LeaveRoomCommand
+  | SetTimerCommand
+  | RebuzzSameCommand
+  | ResumeQuestionCommand
   | ClaimPresenterCommand;
 
 // ──────────────────────────────────────────────────────────────────────
@@ -331,6 +360,8 @@ export interface RoomStateSnapshot {
   presenterClaimed: boolean;
   /** 當前分組方式(lobby 設定;late-join 端據此還原 UI)。 */
   groupingMode: GroupingMode;
+  /** 答題倒數剩餘秒數(0 = 無倒數);late-join 端據此續跑。 */
+  timerRemainingSec: number;
   /**
    * Topic-domain frameworks read from quiz-bank-metadata.json's
    * topic_frameworks section.
@@ -579,6 +610,18 @@ export type PlayerRenamedEvent = {
   payload: { oldName: string; newName: string; oldTeam: string; newTeam: string };
 };
 
+/** 答題倒數狀態。remainingSec > 0 = 開始/續跑倒數;0 = 停止/隱藏。 */
+export type TimerUpdateEvent = {
+  type: 'timer_update';
+  payload: { remainingSec: number };
+};
+
+/** 同一題重新搶答後,回到該題作答畫面(投影/參賽者重新顯示原題)。 */
+export type ResumeQuestionEvent = {
+  type: 'resume_question';
+  payload: Record<string, never>;
+};
+
 export type TeamRenameEvent = {
   type: 'team_rename';
   payload: { oldName: string; newName: string; by?: string };
@@ -660,7 +703,9 @@ export type ServerEvent =
   | RosterReshuffledEvent
   | GroupLeadersEvent
   | GroupNoticeEvent
-  | PlayerRenamedEvent;
+  | PlayerRenamedEvent
+  | TimerUpdateEvent
+  | ResumeQuestionEvent;
 
 // ──────────────────────────────────────────────────────────────────────
 // Privileged command type guard
@@ -688,6 +733,9 @@ export const PRIVILEGED_COMMAND_TYPES = new Set<string>([
   'team_count_changed',
   'grouping_mode_changed',
   'notify_group',
+  'set_timer',
+  'rebuzz_same',
+  'resume_question',
 ]);
 
 export function isPrivilegedCommand(

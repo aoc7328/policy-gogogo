@@ -137,6 +137,12 @@ export interface RoomState {
   // 每位玩家在 rush_winner 被標為該組 personName 時 +1。game_start/restart 清空。
   mvpTally: Map<number, Map<string, number>>;
 
+  // 答題倒數截止時間(epoch ms);null = 無倒數。reconnect 端據此續跑。
+  timerDeadline: number | null;
+
+  // 同一題重新搶答:true 表示這輪 rush 結束後要回到同一題作答,而非進九宮格。
+  rebuzzPending: boolean;
+
   // Rush mode selection (UI choice) + resolved mode for current/last rush
   rushMode: RushMode;
   rushModeActual: ActualRushMode | null;
@@ -175,6 +181,8 @@ export function createInitialState(roomId: string, controlCode: string): RoomSta
     askedQuestions: [],
     wordGameAsked: 0,
     mvpTally: new Map(),
+    timerDeadline: null,
+    rebuzzPending: false,
     rushMode: 'speed',
     rushModeActual: null,
     rushSession: null,
@@ -202,6 +210,7 @@ export function startGame(state: RoomState, config: GameConfig): void {
   state.askedQuestions = [];
   state.wordGameAsked = 0;
   state.mvpTally = new Map();
+  state.timerDeadline = null;
   state.groups = config.groups.map((g, i) => ({
     idx: i,
     name: g.name,
@@ -331,9 +340,22 @@ export function pickTeamForParticipant(
  * 支援半形 - 與全形 －、連字號 –—。無 dash 或前綴為空 → null(歸「其他」)。
  * 例:「中信1-王」→「中信1」;「中信1」→ null;「業務部－張」→「業務部」。
  */
+/**
+ * 全形 → 半形:全形 ASCII(０-９Ａ-Ｚａ-ｚ、全形 dash － 等,U+FF01–FF5E)
+ * 一律轉半形,全形空白 → 半形空白。讓「中信１」與「中信1」視為同一組名。
+ */
+function toHalfWidth(s: string): string {
+  return s
+    .replace(/[！-～]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xfee0))
+    .replace(/　/g, ' ');
+}
+
 export function extractPrefixKey(name: string): string | null {
   if (typeof name !== 'string') return null;
-  const m = name.match(/^([^\-–—－]+)[-–—－]/);
+  // 先正規化全形/半形,再取 dash 之前 → 組名統一用半形,
+  // 「中信１-王」「中信1-李」會落在同一組「中信1」。
+  const normalized = toHalfWidth(name);
+  const m = normalized.match(/^([^\-–—]+)[-–—]/);
   if (!m) return null;
   const key = m[1].trim();
   return key.length > 0 ? key : null;
@@ -582,6 +604,9 @@ export function snapshot(state: RoomState): RoomStateSnapshot {
     askedIds: [...state.usedIds],
     presenterClaimed: state.presenterClaimed,
     groupingMode: state.groupingMode,
+    timerRemainingSec: state.timerDeadline
+      ? Math.max(0, Math.ceil((state.timerDeadline - Date.now()) / 1000))
+      : 0,
     // Topic-domain frameworks: read once at module load from bank metadata,
     // shipped on every snapshot so clients don't need their own copy.
     frameworks: { A: [...FRAMEWORKS_A], B: [...FRAMEWORKS_B] },

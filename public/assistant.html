@@ -986,10 +986,22 @@ input::placeholder{color:var(--ink-3)}
       <div class="ctrl-row">
         <button class="cb rush"     id="btn-rush"   onclick="doStartRush()" disabled>開始搶答</button>
         <button class="cb warn"     id="btn-rerush" onclick="doReRush()"    disabled>重新搶答</button>
+        <button class="cb warn"     id="btn-rebuzz" onclick="doRebuzzSame()" disabled title="保留當前題目、重新開放搶答(答題者答不出來時用,不換題)">同一題重新搶答</button>
         <button class="cb"          id="btn-skip"   onclick="doSkip()"      disabled>跳題</button>
         <button class="cb"          id="btn-redraw" onclick="doRedraw()"    disabled>同範圍重抽</button>
         <button class="cb primary"  id="btn-reveal" onclick="doReveal()"    disabled>公佈答案</button>
         <button class="cb next"     id="btn-next"   onclick="doNext()"      disabled>下一題</button>
+      </div>
+      <div class="ctrl-row" style="align-items:center">
+        <span style="font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;color:var(--ink-3);text-transform:uppercase">答題倒數</span>
+        <div class="cust-chips" id="timer-chips">
+          <button class="cust-chip" data-sec="0" onclick="setQuestionTimer(this)">關閉</button>
+          <button class="cust-chip" data-sec="30" onclick="setQuestionTimer(this)">30s</button>
+          <button class="cust-chip active" data-sec="60" onclick="setQuestionTimer(this)">60s</button>
+          <button class="cust-chip" data-sec="120" onclick="setQuestionTimer(this)">120s</button>
+        </div>
+        <button class="cb" id="btn-timer-restart" onclick="restartQuestionTimer()" style="margin-left:auto" title="用目前秒數重新計時">↻ 重新計時</button>
+        <span id="timer-readout" style="font-family:var(--font-mono);font-size:14px;color:var(--accent);min-width:48px;text-align:right"></span>
       </div>
       <div class="ctrl-row">
         <button class="cb"        id="btn-restart" onclick="doRestart()">重新開始</button>
@@ -1136,6 +1148,8 @@ const S={
   groupingMode:'random',
   // 組長表 { 組名: 組長名 },由 server group_leaders 廣播填入。
   leaders:{},
+  // 答題倒數秒數(0=關閉);題目出現時自動開始,可隨時改。
+  timerSec:60,
   // 當前題目分類(F1~F9,助理九宮格選擇)
   currentCat:null,
   // 九宮格兩階段選擇狀態
@@ -1657,6 +1671,8 @@ PartyBus.on('question_pick', payload => {
     }
   }
   setPhase('answering');
+  // 題目出現 → 自動開始答題倒數(若有設秒數)。redraw 換題也會重新計時。
+  if (typeof startQuestionTimer === 'function') startQuestionTimer();
   setStatus(isPurgatory
     ? `命運降臨 · 抽到煉獄題 · ${payload.id}`
     : `抽到 ${payload.id}`);
@@ -2249,6 +2265,45 @@ function setGroupingMode(el) {
   if (typeof recalc === 'function') recalc();
 }
 
+/* ── 答題倒數計時 ──────────────────────────────────
+   - setQuestionTimer:改秒數;若正在答題,立刻用新秒數重啟。
+   - 題目出現(question_pick→answering)時自動開始;公佈/下一題/跳題時停止。
+   - server 是計時權威(記 deadline + 廣播),本機只送 set_timer 命令。 */
+function setQuestionTimer(el) {
+  S.timerSec = parseInt(el.dataset.sec, 10) || 0;
+  document.querySelectorAll('#timer-chips .cust-chip').forEach(c => c.classList.toggle('active', c === el));
+  // 答題中改秒數 → 立刻重啟(或關閉)
+  if (S.phase === 'answering') {
+    PartyBus.emit('set_timer', { durationSec: S.timerSec });
+  }
+}
+function startQuestionTimer() {
+  if (S.timerSec > 0) PartyBus.emit('set_timer', { durationSec: S.timerSec });
+}
+function stopQuestionTimer() {
+  PartyBus.emit('set_timer', { durationSec: 0 });
+}
+function restartQuestionTimer() {
+  if (S.timerSec > 0) PartyBus.emit('set_timer', { durationSec: S.timerSec });
+}
+window.setQuestionTimer = setQuestionTimer;
+window.restartQuestionTimer = restartQuestionTimer;
+/* 本機也顯示倒數讀數(助理掌握時間) */
+let _asstTimerInt = null;
+PartyBus.on('timer_update', payload => {
+  const out = document.getElementById('timer-readout');
+  if (_asstTimerInt) { clearInterval(_asstTimerInt); _asstTimerInt = null; }
+  let remain = Math.max(0, Math.round(payload?.remainingSec || 0));
+  const render = () => { if (out) out.textContent = remain > 0 ? `${remain}s` : '時間到'; };
+  render();
+  if (remain > 0) {
+    _asstTimerInt = setInterval(() => {
+      remain--; render();
+      if (remain <= 0) { clearInterval(_asstTimerInt); _asstTimerInt = null; }
+    }, 1000);
+  }
+});
+
 /* 一字千金上限:單選 segmented control。data-wgcap="" → null(不限)。 */
 function setWordGameCap(el) {
   const raw = el.dataset.wgcap;
@@ -2565,16 +2620,17 @@ function setPhase(p) {
   // 下一題:即使在 revealed 也保持 disabled,要等助理按了「加分 / 不計分」
   // 後 afterScore() 才會手動把它打開,避免漏記分。
   const en = {
-    idle:      { rush:1, rerush:0, skip:0, redraw:0, reveal:0, next:0 },
-    rushing:   { rush:0, rerush:1, skip:0, redraw:0, reveal:0, next:0 },
-    won:       { rush:0, rerush:1, skip:0, redraw:0, reveal:0, next:0 },
-    picking:   { rush:0, rerush:1, skip:0, redraw:0, reveal:0, next:0 },
-    answering: { rush:0, rerush:0, skip:1, redraw:1, reveal:1, next:0 },
-    revealed:  { rush:0, rerush:0, skip:0, redraw:0, reveal:0, next:0 },
-    ended:     { rush:0, rerush:0, skip:0, redraw:0, reveal:0, next:0 },
+    idle:      { rush:1, rerush:0, rebuzz:0, skip:0, redraw:0, reveal:0, next:0 },
+    rushing:   { rush:0, rerush:1, rebuzz:0, skip:0, redraw:0, reveal:0, next:0 },
+    won:       { rush:0, rerush:1, rebuzz:0, skip:0, redraw:0, reveal:0, next:0 },
+    picking:   { rush:0, rerush:1, rebuzz:0, skip:0, redraw:0, reveal:0, next:0 },
+    answering: { rush:0, rerush:0, rebuzz:1, skip:1, redraw:1, reveal:1, next:0 },
+    revealed:  { rush:0, rerush:0, rebuzz:0, skip:0, redraw:0, reveal:0, next:0 },
+    ended:     { rush:0, rerush:0, rebuzz:0, skip:0, redraw:0, reveal:0, next:0 },
   }[p] || {};
   set('btn-rush',   !!en.rush);
   set('btn-rerush', !!en.rerush);
+  set('btn-rebuzz', !!en.rebuzz);
   set('btn-skip',   !!en.skip);
   set('btn-redraw', !!en.redraw);
   set('btn-reveal', !!en.reveal);
@@ -2636,6 +2692,21 @@ function doReRush() {
   PartyBus.emit('start_rush', { rerush: true });
 }
 
+/* 同一題重新搶答:保留當前題目,重新開放搶答(答題者答不出來時用)。
+   不換題、不重抽。server 跑一輪 rush,winner 出來後回到同一題作答。 */
+function doRebuzzSame() {
+  if (S.phase !== 'answering') return;
+  _clearLocalRushUITimers();
+  _stopTimerSafe();
+  S._rebuzzPending = true;     // onRushWinner 看這個 → 回同一題,不進九宮格
+  S.selectedIdx = null;
+  S.pendingIdx = null;
+  renderScores();
+  setStatus(`同一題重新搶答 · ${RUSH_MODE_LABELS[S.rushMode] || S.rushMode}`);
+  PartyBus.emit('rebuzz_same', {});
+}
+window.doRebuzzSame = doRebuzzSame;
+
 /* 清前端 UI 計時器(原 _clearRushTimers,Phase 3 改名:server 接手仲裁
    timer 後,本機只剩 winner 卡片動畫的 setTimeout 需要清掉)。 */
 function _clearLocalRushUITimers() {
@@ -2648,9 +2719,24 @@ function _clearLocalRushUITimers() {
    觸發,payload 是 server 給的完整詳細資料(不再從本地 sess 推算)。 */
 function onRushWinner(idx, _serverPayload) {
   S.selectedIdx = idx;
+  const g = S.groups[idx];
+  // 同一題重新搶答的 winner:不進九宮格,winner 卡片後回到同一題作答。
+  if (S._rebuzzPending) {
+    S._rebuzzPending = false;
+    setPhase('won');
+    renderScores();
+    setStatus(`${g?.name || ''} 重新搶到 · 回到同一題作答`);
+    S._winnerCardTimer = setTimeout(() => {
+      S.pendingIdx = idx;
+      PartyBus.emit('resume_question', {});   // server: phase won→answering + 廣播
+      setPhase('answering');
+      if (typeof startQuestionTimer === 'function') startQuestionTimer();  // 新答題者重新計時
+      setStatus(`${g?.name || ''} 作答中 · 同一題`);
+    }, 3500);
+    return;
+  }
   setPhase('won');
   renderScores();
-  const g = S.groups[idx];
   setStatus(`${g?.name || ''} 搶答成功 · 點九宮格選分類`);
   // 給觀眾足夠時間看 winner 頁(3.5 秒),然後通知 server 進九宮格階段。
   // 重要:本機 phase 也要 setPhase('picking'),不然之後 user 第一次點 grid
@@ -2670,6 +2756,7 @@ function doReveal(){
     return;
   }
   setPhase('revealed');
+  if (typeof stopQuestionTimer === 'function') stopQuestionTimer();   // 公佈答案 → 停倒數
   setStatus('已公佈答案 · 請判斷是否計分');
   document.getElementById('rev-acts').classList.add('show');
   S.pendingIdx = S.selectedIdx;
@@ -2720,8 +2807,10 @@ function doNext(){
   setStatus('已進入下一題 · 按「開始搶答」開始下輪');
 }
 
+function _stopTimerSafe(){ if (typeof stopQuestionTimer === 'function') stopQuestionTimer(); }
 function doSkip(){
   if (!['won','picking','answering'].includes(S.phase)) return;
+  _stopTimerSafe();   // 跳題 → 停倒數
   // 清掉殘留的搶答 session
   if (typeof _clearLocalRushUITimers === 'function') _clearLocalRushUITimers();
   S.rushSession = null;
@@ -2877,8 +2966,8 @@ function renderScores(){
       <div class="sc-name">${g.name}</div>
       <div class="sc-val">${g.score}</div>
       <div class="sc-btns">
-        <button class="sc-btn add" onclick="event.stopPropagation();adj(${i},${S.spq})">+${S.spq}</button>
-        <button class="sc-btn sub" onclick="event.stopPropagation();adj(${i},-${S.spq})">−${S.spq}</button>
+        <button class="sc-btn add" onclick="event.stopPropagation();adj(${i},1)" title="微調 +1(沾邊給分用;整題配分請按下方答對)">+1</button>
+        <button class="sc-btn sub" onclick="event.stopPropagation();adj(${i},-1)" title="微調 −1">−1</button>
       </div>
     </div>`}).join('');
   renderRank();

@@ -271,6 +271,12 @@ export default class PolicyGogogoServer implements Party.Server {
         return this.onRenameSelf(cmd.payload, sender);
       case 'leave_room':
         return this.onLeaveRoom(sender);
+      case 'set_timer':
+        return this.onSetTimer(cmd.payload);
+      case 'rebuzz_same':
+        return this.onRebuzzSame(sender);
+      case 'resume_question':
+        return this.onResumeQuestion(sender);
       default: {
         const _exhaustive: never = cmd;
         void _exhaustive;
@@ -834,6 +840,42 @@ export default class PolicyGogogoServer implements Party.Server {
         delta: 0,
       },
     });
+  }
+
+  /** 同一題重新搶答:保留題目,重新開放搶答。 */
+  private onRebuzzSame(sender: Party.Connection<ConnState>): void {
+    if (this.state.phase !== 'answering') {
+      this.sendError(sender, 'wrong_phase', '只有在答題階段才能「同一題重新搶答」');
+      return;
+    }
+    if (!this.state.currentQuestion) {
+      this.sendError(sender, 'no_current', '目前沒有題目');
+      return;
+    }
+    // 保留 currentQuestion/currentCat,標記「這輪 rush 完要回同一題」。停掉倒數。
+    this.state.rebuzzPending = true;
+    this.state.timerDeadline = null;
+    this.broadcast({ type: 'timer_update', payload: { remainingSec: 0 } });
+    // 跑一輪 rush(phase → rushing,走 rushBroadcast 才會累計 MVP)。
+    rushStart(this.state, this.rushBroadcast, { rerush: true });
+  }
+
+  /** 重新搶答後回到同一題作答(phase: won → answering)。 */
+  private onResumeQuestion(sender: Party.Connection<ConnState>): void {
+    if (!this.state.rebuzzPending) {
+      this.sendError(sender, 'wrong_phase', '目前不是「同一題重新搶答」流程');
+      return;
+    }
+    this.state.rebuzzPending = false;
+    this.state.phase = 'answering';
+    this.broadcast({ type: 'resume_question', payload: {} });
+  }
+
+  /** 助理設定答題倒數。durationSec>0 開始/重啟;0 停止。 */
+  private onSetTimer(payload: { durationSec: number }): void {
+    const dur = Math.max(0, Math.min(600, Math.floor(payload?.durationSec ?? 0)));
+    this.state.timerDeadline = dur > 0 ? Date.now() + dur * 1000 : null;
+    this.broadcast({ type: 'timer_update', payload: { remainingSec: dur } });
   }
 
   /** 參賽者改名逾時自踢 → 硬移除 + 廣播 + 關閉連線。 */

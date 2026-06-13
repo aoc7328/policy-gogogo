@@ -517,6 +517,11 @@ html, body { background: #080A10; font-family: var(--font-sans); -webkit-font-sm
 .q-breadcrumb .difficulty-mark { color: var(--accent); font-weight: 700; }
 .q-stem { font-weight: 500; font-size: 22px; line-height: 1.55; color: var(--ink-1); max-width: 860px; margin-bottom: 22px; }
 .q-stem strong { color: var(--accent); font-weight: 700; }
+/* 答題倒數計時(投影端,題目右上角大字) */
+.q-timer { position: absolute; top: 70px; right: 40px; z-index: 6; font-family: var(--font-mono); font-weight: 700; font-size: 40px; letter-spacing: 0.04em; color: var(--accent); text-shadow: 0 0 24px var(--glow); padding: 5px 16px; border: 2px solid var(--line-strong); border-radius: 8px; background: rgba(0,0,0,0.35); transition: color 200ms, border-color 200ms; }
+.q-timer.urgent { color: #EC5068; border-color: #D8344A; animation: qTimerPulse 1s ease-in-out infinite; }
+.q-timer.done { color: #EC5068; border-color: #D8344A; }
+@keyframes qTimerPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
 .q-options { display: flex; flex-direction: column; gap: 9px; max-width: 820px; }
 .q-option { display: flex; align-items: flex-start; gap: 16px; padding: 14px 20px; background: var(--bg-surface); border: 1px solid var(--line); transition: all 300ms var(--ease); cursor: pointer; user-select: none; }
 .q-option:hover { background: var(--bg-raised); border-color: var(--line-strong); transform: translateX(4px); }
@@ -1047,6 +1052,7 @@ html, body { background: #080A10; font-family: var(--font-sans); -webkit-font-sm
             <span id="q-round">ROUND 01</span><span class="sep">/</span><span id="q-diff">困難</span>
           </div>
         </div>
+        <div class="q-timer" id="q-timer" style="display:none"><span id="q-timer-val">--</span></div>
         <div class="question-pane" id="q-body"></div>
       </div>
 
@@ -1380,6 +1386,16 @@ const PGGSound = (() => {
         o.connect(g); g.connect(lp);
         o.start(t); o.stop(t + 1.6);
       });
+    },
+    /* 答題時間到:鬧鐘聲(每 0.4s 一組「嗶-嗶」雙頻,持續約 3.6 秒) */
+    alarm() {
+      if (!ensure()) return;
+      const t0 = ctx.currentTime;
+      for (let i = 0; i < 9; i++) {
+        const t = t0 + i * 0.4;
+        note('square', 880, null, t, 0.16, 0.42);
+        note('square', 1175, null, t + 0.2, 0.16, 0.42);
+      }
     },
   };
 })();
@@ -2419,6 +2435,43 @@ PartyBus.on('group_leaders', payload => {
   if (!Array.isArray(payload?.leaders)) return;
   presenterLeaders = {};
   payload.leaders.forEach(l => { if (l?.name) presenterLeaders[l.name] = l.leader || null; });
+});
+
+/* 答題倒數計時:投影端題目右上角大字倒數,歸零響鬧鐘(≥3.6s) */
+let _presTimerInt = null;
+function _fmtTime(s) { return s >= 60 ? `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}` : `${s}`; }
+PartyBus.on('timer_update', payload => {
+  const box = document.getElementById('q-timer');
+  const val = document.getElementById('q-timer-val');
+  if (_presTimerInt) { clearInterval(_presTimerInt); _presTimerInt = null; }
+  let remain = Math.max(0, Math.round(payload?.remainingSec || 0));
+  if (remain <= 0) {   // 明確停止(公佈/下一題/跳題/重新搶答)
+    if (box) { box.style.display = 'none'; box.classList.remove('urgent','done'); }
+    return;
+  }
+  if (box) { box.style.display = ''; box.classList.remove('done'); }
+  const render = () => { if (val) val.textContent = _fmtTime(remain); if (box) box.classList.toggle('urgent', remain <= 10); };
+  render();
+  _presTimerInt = setInterval(() => {
+    remain--;
+    if (remain <= 0) {
+      clearInterval(_presTimerInt); _presTimerInt = null;
+      if (val) val.textContent = '0';
+      if (box) { box.classList.remove('urgent'); box.classList.add('done'); }
+      try { PGGSound.alarm(); } catch (e) {}
+      return;
+    }
+    render();
+  }, 1000);
+});
+
+/* 同一題重新搶答後回到該題:重新渲染快取的當前題目 */
+PartyBus.on('resume_question', () => {
+  if (currentQuestion) {
+    isRevealed = false;
+    renderQuestion();
+    goto('scr-question');
+  }
 });
 
 PartyBus.on('purgatory_summon', () => {
