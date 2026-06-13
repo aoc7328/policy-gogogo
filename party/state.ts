@@ -132,6 +132,11 @@ export interface RoomState {
   // 換掉的題目已在台上亮過,保守起見照算)。
   wordGameAsked: number;
 
+  // 搶答 MVP 累計:teamIdx → (玩家名 → 替全組搶下的輪數)。
+  // 只累計 speed/lightning/count(全組到位 allhands 不算個人)。
+  // 每位玩家在 rush_winner 被標為該組 personName 時 +1。game_start/restart 清空。
+  mvpTally: Map<number, Map<string, number>>;
+
   // Rush mode selection (UI choice) + resolved mode for current/last rush
   rushMode: RushMode;
   rushModeActual: ActualRushMode | null;
@@ -169,6 +174,7 @@ export function createInitialState(roomId: string, controlCode: string): RoomSta
     usedIds: new Set(),
     askedQuestions: [],
     wordGameAsked: 0,
+    mvpTally: new Map(),
     rushMode: 'speed',
     rushModeActual: null,
     rushSession: null,
@@ -195,6 +201,7 @@ export function startGame(state: RoomState, config: GameConfig): void {
   state.usedIds = new Set();
   state.askedQuestions = [];
   state.wordGameAsked = 0;
+  state.mvpTally = new Map();
   state.groups = config.groups.map((g, i) => ({
     idx: i,
     name: g.name,
@@ -392,6 +399,35 @@ export function assignLeaders(state: RoomState): void {
   }
 }
 
+// ──────────────────────────────────────────────────────────────────────
+// 搶答 MVP 累計
+// ──────────────────────────────────────────────────────────────────────
+
+/** 某輪 rush_winner:該組 personName 替全組搶下這輪 → +1。 */
+export function tallyMvpWin(state: RoomState, teamIdx: number, name: string): void {
+  if (typeof name !== 'string' || name.length === 0 || name.startsWith('(')) return;
+  let perPerson = state.mvpTally.get(teamIdx);
+  if (!perPerson) {
+    perPerson = new Map();
+    state.mvpTally.set(teamIdx, perPerson);
+  }
+  perPerson.set(name, (perPerson.get(name) ?? 0) + 1);
+}
+
+/** 算出某組的搶答 MVP(贏下最多輪者)。平手取先到該票數者。無資料 → null。 */
+export function computeMvp(
+  state: RoomState,
+  teamIdx: number
+): { name: string; wins: number } | null {
+  const perPerson = state.mvpTally.get(teamIdx);
+  if (!perPerson || perPerson.size === 0) return null;
+  let best: { name: string; wins: number } | null = null;
+  for (const [name, wins] of perPerson.entries()) {
+    if (!best || wins > best.wins) best = { name, wins };
+  }
+  return best;
+}
+
 /**
  * Random redistribute every currently-connected participant across the
  * existing state.groups. Used after the assistant changes team count
@@ -423,6 +459,74 @@ export function removeParticipantByConn(
   // Don't strip from team.members; the player might reconnect with same
   // name/team. Roster cleanup happens at game_restart only.
   return ref;
+}
+
+/** prefix 模式:移除空組並重排(其他組永遠最後),重編 idx。random 模式不動。 */
+function prunePrefixGroups(state: RoomState): void {
+  if (state.groupingMode !== 'prefix') return;
+  state.groups = state.groups.filter((g) => g.members.length > 0);
+  state.groups.sort((a, b) => {
+    const af = a.name === PREFIX_FALLBACK_GROUP ? 1 : 0;
+    const bf = b.name === PREFIX_FALLBACK_GROUP ? 1 : 0;
+    return af - bf;
+  });
+  state.groups.forEach((g, i) => (g.idx = i));
+}
+
+/**
+ * 參賽者改自己的名字。prefix 模式依新名字重新歸組(可能換組、清空組);
+ * random 模式留在原組只換顯示名。回傳異動明細供廣播。
+ */
+export function renameParticipant(
+  state: RoomState,
+  connId: string,
+  rawNewName: string
+): { ok: boolean; oldName?: string; newName?: string; oldTeam?: string; newTeam?: string; reason?: string } {
+  const ref = state.participants.get(connId);
+  if (!ref) return { ok: false, reason: 'not_found' };
+  const newName = (rawNewName || '').trim();
+  if (!newName) return { ok: false, reason: 'empty' };
+  if (newName.length > 20) return { ok: false, reason: 'too_long' };
+  if (newName === ref.name) return { ok: false, reason: 'unchanged' };
+
+  const oldName = ref.name;
+  const oldTeam = ref.team;
+  // 從舊組摘掉舊名
+  const oldGroup = state.groups.find((g) => g.name === oldTeam);
+  if (oldGroup) oldGroup.members = oldGroup.members.filter((m) => m !== oldName);
+
+  // 決定新組
+  let newTeam: string;
+  if (state.groupingMode === 'prefix') {
+    newTeam = pickTeamByPrefix(state, newName);   // find-or-create
+  } else {
+    newTeam = oldTeam;   // random 模式不換組
+  }
+  const newGroup = state.groups.find((g) => g.name === newTeam);
+  if (newGroup && !newGroup.members.includes(newName)) newGroup.members.push(newName);
+
+  ref.name = newName;
+  ref.team = newTeam;
+
+  prunePrefixGroups(state);
+  return { ok: true, oldName, newName, oldTeam, newTeam };
+}
+
+/**
+ * 硬移除參賽者(改名逾時自踢用):從 participants 與組員名單一併摘掉,
+ * prefix 模式空組順手清掉。回傳被移除者的 name/team。
+ */
+export function hardRemoveParticipant(
+  state: RoomState,
+  connId: string
+): { ok: boolean; name?: string; team?: string } {
+  const ref = state.participants.get(connId);
+  if (!ref) return { ok: false };
+  state.participants.delete(connId);
+  const g = state.groups.find((x) => x.name === ref.team);
+  if (g) g.members = g.members.filter((m) => m !== ref.name);
+  prunePrefixGroups(state);
+  return { ok: true, name: ref.name, team: ref.team };
 }
 
 export function renameTeam(
@@ -462,7 +566,7 @@ export function snapshot(state: RoomState): RoomStateSnapshot {
   return {
     phase: state.phase,
     game: state.game,
-    groups: state.groups.map((g) => ({ idx: g.idx, name: g.name, score: g.score, leader: g.leader })),
+    groups: state.groups.map((g) => ({ idx: g.idx, name: g.name, score: g.score, leader: g.leader, mvp: computeMvp(state, g.idx) })),
     currQ: state.currQ,
     totalQ: state.game?.totalQ ?? 0,
     rushMode: state.rushMode,

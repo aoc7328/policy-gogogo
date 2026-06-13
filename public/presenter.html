@@ -642,7 +642,10 @@ html, body { background: #080A10; font-family: var(--font-sans); -webkit-font-sm
 #scr-end .sb-row:first-of-type { border-top: 0; }
 #scr-end .sb-rank { font-family: var(--font-mono); font-size: 22px; font-weight: 300; color: var(--ink-3); text-align: center; }
 #scr-end .sb-name { font-family: var(--font-serif); font-weight: 700; font-size: 22px; color: var(--ink-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#scr-end .sb-leader { font-family: var(--font-mono); font-size: 12px; font-weight: 400; letter-spacing: 0.08em; color: var(--accent); margin-top: 2px; }
+#scr-end .sb-tags { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 4px; }
+#scr-end .sb-tag { font-family: var(--font-mono); font-size: 12px; font-weight: 400; letter-spacing: 0.06em; }
+#scr-end .sb-tag-leader { color: var(--accent); }
+#scr-end .sb-tag-mvp { color: var(--accent-bright); }
 #scr-end .sb-track { position: relative; height: 18px; background: rgba(155,163,181,0.08); border: 1px solid var(--line); overflow: hidden; }
 #scr-end .sb-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--ink-3); transition: width 800ms var(--ease); }
 #scr-end .sb-val { font-family: var(--font-mono); font-size: 24px; font-weight: 300; color: var(--ink-2); text-align: right; }
@@ -1715,8 +1718,8 @@ function hydratePresenterFromSnapshot(snap, attempt) {
       actualQ: (snap.askedIds || []).length,
       sortedGroups: [...(snap.groups || [])]
         .sort((a, b) => (b.score || 0) - (a.score || 0))
-        .map(x => ({ name: x.name, score: x.score, leader: x.leader })),
-      groups: (snap.groups || []).map(x => ({ name: x.name, score: x.score, members: [], leader: x.leader })),
+        .map(x => ({ name: x.name, score: x.score, leader: x.leader, mvp: x.mvp })),
+      groups: (snap.groups || []).map(x => ({ name: x.name, score: x.score, members: [], leader: x.leader, mvp: x.mvp })),
     });
     goto('scr-end');
     return;
@@ -2741,14 +2744,16 @@ function renderEndScreen(payload) {
     const pct = Math.round(((g.score || 0) / maxScore) * 100);
     // 組長:優先用 payload 帶的 leader,缺則查本端 group_leaders 存的表
     const leader = g.leader || presenterLeaders[g.name] || null;
-    const leaderHtml = leader
-      ? `<div class="sb-leader">組長 · ${leader}</div>`
-      : '';
+    const mvp = g.mvp && g.mvp.name ? g.mvp : null;
+    const tags = [];
+    if (leader) tags.push(`<span class="sb-tag sb-tag-leader">👑 組長 · ${leader}</span>`);
+    if (mvp) tags.push(`<span class="sb-tag sb-tag-mvp">⚡ 搶答 MVP · ${mvp.name}（${mvp.wins} 輪）</span>`);
+    const tagsHtml = tags.length ? `<div class="sb-tags">${tags.join('')}</div>` : '';
     const row = document.createElement('div');
     row.className = `sb-row r${rank <= 3 ? rank : 'n'}`;
     row.innerHTML = `
       <div class="sb-rank">${rank}</div>
-      <div class="sb-name">${g.name || '—'}${leaderHtml}</div>
+      <div class="sb-name">${g.name || '—'}${tagsHtml}</div>
       <div class="sb-track"><div class="sb-fill" data-pct="${pct}"></div></div>
       <div class="sb-val">${g.score ?? 0}</div>
     `;

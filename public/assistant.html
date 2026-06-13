@@ -228,8 +228,12 @@ input::placeholder{color:var(--ink-3)}
 .gc{background:var(--bg-surface);border:1px solid var(--line);padding:18px 20px}
 .gc-hd{display:flex;justify-content:space-between;align-items:baseline;padding-bottom:10px;border-bottom:1px solid var(--line);margin-bottom:12px}
 .gc-id{font-family:var(--font-mono);font-size:10px;letter-spacing:.2em;color:var(--ink-3);text-transform:uppercase}
-.gc-name{font-family:var(--font-serif);font-weight:700;font-size:18px}
+.gc-name{font-family:var(--font-serif);font-weight:700;font-size:18px;flex:1;margin-left:10px}
 .gc-note{font-size:13px;color:var(--ink-3);line-height:1.6}
+.gc-notify{display:flex;gap:6px;flex-shrink:0}
+.gc-nbtn{background:transparent;border:1px solid var(--line-s);color:var(--ink-2);font-family:var(--font-sans);font-size:11px;padding:4px 9px;cursor:pointer;letter-spacing:.04em;transition:all 160ms;white-space:nowrap}
+.gc-nbtn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-s)}
+.gc-nbtn.warn:hover{border-color:#D8344A;color:#EC5068;background:rgba(216,52,74,.1)}
 
 /* ===== SCORES ===== */
 .score-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px}
@@ -1424,6 +1428,15 @@ PartyBus.on('group_leaders', payload => {
   payload.leaders.forEach(l => { if (l?.name) S.leaders[l.name] = l.leader || null; });
   if (typeof renderGroups === 'function') renderGroups();
   if (typeof renderScores === 'function') renderScores();
+});
+
+/* 參賽者改名(可能換組)→ 進退場紀錄;分組結構由隨後的 roster_reshuffled 重建 */
+PartyBus.on('player_renamed', payload => {
+  if (!payload?.oldName || !payload?.newName) return;
+  if (typeof addLog === 'function') {
+    const moved = payload.oldTeam !== payload.newTeam ? `(${payload.oldTeam}→${payload.newTeam})` : '';
+    addLog(payload.newName, `改名自「${payload.oldName}」${moved}`, 'rename', payload.newTeam);
+  }
 });
 
 /* 參賽者登入完成 → 助理把該玩家加進對應組的 members + 進退場紀錄 */
@@ -2803,16 +2816,39 @@ function renderGroups(){
           }).join('')}
         </div>`;
     }
+    const safe = g.name.replace(/'/g, "\\'");
     return `
     <div class="gc">
       <div class="gc-hd">
         <span class="gc-id">${g.id}</span>
         <span class="gc-name">${g.name}</span>
+        <span class="gc-notify">
+          <button class="gc-nbtn warn" title="通知這組改名(會跳改名鈕、30 秒倒數、逾時踢出)" onclick="notifyGroup('${safe}','rename')">⚠ 通知改名</button>
+          <button class="gc-nbtn" title="軟性提醒這組確認名稱(有改名鈕、不踢人)" onclick="notifyGroup('${safe}','confirm')">？確認分組</button>
+        </span>
       </div>
       ${body}
     </div>`;
   }).join('');
 }
+
+/* 對某一整組發通知。rename 種類會踢人,先跳確認;confirm 直接送。 */
+function notifyGroup(team, kind) {
+  if (kind === 'rename') {
+    cfOpen({
+      eyebrow: 'Notify · 通知改名',
+      title: `通知「${team}」整組改名?`,
+      sub: '該組所有人畫面會跳出改名提示與 30 秒倒數,逾時未改名者會被請出房間(可用正確名稱重新加入)。',
+      okText: '送出通知',
+      okClass: 'danger',
+      onOk: () => { PartyBus.emit('notify_group', { team, kind: 'rename' }); setStatus(`已通知「${team}」改名(30 秒倒數)`); },
+    });
+  } else {
+    PartyBus.emit('notify_group', { team, kind: 'confirm' });
+    setStatus(`已軟性提醒「${team}」確認名稱`);
+  }
+}
+window.notifyGroup = notifyGroup;
 
 function selectTeam(i){
   // 點同一組 → 取消選中；點其他組 → 切換

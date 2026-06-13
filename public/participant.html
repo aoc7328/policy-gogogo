@@ -393,6 +393,16 @@ input{-webkit-appearance:none;border-radius:0}
 .tm-empty{font-family:var(--font-serif);font-style:italic;font-size:13px;color:var(--ink-3);text-align:center;padding:32px 0}
 /* 「你是組長」頭部徽章 */
 .gs-leader-badge{display:inline-flex;align-items:center;gap:4px;font-family:"Noto Sans TC",sans-serif;font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--bg);background:var(--accent);padding:3px 10px;border-radius:3px;margin-left:8px;box-shadow:0 0 12px var(--accent-s)}
+/* 整組通知浮窗 */
+.pgg-notice-card{width:min(92vw,400px);background:var(--bg-s);border:1px solid var(--accent-l);padding:0;animation:hmIn 280ms cubic-bezier(.2,.7,.2,1);box-shadow:0 0 40px rgba(0,0,0,.6)}
+.pgg-notice-title{font-family:"Noto Serif TC",serif;font-weight:700;font-size:18px;color:var(--accent-b);padding:18px 22px 0;letter-spacing:.04em}
+.pgg-notice-msg{font-size:14px;line-height:1.8;color:var(--ink-2);padding:12px 22px 0}
+.pgg-notice-input{margin:16px 22px 0;width:calc(100% - 44px);background:var(--bg-r);border:1px solid var(--accent-l);color:var(--ink-1);font-family:"Noto Sans TC",sans-serif;font-size:18px;padding:11px 14px;outline:none;letter-spacing:.04em}
+.pgg-notice-submit{margin:14px 22px 0;width:calc(100% - 44px);padding:13px;background:var(--accent);border:none;color:var(--bg);font-family:"Noto Sans TC",sans-serif;font-weight:700;font-size:15px;letter-spacing:.1em;cursor:pointer}
+.pgg-notice-submit:active{transform:translateY(1px)}
+.pgg-notice-count{padding:12px 22px 18px;text-align:center;font-family:"JetBrains Mono",monospace;font-size:13px;color:#EC5068;letter-spacing:.06em}
+.pgg-notice-dismiss{margin:10px 22px 18px;width:calc(100% - 44px);padding:10px;background:transparent;border:1px solid var(--line-s);color:var(--ink-2);font-family:"Noto Sans TC",sans-serif;font-size:13px;cursor:pointer}
+.pgg-notice-dismiss:hover{border-color:var(--ink-2);color:var(--ink-1)}
 
 /* ═══════════════════════════════════════════════
    即時分數長條(分組競爭視覺,固定在頂部狀態列下方)
@@ -3263,25 +3273,111 @@ window.renderQaAnswerBody = renderQaAnswerBody;
    server 偵測到同 deviceId 新分頁進來,本連線會被 close,partybus.js 內部
    會收到 __kicked__ 並停止重連。這裡負責 UI 提示 — 蓋一張全螢幕半透明
    遮罩,告訴使用者「請改用新分頁」。 */
-PartyBus.on('__kicked__', () => {
-  // 已經有遮罩就不重蓋
+/* 全螢幕停用遮罩(被踢/被移出用)。多次呼叫只蓋一張。 */
+function showKickedVeil(title, msgHtml) {
   if (document.getElementById('pgg-kicked-veil')) return;
   const veil = document.createElement('div');
   veil.id = 'pgg-kicked-veil';
   veil.style.cssText = [
     'position:fixed','inset:0','z-index:99999',
-    'background:rgba(0,0,0,.88)','color:#fff',
+    'background:rgba(0,0,0,.9)','color:#fff',
     'display:flex','flex-direction:column','align-items:center','justify-content:center',
     'gap:18px','padding:24px','text-align:center','font-family:"Noto Sans TC",sans-serif',
   ].join(';');
   veil.innerHTML = `
     <div style="font-size:48px">⚠</div>
-    <div style="font-size:20px;font-weight:700">本分頁已停用</div>
-    <div style="font-size:14px;opacity:.85;line-height:1.7;max-width:320px">
-      你在另一個分頁開啟了相同的遊戲,以新分頁為準。<br>
-      請切回新分頁繼續,或關閉此分頁。
+    <div style="font-size:20px;font-weight:700">${title}</div>
+    <div style="font-size:14px;opacity:.85;line-height:1.8;max-width:340px">${msgHtml}</div>`;
+  document.body.appendChild(veil);
+}
+
+PartyBus.on('__kicked__', () => {
+  showKickedVeil('本分頁已停用',
+    '你在另一個分頁開啟了相同的遊戲,以新分頁為準。<br>請切回新分頁繼續,或關閉此分頁。');
+});
+
+/* ══ 整組通知(助理端發起)══ */
+let _noticeTimer = null, _noticeCountdownTimer = null;
+PartyBus.on('group_notice', payload => {
+  if (!payload || !G.team || payload.team !== G.team) return;  // 不是我這組就忽略
+  showGroupNotice(payload.kind, payload.deadlineMs || 0);
+});
+function closeGroupNotice() {
+  if (_noticeTimer) { clearTimeout(_noticeTimer); _noticeTimer = null; }
+  if (_noticeCountdownTimer) { clearInterval(_noticeCountdownTimer); _noticeCountdownTimer = null; }
+  document.getElementById('pgg-notice-veil')?.remove();
+}
+function showGroupNotice(kind, deadlineMs) {
+  closeGroupNotice();
+  const isRename = kind === 'rename';
+  const veil = document.createElement('div');
+  veil.id = 'pgg-notice-veil';
+  veil.style.cssText = [
+    'position:fixed','inset:0','z-index:99998',
+    'background:rgba(0,0,0,.82)','backdrop-filter:blur(4px)',
+    'display:flex','align-items:center','justify-content:center','padding:20px',
+  ].join(';');
+  const title = isRename ? '⚠ 請更正你的隊伍名稱' : '請確認你的隊伍名稱';
+  const msg = isRename
+    ? '系統發現你目前自己一組,可能是隊伍名稱打錯了(例如全形「１」打成半形「1」、或多打了字)。請更正名稱,正確格式是「隊伍代號-你的名字」(例:中信1-小明)。改好後會自動分到正確的組。'
+    : '主持人請你確認隊伍名稱是否正確。正確格式:「隊伍代號-你的名字」(例:中信1-小明)。沒問題的話直接關閉即可。';
+  const cur = (G.name || '').replace(/"/g, '&quot;');
+  veil.innerHTML = `
+    <div class="pgg-notice-card">
+      <div class="pgg-notice-title">${title}</div>
+      <div class="pgg-notice-msg">${msg}</div>
+      <input id="pgg-notice-input" class="pgg-notice-input" maxlength="20" value="${cur}" />
+      <button id="pgg-notice-submit" class="pgg-notice-submit">確定改名</button>
+      ${isRename
+        ? `<div class="pgg-notice-count" id="pgg-notice-count"></div>`
+        : `<button id="pgg-notice-dismiss" class="pgg-notice-dismiss">我的名字沒問題</button>`}
     </div>`;
   document.body.appendChild(veil);
+  document.getElementById('pgg-notice-submit').onclick = submitNoticeRename;
+  if (!isRename) document.getElementById('pgg-notice-dismiss').onclick = closeGroupNotice;
+  setTimeout(() => document.getElementById('pgg-notice-input')?.focus(), 60);
+  if (isRename && deadlineMs > 0) {
+    let remain = Math.round(deadlineMs / 1000);
+    const countEl = document.getElementById('pgg-notice-count');
+    const tick = () => { if (countEl) countEl.textContent = `${remain} 秒內未更正,將請你重新加入`; };
+    tick();
+    _noticeCountdownTimer = setInterval(() => { remain--; tick(); if (remain <= 0) clearInterval(_noticeCountdownTimer); }, 1000);
+    _noticeTimer = setTimeout(noticeTimeoutKick, deadlineMs);
+  }
+}
+function submitNoticeRename() {
+  const inp = document.getElementById('pgg-notice-input');
+  const v = (inp?.value || '').trim();
+  if (!v) { inp?.focus(); return; }
+  if (v === G.name) { closeGroupNotice(); return; }  // 沒改也當作已處理
+  // 樂觀更新本機名字(server 回 player_renamed 會確認 + 帶新組)
+  G.name = v;
+  const nm = document.getElementById('gs-name'); if (nm) nm.textContent = v;
+  saveStoredParticipant(v, G.team || '');
+  PartyBus.emit('rename_self', { newName: v });
+  closeGroupNotice();
+}
+function noticeTimeoutKick() {
+  closeGroupNotice();
+  PartyBus.emit('leave_room', { reason: 'rename_timeout' });
+  showKickedVeil('你已被請出房間',
+    '因為未在時間內更正名稱。<br>請用正確的隊伍名稱(例:中信1-小明)重新掃碼加入。');
+}
+
+/* 某參賽者改名(可能換組)→ 更新名單;若是我自己,更新 G.name/G.team */
+PartyBus.on('player_renamed', payload => {
+  if (!payload?.oldName || !payload?.newName) return;
+  _roster.delete(payload.oldName);
+  if (payload.newTeam) _roster.set(payload.newName, payload.newTeam);
+  if (payload.oldName === G.name || payload.newName === G.name) {
+    G.name = payload.newName;
+    G.team = payload.newTeam;
+    const nm = document.getElementById('gs-name'); if (nm) nm.textContent = G.name;
+    const tm = document.getElementById('gs-team'); if (tm) tm.textContent = G.team;
+    saveStoredParticipant(G.name, G.team);
+  }
+  rebuildMyRoster();
+  if (typeof updateLeaderBadge === 'function') updateLeaderBadge();
 });
 
 /* ══ 自動回填登入(同 device 重新整理 / 開新分頁)══

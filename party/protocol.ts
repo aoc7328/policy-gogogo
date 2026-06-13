@@ -65,6 +65,8 @@ export interface TeamScore {
   score: number;
   /** 組長(開賽時隨機抽,代表上臺領獎)。null = 該組尚無組長/無成員。 */
   leader?: string | null;
+  /** 全組搶答 MVP(替全組贏下最多輪者)+ 輪數。null = 尚無搶答貢獻。 */
+  mvp?: { name: string; wins: number } | null;
 }
 
 // ──────────────────────────────────────────────────────────────────────
@@ -213,6 +215,36 @@ export type GroupingModeChangedCommand = {
   payload: { mode: GroupingMode; count?: number };
 } & PrivilegedHeader;
 
+/** 整組通知種類:'rename' 改名通知(30秒倒數+逾時踢出);'confirm' 軟性確認(不踢人)。 */
+export type GroupNoticeKind = 'rename' | 'confirm';
+
+/**
+ * 助理對某一整組發通知(lobby 或進行中皆可)。server 廣播 group_notice,
+ * 該組所有參賽者畫面跳出提示。
+ */
+export type NotifyGroupCommand = {
+  type: 'notify_group';
+  payload: { team: string; kind: GroupNoticeKind };
+} & PrivilegedHeader;
+
+/**
+ * 參賽者改自己的「名字」(不是組名)。prefix 模式下 server 會依新名字
+ * 重新歸組;random 模式則留在原組只換顯示名。
+ */
+export type RenameSelfCommand = {
+  type: 'rename_self';
+  payload: { newName: string };
+};
+
+/**
+ * 參賽者主動離開(改名通知逾時自踢)。server 硬移除(從 participants 與
+ * 組員名單一併摘掉、prefix 模式空組順手清掉),然後關閉連線。
+ */
+export type LeaveRoomCommand = {
+  type: 'leave_room';
+  payload: { reason?: string };
+};
+
 /**
  * Claim the presenter role for this room. Anyone can attempt; server checks
  * the embedded code matches state.controlCode AND that nobody has claimed yet.
@@ -255,6 +287,9 @@ export type ClientCommand =
   | TeamRenameCommand
   | TeamCountChangedCommand
   | GroupingModeChangedCommand
+  | NotifyGroupCommand
+  | RenameSelfCommand
+  | LeaveRoomCommand
   | ClaimPresenterCommand;
 
 // ──────────────────────────────────────────────────────────────────────
@@ -515,8 +550,8 @@ export type ExportResultEvent = {
     totalQ: number;
     spq: number;
     actualQ: number;
-    groups: { name: string; score: number; members: string[]; leader?: string | null }[];
-    sortedGroups: { name: string; score: number; leader?: string | null }[];
+    groups: { name: string; score: number; members: string[]; leader?: string | null; mvp?: { name: string; wins: number } | null }[];
+    sortedGroups: { name: string; score: number; leader?: string | null; mvp?: { name: string; wins: number } | null }[];
     askedQuestions: { id: string; difficulty: Difficulty; framework: string }[];
     exportTime: string;
   };
@@ -530,6 +565,18 @@ export type ExportResultEvent = {
 export type GroupLeadersEvent = {
   type: 'group_leaders';
   payload: { leaders: { name: string; leader: string | null }[] };  // name = group name
+};
+
+/** 整組通知 → 廣播給該組所有參賽者。deadlineMs:rename 種類的倒數(0=不倒數)。 */
+export type GroupNoticeEvent = {
+  type: 'group_notice';
+  payload: { team: string; kind: GroupNoticeKind; deadlineMs: number };
+};
+
+/** 某參賽者改名(可能伴隨換組)→ 三端更新名單 + 助理進退場紀錄。 */
+export type PlayerRenamedEvent = {
+  type: 'player_renamed';
+  payload: { oldName: string; newName: string; oldTeam: string; newTeam: string };
 };
 
 export type TeamRenameEvent = {
@@ -611,7 +658,9 @@ export type ServerEvent =
   | PlayerLeaveEvent
   | PresenterClaimedEvent
   | RosterReshuffledEvent
-  | GroupLeadersEvent;
+  | GroupLeadersEvent
+  | GroupNoticeEvent
+  | PlayerRenamedEvent;
 
 // ──────────────────────────────────────────────────────────────────────
 // Privileged command type guard
@@ -638,6 +687,7 @@ export const PRIVILEGED_COMMAND_TYPES = new Set<string>([
   'export_result',
   'team_count_changed',
   'grouping_mode_changed',
+  'notify_group',
 ]);
 
 export function isPrivilegedCommand(

@@ -31,12 +31,16 @@ import {
   adjustScore,
   upsertParticipant,
   removeParticipantByConn,
+  renameParticipant,
+  hardRemoveParticipant,
   renameTeam,
   setupTeams,
   pickTeamForParticipant,
   pickTeamByPrefix,
   regroupByPrefix,
   assignLeaders,
+  tallyMvpWin,
+  computeMvp,
   reshuffleParticipants,
   snapshot,
   type RoomState,
@@ -261,6 +265,12 @@ export default class PolicyGogogoServer implements Party.Server {
         return this.onTeamCountChanged(cmd.payload, sender);
       case 'grouping_mode_changed':
         return this.onGroupingModeChanged(cmd.payload, sender);
+      case 'notify_group':
+        return this.onNotifyGroup(cmd.payload);
+      case 'rename_self':
+        return this.onRenameSelf(cmd.payload, sender);
+      case 'leave_room':
+        return this.onLeaveRoom(sender);
       default: {
         const _exhaustive: never = cmd;
         void _exhaustive;
@@ -322,8 +332,24 @@ export default class PolicyGogogoServer implements Party.Server {
         `請按「重新開始」整場重置。`);
       return;
     }
-    rushStart(this.state, (e) => this.broadcast(e), { rerush });
+    rushStart(this.state, this.rushBroadcast, { rerush });
   }
+
+  /**
+   * 所有 rush 事件的廣播出口:順手攔 rush_winner 累計搶答 MVP
+   * (speed/lightning/count;allhands 無個人 personName 不算)。
+   * 兩個 rush 觸發點(start_rush 與 buzz_press)都走這裡,缺一不可
+   * (buzz 觸發的勝利是經由 onBuzzPress 的 handleBuzz 發出的)。
+   */
+  private rushBroadcast = (e: ServerEvent): void => {
+    if (e.type === 'rush_winner') {
+      const p = e.payload as { rushMode: string; groupIdx: number; personName?: string };
+      if (p.rushMode !== 'allhands' && typeof p.personName === 'string') {
+        tallyMvpWin(this.state, p.groupIdx, p.personName);
+      }
+    }
+    this.broadcast(e);
+  };
 
   private onEnterCategory(sender: Party.Connection<ConnState>): void {
     // 冪等:多助理協作時,每位助理 onRushWinner 都排了 3.5s 計時器送
@@ -661,7 +687,7 @@ export default class PolicyGogogoServer implements Party.Server {
     if (!this.state.game) return;
     const sortedGroups = [...this.state.groups]
       .sort((a, b) => b.score - a.score)
-      .map((g) => ({ name: g.name, score: g.score, leader: g.leader }));
+      .map((g) => ({ name: g.name, score: g.score, leader: g.leader, mvp: computeMvp(this.state, g.idx) }));
     // Chinese mode labels for participant UI. Server is authoritative for
     // the export payload (它不轉發 client 的 emit,自己組裝),所以這個 map
     // 就在這裡定。
@@ -685,6 +711,7 @@ export default class PolicyGogogoServer implements Party.Server {
         score: g.score,
         members: [...g.members],
         leader: g.leader,
+        mvp: computeMvp(this.state, g.idx),
       })),
       sortedGroups,
       askedQuestions: [...this.state.askedQuestions],
@@ -767,6 +794,58 @@ export default class PolicyGogogoServer implements Party.Server {
     this.broadcastRoster();
   }
 
+  /** 助理對整組發通知 → 廣播 group_notice(該組參賽者畫面跳提示)。 */
+  private onNotifyGroup(payload: { team: string; kind: import('./protocol').GroupNoticeKind }): void {
+    const kind = payload.kind === 'rename' ? 'rename' : 'confirm';
+    this.broadcast({
+      type: 'group_notice',
+      payload: { team: payload.team, kind, deadlineMs: kind === 'rename' ? 30000 : 0 },
+    });
+  }
+
+  /** 參賽者改自己的名字(prefix 模式會重新歸組)。 */
+  private onRenameSelf(
+    payload: { newName: string },
+    sender: Party.Connection<ConnState>
+  ): void {
+    const r = renameParticipant(this.state, sender.id, payload?.newName ?? '');
+    if (!r.ok) {
+      this.sendError(sender, 'rename_failed', r.reason === 'too_long' ? '名字太長(上限 20 字)' : '改名失敗');
+      return;
+    }
+    sender.setState({
+      role: 'participant',
+      name: r.newName ?? null,
+      team: r.newTeam ?? null,
+      deviceId: sender.state?.deviceId ?? null,
+      verified: false,
+    });
+    this.broadcast({
+      type: 'player_renamed',
+      payload: { oldName: r.oldName!, newName: r.newName!, oldTeam: r.oldTeam!, newTeam: r.newTeam! },
+    });
+    // 換組/清空組可能改變分組結構 → 全量 roster + 分數基準重發
+    this.broadcastRoster();
+    this.broadcast({
+      type: 'score_update',
+      payload: {
+        scores: this.state.groups.map((g) => ({ idx: g.idx, name: g.name, score: g.score })),
+        changedIdx: -1,
+        delta: 0,
+      },
+    });
+  }
+
+  /** 參賽者改名逾時自踢 → 硬移除 + 廣播 + 關閉連線。 */
+  private onLeaveRoom(sender: Party.Connection<ConnState>): void {
+    const r = hardRemoveParticipant(this.state, sender.id);
+    if (r.ok) {
+      this.broadcast({ type: 'player_leave', payload: { name: r.name!, team: r.team! } });
+      this.broadcastRoster();
+    }
+    try { sender.close(); } catch { /* already closing */ }
+  }
+
   private onTeamCountChanged(
     payload: { count: number },
     sender: Party.Connection<ConnState>
@@ -802,7 +881,7 @@ export default class PolicyGogogoServer implements Party.Server {
       ts: Date.now(), // Phase 0 Q3: server-receive time, ignore client ts
     };
     void sender;
-    rushHandleBuzz(this.state, (e) => this.broadcast(e), record);
+    rushHandleBuzz(this.state, this.rushBroadcast, record);
   }
 
   private onTeamRename(payload: { oldName: string; newName: string; by: string }): void {
