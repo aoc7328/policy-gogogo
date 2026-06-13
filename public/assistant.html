@@ -2314,6 +2314,14 @@ function rebuildNames(){
 function onTeamCountInputChange() {
   const n = parseInt(document.getElementById('i-n').value);
   if (!Number.isFinite(n) || n < 2 || n > 10) return;
+  // 賽後改分組數:工作人員要重來。先把整場重置回 lobby(server/投影/
+  // 參賽者一起回初始),否則 server 仍在 ended 階段會拒收 team_count_changed
+  // (phase_mismatch),分組也不會正確重新洗牌。重置後再套新分組數。
+  if (S.phase === 'ended') {
+    _doRestartImpl(true);
+    // _doRestartImpl 會切到設定頁、解鎖 i-n,但不動 i-n 的值;重置後
+    // server 已在 lobby,下面的 emit 才會被接受。
+  }
   rebuildNames();
   PartyBus.emit('team_count_changed', { count: n });
 }
@@ -2678,15 +2686,19 @@ function applyTabLock() {
   // 遊戲是否已開始(由 startGame 設 true、doRestart 設 false)
   // S.phase 'idle' 在「按過開始遊戲但還沒按搶答」也是 idle,所以不能用 phase 判斷
   const inSession = !!S.gameStarted;
-  // 房間/設定/題庫:遊戲進行中或已結束時鎖定;否則開放
+  // 已結束(ended):視為「賽後」狀態 — 全分頁解鎖。現場可能手忙腳亂,
+  // 工作人員按了結束後仍需回設定頁新增/刪減分組重來;鎖死會把人困在
+  // 唯讀計分畫面。最終成績已推到投影/參賽者,助理這端開放無害。
+  const isEnded = S.phase === 'ended';
+  // 房間/設定/題庫:遊戲進行中鎖定;未開始或已結束時開放
   ['room','setup','bank'].forEach(t => {
     const btn = document.getElementById(`tb-${t}`);
     if (!btn) return;
-    btn.classList.toggle('disabled', inSession);
+    btn.classList.toggle('disabled', inSession && !isEnded);
   });
   // 分組表:永遠開放
   document.getElementById('tb-group')?.classList.remove('disabled');
-  // 計分表:遊戲已開始時開放;否則鎖定
+  // 計分表:遊戲已開始(含已結束)時開放;純未開始才鎖
   const tbScore = document.getElementById('tb-score');
   if (tbScore) tbScore.classList.toggle('disabled', !inSession);
   // 若當前 active 分頁被鎖,自動切到一個合理的可用分頁
@@ -2912,11 +2924,14 @@ window.resetCategoryPicker = resetCategoryPicker;
 function _doEndImpl(){
   document.getElementById('rev-acts').classList.remove('show');
   setPhase('ended');
-  // 鎖回設定/題庫等分頁(進入結束狀態,只允許看分組表/計分表)
+  // 賽後狀態:解鎖設定/房間/題庫分頁(applyTabLock 對 ended 全開),
+  // 並重新啟用「分幾組」輸入框,讓工作人員能直接回設定頁改分組重來。
+  const inN = document.getElementById('i-n');
+  if (inN) inN.disabled = false;
   applyTabLock();
   // 自動匯出結果(廣播給參賽者 → 跳出「是否觀看結果」浮窗)
   if (typeof doExport === 'function') doExport();
-  setStatus('本場遊戲結束 · 結果已推送至參賽者畫面');
+  setStatus('本場遊戲結束 · 結果已推送 · 可切到「設定」改分組重新開始');
 }
 
 /* 結束本場:跳確認 modal,確定後才執行 */
