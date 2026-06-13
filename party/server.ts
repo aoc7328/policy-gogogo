@@ -34,6 +34,9 @@ import {
   renameTeam,
   setupTeams,
   pickTeamForParticipant,
+  pickTeamByPrefix,
+  regroupByPrefix,
+  assignLeaders,
   reshuffleParticipants,
   snapshot,
   type RoomState,
@@ -256,6 +259,8 @@ export default class PolicyGogogoServer implements Party.Server {
         return this.onTeamRename(cmd.payload);
       case 'team_count_changed':
         return this.onTeamCountChanged(cmd.payload, sender);
+      case 'grouping_mode_changed':
+        return this.onGroupingModeChanged(cmd.payload, sender);
       default: {
         const _exhaustive: never = cmd;
         void _exhaustive;
@@ -270,6 +275,8 @@ export default class PolicyGogogoServer implements Party.Server {
 
   private onGameStart(config: GameConfig): void {
     stateStartGame(this.state, config);
+    // 名單已凍結 → 每組隨機抽組長
+    assignLeaders(this.state);
     this.broadcast({ type: 'game_start', payload: config });
     // Push fresh score baseline (all zeros) so clients render bars.
     this.broadcast({
@@ -278,6 +285,13 @@ export default class PolicyGogogoServer implements Party.Server {
         scores: this.state.groups.map((g) => ({ idx: g.idx, name: g.name, score: g.score })),
         changedIdx: -1,
         delta: 0,
+      },
+    });
+    // 廣播組長:參賽者標記名單 + 告知本人;投影結算頁領獎用
+    this.broadcast({
+      type: 'group_leaders',
+      payload: {
+        leaders: this.state.groups.map((g) => ({ name: g.name, leader: g.leader })),
       },
     });
   }
@@ -517,6 +531,12 @@ export default class PolicyGogogoServer implements Party.Server {
     for (const c of this.room.getConnections<ConnState>()) {
       this.send(c, { type: '__room_state__', payload: snapshot(this.state) });
     }
+    // prefix 模式:restartGame 已依名字前綴重新整組 → 廣播 roster,
+    // 讓助理/參賽者重建 prefix 分組(他們從 roster_reshuffled 重建,
+    // 不從 __room_state__ 取 groups)。
+    if (this.state.groupingMode === 'prefix') {
+      this.broadcastRoster();
+    }
   }
 
   private onArmPurgatory(payload: { armed: boolean }): void {
@@ -641,7 +661,7 @@ export default class PolicyGogogoServer implements Party.Server {
     if (!this.state.game) return;
     const sortedGroups = [...this.state.groups]
       .sort((a, b) => b.score - a.score)
-      .map((g) => ({ name: g.name, score: g.score }));
+      .map((g) => ({ name: g.name, score: g.score, leader: g.leader }));
     // Chinese mode labels for participant UI. Server is authoritative for
     // the export payload (它不轉發 client 的 emit,自己組裝),所以這個 map
     // 就在這裡定。
@@ -664,6 +684,7 @@ export default class PolicyGogogoServer implements Party.Server {
         name: g.name,
         score: g.score,
         members: [...g.members],
+        leader: g.leader,
       })),
       sortedGroups,
       askedQuestions: [...this.state.askedQuestions],
@@ -686,10 +707,16 @@ export default class PolicyGogogoServer implements Party.Server {
     // three windows open together, or assistant connected later), bootstrap
     // with the default 2 teams. Assistant's subsequent team_count_changed
     // (with their actual i-n value) will reshuffle.
-    if (this.state.groups.length === 0) {
-      setupTeams(this.state, 2);
+    let team: string | null;
+    if (this.state.groupingMode === 'prefix') {
+      // prefix 模式:依名字前綴 find-or-create 組(組數動態長出來)
+      team = pickTeamByPrefix(this.state, payload.name);
+    } else {
+      if (this.state.groups.length === 0) {
+        setupTeams(this.state, 2);
+      }
+      team = pickTeamForParticipant(this.state, payload.name);
     }
-    const team = pickTeamForParticipant(this.state, payload.name);
     if (!team) return;
     upsertParticipant(this.state, sender.id, payload.name, team);
     sender.setState({
@@ -700,6 +727,44 @@ export default class PolicyGogogoServer implements Party.Server {
       verified: false,
     });
     this.broadcast({ type: 'player_join', payload: { name: payload.name, team } });
+    // prefix 模式可能剛建了新組 → 廣播完整 roster,讓三端同步新組結構
+    if (this.state.groupingMode === 'prefix') {
+      this.broadcastRoster();
+    }
+  }
+
+  /** 廣播當前完整分組(roster_reshuffled);多處共用。 */
+  private broadcastRoster(): void {
+    this.broadcast({
+      type: 'roster_reshuffled',
+      payload: {
+        groups: this.state.groups.map((g) => ({
+          idx: g.idx,
+          name: g.name,
+          members: [...g.members],
+        })),
+      },
+    });
+  }
+
+  private onGroupingModeChanged(
+    payload: { mode: import('./protocol').GroupingMode; count?: number },
+    sender: Party.Connection<ConnState>
+  ): void {
+    if (this.state.phase !== 'lobby') {
+      this.sendError(sender, 'phase_mismatch', '遊戲已開始,無法切換分組方式');
+      return;
+    }
+    if (payload.mode === 'prefix') {
+      this.state.groupingMode = 'prefix';
+      regroupByPrefix(this.state);
+    } else {
+      this.state.groupingMode = 'random';
+      const n = Math.max(2, Math.min(10, Math.floor(payload.count ?? this.state.groups.length ?? 2)));
+      setupTeams(this.state, n);
+      reshuffleParticipants(this.state);
+    }
+    this.broadcastRoster();
   }
 
   private onTeamCountChanged(
@@ -715,19 +780,12 @@ export default class PolicyGogogoServer implements Party.Server {
       );
       return;
     }
+    // 改組數隱含「隨機平均」模式(prefix 模式不吃組數)
+    this.state.groupingMode = 'random';
     const n = Math.max(2, Math.min(10, Math.floor(payload.count)));
     setupTeams(this.state, n);
     reshuffleParticipants(this.state);
-    this.broadcast({
-      type: 'roster_reshuffled',
-      payload: {
-        groups: this.state.groups.map((g) => ({
-          idx: g.idx,
-          name: g.name,
-          members: [...g.members],
-        })),
-      },
-    });
+    this.broadcastRoster();
   }
 
   private onBuzzPress(

@@ -16,6 +16,15 @@
 
 export type Difficulty = 'easy' | 'medium' | 'hard' | 'hell' | 'purgatory';
 export type GameMode = 'ordinary' | 'hell' | 'paradise' | 'custom';
+/**
+ * 分組方式:
+ * - 'random'  隨機平均(現有預設):最少人組優先 + 隨機平手,人數均衡。
+ * - 'prefix'  依名稱前綴:名字 dash「-」之前的文字相同者同組;無 dash 者
+ *             一律進「其他」組。組數由名字自動長出來,不吃「分幾組」設定。
+ */
+export type GroupingMode = 'random' | 'prefix';
+/** 無 dash 落單者的統一收容組名 */
+export const PREFIX_FALLBACK_GROUP = '其他';
 export type RushMode = 'speed' | 'count' | 'lightning' | 'allhands' | 'random';
 export type ActualRushMode = Exclude<RushMode, 'random'>;
 export type ConnectionRole = 'assistant' | 'presenter' | 'participant';
@@ -38,6 +47,8 @@ export interface GameConfig {
   spq: number;                        // score per question
   groups: { name: string }[];
   rushMode: RushMode;
+  /** 分組方式(預設 'random')。'prefix' 時 groups 由名字前綴決定。 */
+  groupingMode?: GroupingMode;
   /**
    * 一字千金 (word_game) per-game cap for non-custom modes.
    * null / undefined = unlimited (legacy behavior); 0 = never pick;
@@ -52,6 +63,8 @@ export interface TeamScore {
   idx: number;
   name: string;
   score: number;
+  /** 組長(開賽時隨機抽,代表上臺領獎)。null = 該組尚無組長/無成員。 */
+  leader?: string | null;
 }
 
 // ──────────────────────────────────────────────────────────────────────
@@ -190,6 +203,17 @@ export type TeamCountChangedCommand = {
 };
 
 /**
+ * Assistant switches grouping method (lobby only).
+ * - 'random': re-create `count` teams and reshuffle everyone evenly.
+ * - 'prefix': regroup all current participants by name prefix.
+ * Server broadcasts roster_reshuffled with the resulting groups.
+ */
+export type GroupingModeChangedCommand = {
+  type: 'grouping_mode_changed';
+  payload: { mode: GroupingMode; count?: number };
+} & PrivilegedHeader;
+
+/**
  * Claim the presenter role for this room. Anyone can attempt; server checks
  * the embedded code matches state.controlCode AND that nobody has claimed yet.
  * On success, server broadcasts `presenter_claimed` (mutex flag for all
@@ -230,6 +254,7 @@ export type ClientCommand =
   | BuzzPressCommand
   | TeamRenameCommand
   | TeamCountChangedCommand
+  | GroupingModeChangedCommand
   | ClaimPresenterCommand;
 
 // ──────────────────────────────────────────────────────────────────────
@@ -269,6 +294,8 @@ export interface RoomStateSnapshot {
   participants: { name: string; team: string }[];
   askedIds: string[];
   presenterClaimed: boolean;
+  /** 當前分組方式(lobby 設定;late-join 端據此還原 UI)。 */
+  groupingMode: GroupingMode;
   /**
    * Topic-domain frameworks read from quiz-bank-metadata.json's
    * topic_frameworks section.
@@ -488,11 +515,21 @@ export type ExportResultEvent = {
     totalQ: number;
     spq: number;
     actualQ: number;
-    groups: { name: string; score: number; members: string[] }[];
-    sortedGroups: { name: string; score: number }[];
+    groups: { name: string; score: number; members: string[]; leader?: string | null }[];
+    sortedGroups: { name: string; score: number; leader?: string | null }[];
     askedQuestions: { id: string; difficulty: Difficulty; framework: string }[];
     exportTime: string;
   };
+};
+
+/**
+ * Broadcast right after game_start: the randomly-chosen leader for each group.
+ * Participants mark the leader in the roster (and tell the leader themselves);
+ * the presenter end screen shows each group's leader for the prize ceremony.
+ */
+export type GroupLeadersEvent = {
+  type: 'group_leaders';
+  payload: { leaders: { name: string; leader: string | null }[] };  // name = group name
 };
 
 export type TeamRenameEvent = {
@@ -573,7 +610,8 @@ export type ServerEvent =
   | PlayerJoinEvent
   | PlayerLeaveEvent
   | PresenterClaimedEvent
-  | RosterReshuffledEvent;
+  | RosterReshuffledEvent
+  | GroupLeadersEvent;
 
 // ──────────────────────────────────────────────────────────────────────
 // Privileged command type guard
@@ -599,6 +637,7 @@ export const PRIVILEGED_COMMAND_TYPES = new Set<string>([
   'presenter_show_qr',
   'export_result',
   'team_count_changed',
+  'grouping_mode_changed',
 ]);
 
 export function isPrivilegedCommand(

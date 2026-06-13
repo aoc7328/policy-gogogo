@@ -642,6 +642,7 @@ html, body { background: #080A10; font-family: var(--font-sans); -webkit-font-sm
 #scr-end .sb-row:first-of-type { border-top: 0; }
 #scr-end .sb-rank { font-family: var(--font-mono); font-size: 22px; font-weight: 300; color: var(--ink-3); text-align: center; }
 #scr-end .sb-name { font-family: var(--font-serif); font-weight: 700; font-size: 22px; color: var(--ink-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#scr-end .sb-leader { font-family: var(--font-mono); font-size: 12px; font-weight: 400; letter-spacing: 0.08em; color: var(--accent); margin-top: 2px; }
 #scr-end .sb-track { position: relative; height: 18px; background: rgba(155,163,181,0.08); border: 1px solid var(--line); overflow: hidden; }
 #scr-end .sb-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--ink-3); transition: width 800ms var(--ease); }
 #scr-end .sb-val { font-family: var(--font-mono); font-size: 24px; font-weight: 300; color: var(--ink-2); text-align: right; }
@@ -1165,6 +1166,9 @@ const modeConfig = {
 // 最近一次搶答贏家(由真實 rush_winner 事件填入,見下方 handler)。
 // 初始為空,避免任何假資料在第一輪前露出於選題畫面。
 let lastWinner = { group: '', person: '', ms: '' };
+// 各組組長 { 組名: 組長名 },由 server group_leaders 廣播 / snapshot 填入,
+// 結算頁領獎時顯示。
+let presenterLeaders = {};
 function goto(screenId) {
   // 切離 scr-select 時清掉 QR 倒數 timer(避免殘留)
   if (screenId !== 'scr-select' && typeof clearJoinQRTimers === 'function') {
@@ -1699,15 +1703,20 @@ function hydratePresenterFromSnapshot(snap, attempt) {
   if (sbRound) sbRound.textContent = `ROUND ${String(round).padStart(2, '0')}`;
   if (typeof updateStandbyRushPreview === 'function') updateStandbyRushPreview();
 
+  // 組長:snapshot 的 groups 帶 leader → 還原本端 presenterLeaders
+  if (Array.isArray(snap.groups)) {
+    presenterLeaders = {};
+    snap.groups.forEach(x => { if (x?.name) presenterLeaders[x.name] = x.leader || null; });
+  }
   if (snap.phase === 'ended') {
-    // 用快照分數合成結束畫面 payload(成員/題目清單非必要欄位)
+    // 用快照分數合成結束畫面 payload(成員/題目清單非必要欄位;leader 帶上供領獎)
     renderEndScreen({
       mode: g.mode,
       actualQ: (snap.askedIds || []).length,
       sortedGroups: [...(snap.groups || [])]
         .sort((a, b) => (b.score || 0) - (a.score || 0))
-        .map(x => ({ name: x.name, score: x.score })),
-      groups: (snap.groups || []).map(x => ({ name: x.name, score: x.score, members: [] })),
+        .map(x => ({ name: x.name, score: x.score, leader: x.leader })),
+      groups: (snap.groups || []).map(x => ({ name: x.name, score: x.score, members: [], leader: x.leader })),
     });
     goto('scr-end');
     return;
@@ -2402,6 +2411,13 @@ PartyBus.on('question_pick', payload => {
   }
 });
 
+/* server 開賽後廣播各組組長 → 存起來,結算頁領獎時顯示 */
+PartyBus.on('group_leaders', payload => {
+  if (!Array.isArray(payload?.leaders)) return;
+  presenterLeaders = {};
+  payload.leaders.forEach(l => { if (l?.name) presenterLeaders[l.name] = l.leader || null; });
+});
+
 PartyBus.on('purgatory_summon', () => {
   PGGSound.purg();
   if (typeof summonPurgatory === 'function') summonPurgatory();
@@ -2723,11 +2739,16 @@ function renderEndScreen(payload) {
   sorted.forEach((g, i) => {
     const rank = i + 1;
     const pct = Math.round(((g.score || 0) / maxScore) * 100);
+    // 組長:優先用 payload 帶的 leader,缺則查本端 group_leaders 存的表
+    const leader = g.leader || presenterLeaders[g.name] || null;
+    const leaderHtml = leader
+      ? `<div class="sb-leader">組長 · ${leader}</div>`
+      : '';
     const row = document.createElement('div');
     row.className = `sb-row r${rank <= 3 ? rank : 'n'}`;
     row.innerHTML = `
       <div class="sb-rank">${rank}</div>
-      <div class="sb-name">${g.name || '—'}</div>
+      <div class="sb-name">${g.name || '—'}${leaderHtml}</div>
       <div class="sb-track"><div class="sb-fill" data-pct="${pct}"></div></div>
       <div class="sb-val">${g.score ?? 0}</div>
     `;
@@ -2755,6 +2776,7 @@ PartyBus.on('game_restart', () => {
   selectedMode = null;
   pendingMode = null;
   currentMode = null;
+  presenterLeaders = {};   // 組長每場重抽,重新開始先清掉
   // 取消任何進行中的 timer
   if (typeof categoryLockTimer !== 'undefined' && categoryLockTimer) { clearTimeout(categoryLockTimer); categoryLockTimer = null; }
   if (typeof purgArrivalTimer !== 'undefined' && purgArrivalTimer) { clearTimeout(purgArrivalTimer); purgArrivalTimer = null; }

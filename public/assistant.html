@@ -855,13 +855,21 @@ input::placeholder{color:var(--ink-3)}
 
       <div class="setup-block">
         <div class="sec-label">分組設定</div>
+        <div class="fld" style="margin-bottom:10px">
+          <span class="flbl">分組方式</span>
+          <div class="cust-chips" id="grouping-mode-chips" style="margin-top:4px">
+            <button class="cust-chip active" data-gmode="random" onclick="setGroupingMode(this)">隨機平均</button>
+            <button class="cust-chip"        data-gmode="prefix" onclick="setGroupingMode(this)">依名稱前綴</button>
+          </div>
+          <div class="hint" id="grouping-mode-hint" style="margin-top:6px;font-size:11px;color:var(--ink-3)">依當下加入人數隨機平均分組,人數均衡。</div>
+        </div>
         <div class="setup-row" style="grid-template-columns:1fr 1fr;margin-bottom:6px">
           <div class="fld">
             <span class="flbl">總人數</span>
             <input type="number" id="i-total" value="0" min="0" max="200" readonly title="自動由實際加入的參賽者人數計算">
           </div>
           <div class="fld">
-            <span class="flbl">分幾組</span>
+            <span class="flbl" id="i-n-label">分幾組</span>
             <input type="number" id="i-n" value="2" min="2" max="10" oninput="onTeamCountInputChange()">
           </div>
         </div>
@@ -1120,6 +1128,10 @@ const S={
   // 一字千金出現上限:null=不限(legacy)、0=關閉、N=每場最多 N 題。
   // 只對普通/地獄/極樂生效;自由模式用題型勾選控制,server 端會忽略。
   wordGameCap:null,
+  // 分組方式:'random' 隨機平均(預設)、'prefix' 依名稱前綴。
+  groupingMode:'random',
+  // 組長表 { 組名: 組長名 },由 server group_leaders 廣播填入。
+  leaders:{},
   // 當前題目分類(F1~F9,助理九宮格選擇)
   currentCat:null,
   // 九宮格兩階段選擇狀態
@@ -1289,6 +1301,10 @@ function hydrateFromSnapshot(snap){
     score: grp.score || 0,
     members: membersByTeam[grp.name] || [],
   }));
+  // 分組方式 + 組長(讓中途加入的助理也看到正確模式與組長徽章)
+  if (snap.groupingMode) S.groupingMode = snap.groupingMode;
+  S.leaders = {};
+  (snap.groups || []).forEach(grp => { if (grp?.name) S.leaders[grp.name] = grp.leader || null; });
   S.gameStarted = true;  // 進行中或已結束都算「曾開賽」→ 鎖設定頁、開放計分表
   // 當前題目:用本地 BANK 依 id 查內容
   if (snap.currentQuestion && snap.currentQuestion.id) {
@@ -1398,6 +1414,16 @@ PartyBus.on('team_rename', payload => {
   if (typeof renderScores === 'function') renderScores();
   // Phase 3:不再 re-broadcast score_update,server 在收到 team_rename
   // 後會自己廣播 score_update(payload 帶新組名),所有 client 統一收。
+});
+
+/* server 開賽後廣播各組組長(隨機抽)。存進 S.leaders,重渲染組別/計分表
+   讓組長名字旁顯示徽章。 */
+PartyBus.on('group_leaders', payload => {
+  if (!Array.isArray(payload?.leaders)) return;
+  S.leaders = {};
+  payload.leaders.forEach(l => { if (l?.name) S.leaders[l.name] = l.leader || null; });
+  if (typeof renderGroups === 'function') renderGroups();
+  if (typeof renderScores === 'function') renderScores();
 });
 
 /* 參賽者登入完成 → 助理把該玩家加進對應組的 members + 進退場紀錄 */
@@ -2179,6 +2205,37 @@ function pickMode(m){
 }
 
 /* 自由模式 chip 切換(不可全部取消,至少留一個) */
+/* 分組方式切換:'random' 隨機平均 / 'prefix' 依名稱前綴。
+   - prefix:停用「分幾組」(組數由名字長出來),通知 server 依前綴重整。
+   - random:恢復「分幾組」,通知 server 用該組數隨機重洗。
+   server 會回 roster_reshuffled,本端 group/score 預覽自動跟著更新。 */
+function setGroupingMode(el) {
+  const mode = el.dataset.gmode === 'prefix' ? 'prefix' : 'random';
+  S.groupingMode = mode;
+  document.querySelectorAll('#grouping-mode-chips .cust-chip').forEach(c => {
+    c.classList.toggle('active', c === el);
+  });
+  const inN = document.getElementById('i-n');
+  const nLabel = document.getElementById('i-n-label');
+  const hint = document.getElementById('grouping-mode-hint');
+  const names = document.getElementById('group-names');
+  if (mode === 'prefix') {
+    if (inN) { inN.disabled = true; inN.title = '依名稱前綴模式:組數由名字自動決定'; }
+    if (nLabel) nLabel.textContent = '分幾組(自動)';
+    if (hint) hint.textContent = '名字「-」之前相同者同組(例:中信1-王、中信1-李 → 中信1 組);沒有「-」的人歸「其他」組。組數由名字自動決定。';
+    if (names) names.style.display = 'none';   // 組名由前綴決定,隱藏手動命名
+    PartyBus.emit('grouping_mode_changed', { mode: 'prefix' });
+  } else {
+    if (inN) { inN.disabled = false; inN.title = ''; }
+    if (nLabel) nLabel.textContent = '分幾組';
+    if (hint) hint.textContent = '依當下加入人數隨機平均分組,人數均衡。';
+    if (names) names.style.display = '';
+    const n = parseInt(inN?.value) || 2;
+    PartyBus.emit('grouping_mode_changed', { mode: 'random', count: n });
+  }
+  if (typeof recalc === 'function') recalc();
+}
+
 /* 一字千金上限:單選 segmented control。data-wgcap="" → null(不限)。 */
 function setWordGameCap(el) {
   const raw = el.dataset.wgcap;
@@ -2285,6 +2342,8 @@ function updateTotalCount() {
   );
   const el = document.getElementById('i-total');
   if (el) el.value = String(total);
+  // prefix 模式:組數隨人加入而長,start 門檻要跟著重評(S.groups.length>=1)
+  if (typeof chk === 'function') chk();
 }
 window.updateTotalCount = updateTotalCount;
 
@@ -2407,8 +2466,12 @@ function chk(){
   const n=parseInt(document.getElementById('i-n')?.value)||0;
   // 自由模式必須勾至少一個難度 + 至少一個題型
   const customOk = S.mode !== 'custom' || (S.customTiers.length > 0 && S.customTypes.length > 0);
+  // 分組門檻:隨機平均要 n>=2;依名稱前綴要至少 1 組已成形(有人加入)
+  const groupOk = S.groupingMode === 'prefix'
+    ? (Array.isArray(S.groups) && S.groups.length >= 1)
+    : n >= 2;
   document.getElementById('start-btn').disabled=
-    !(BANK_AUTO_LOAD_READY && S.mode && q>0 && s>0 && n>=2 && customOk);
+    !(BANK_AUTO_LOAD_READY && S.mode && q>0 && s>0 && groupOk && customOk);
 }
 
 function startGame(){
@@ -2422,13 +2485,24 @@ function startGame(){
   S.currentQuestion = null;
   S.currentDifficulty = null;
   S.currentFramework = null;
-  const oldMembers = (S.groups || []).map(g => g.members || []);
-  S.groups=Array.from({length:n},(_,i)=>({
-    id:`GROUP ${String(i+1).padStart(2,'0')}`,
-    name:document.getElementById(`gn-${i}`)?.value||`第${i+1}組`,
-    score:0,
-    members: oldMembers[i] || [],
-  }));
+  if (S.groupingMode === 'prefix') {
+    // prefix 模式:S.groups 已是 server 依名字前綴整出來的組(roster_reshuffled
+    // 同步而來),不從 gn-X 手動命名重建,只重編 id 與歸零分數。
+    S.groups = (S.groups || []).map((g, i) => ({
+      id: `GROUP ${String(i+1).padStart(2,'0')}`,
+      name: g.name,
+      score: 0,
+      members: g.members || [],
+    }));
+  } else {
+    const oldMembers = (S.groups || []).map(g => g.members || []);
+    S.groups=Array.from({length:n},(_,i)=>({
+      id:`GROUP ${String(i+1).padStart(2,'0')}`,
+      name:document.getElementById(`gn-${i}`)?.value||`第${i+1}組`,
+      score:0,
+      members: oldMembers[i] || [],
+    }));
+  }
   document.getElementById('m-round').textContent='01';
   document.getElementById('m-q').textContent=`0 / ${S.totalQ}`;
   document.getElementById('m-max').textContent=`${S.totalQ*S.spq}`;
@@ -2449,6 +2523,7 @@ function startGame(){
     groups: S.groups.map(g => ({ name: g.name })),
     rushMode: S.rushMode,
     wordGameCap: S.wordGameCap,
+    groupingMode: S.groupingMode,
   });
   // Phase 3:不再本地 emit 初始 score_update;server 收到 game_start
   // 命令後會自己廣播一次 score_update(全 0 baseline)給三端。
@@ -2712,6 +2787,7 @@ window.applyTabLock = applyTabLock;
 function renderGroups(){
   document.getElementById('group-grid').innerHTML=S.groups.map(g=>{
     const members = Array.isArray(g.members) ? g.members : [];
+    const leader = S.leaders?.[g.name] || null;
     let body;
     if (members.length === 0) {
       body = `<div class="gc-note" style="opacity:.5">尚無成員加入</div>`;
@@ -2719,7 +2795,12 @@ function renderGroups(){
       body = `
         <div class="gc-note" style="margin-bottom:6px;font-size:11px;color:var(--ink-3);letter-spacing:.16em">${members.length} 人</div>
         <div style="display:flex;flex-wrap:wrap;gap:6px">
-          ${members.map(m => `<span style="font-size:13px;color:var(--ink-1);background:var(--bg-deep);border:1px solid var(--line);padding:4px 10px">${m}</span>`).join('')}
+          ${members.map(m => {
+            const isLead = m === leader;
+            const star = isLead ? `<span style="color:var(--accent);margin-right:3px">★</span>` : '';
+            const bd = isLead ? 'var(--accent)' : 'var(--line)';
+            return `<span style="font-size:13px;color:var(--ink-1);background:var(--bg-deep);border:1px solid ${bd};padding:4px 10px">${star}${m}${isLead?'<span style="font-size:10px;color:var(--accent);margin-left:4px">組長</span>':''}</span>`;
+          }).join('')}
         </div>`;
     }
     return `
@@ -2966,6 +3047,7 @@ function _doRestartImpl(emit){
   S.catPreview = null;
   S.catLocked = false;
   S.purgArmed = false;
+  S.leaders = {};   // 組長是每場重抽,重新開始先清掉舊的
   // 若當前在煉獄題畫面,清掉本機煉獄樣式(server 也會 broadcast purgatory_end
   // 給其他端,但本機不等 echo,直接同步清掉)
   if (typeof endPurgatory === 'function') endPurgatory();

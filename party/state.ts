@@ -12,10 +12,12 @@ import type {
   ActualRushMode,
   Difficulty,
   GameConfig,
+  GroupingMode,
   Phase,
   RushMode,
   RoomStateSnapshot,
 } from './protocol';
+import { PREFIX_FALLBACK_GROUP } from './protocol';
 import { FRAMEWORKS_A, FRAMEWORKS_B, BRANDING } from './bank';
 
 // ──────────────────────────────────────────────────────────────────────
@@ -86,6 +88,7 @@ export interface TeamState {
   name: string;
   score: number;
   members: string[];        // distinct player nicknames currently on this team
+  leader: string | null;    // 組長(開賽時隨機抽);null = 尚未指派/無成員
 }
 
 export interface ParticipantRef {
@@ -108,6 +111,9 @@ export interface RoomState {
 
   // Game config; null until game_start fires.
   game: GameConfig | null;
+
+  // 分組方式(lobby 設定,預設 random)。決定 player_join 怎麼分組。
+  groupingMode: GroupingMode;
 
   // Team scoreboards — created on game_start, persist till game_restart.
   groups: TeamState[];
@@ -153,6 +159,7 @@ export function createInitialState(roomId: string, controlCode: string): RoomSta
     createdAt: Date.now(),
     phase: 'lobby',
     game: null,
+    groupingMode: 'random',
     groups: [],
     currQ: 0,
     currentQuestion: null,
@@ -176,6 +183,7 @@ export function createInitialState(roomId: string, controlCode: string): RoomSta
 
 export function startGame(state: RoomState, config: GameConfig): void {
   state.game = config;
+  if (config.groupingMode) state.groupingMode = config.groupingMode;
   state.phase = 'idle';
   state.rushMode = config.rushMode;
   state.rushModeActual = null;
@@ -192,6 +200,7 @@ export function startGame(state: RoomState, config: GameConfig): void {
     name: g.name,
     score: 0,
     members: [],
+    leader: null,
   }));
   // Re-attach existing participants to their teams (preserve roster across
   // game_start so participants who joined before pressing start aren't lost).
@@ -208,11 +217,19 @@ export function restartGame(state: RoomState): void {
   }
   // Preserve roomId, controlCode, participants, presenterClaimed
   // (presenter 是房層設施,不會因為按了「重新開始」就解鎖 → 必須帶過來)。
+  // groupingMode 也保留 — 重新開始通常還是同一場活動的同一種分組方式。
+  const prevGroupingMode = state.groupingMode;
   const fresh = createInitialState(state.roomId, state.controlCode);
   Object.assign(state, fresh, {
     participants: state.participants,
     presenterClaimed: state.presenterClaimed,
+    groupingMode: prevGroupingMode,
   });
+  // prefix 模式:重新開始後把仍在線的 participant 依名字前綴重新整組
+  // (random 模式維持舊行為:groups 留空,game_start/改組數時再重建)。
+  if (prevGroupingMode === 'prefix') {
+    regroupByPrefix(state);
+  }
 }
 
 export function adjustScore(
@@ -273,6 +290,7 @@ export function setupTeams(state: RoomState, count: number): void {
       name: existing?.name ?? DEFAULT_TEAM_NAMES[i] ?? `第${i + 1}組`,
       score: existing?.score ?? 0,
       members: [],
+      leader: null,
     });
   }
   state.groups = newGroups;
@@ -295,6 +313,83 @@ export function pickTeamForParticipant(
   const minSize = Math.min(...state.groups.map((g) => g.members.length));
   const candidates = state.groups.filter((g) => g.members.length === minSize);
   return candidates[Math.floor(Math.random() * candidates.length)].name;
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Prefix-based grouping (依名稱前綴)
+// ──────────────────────────────────────────────────────────────────────
+
+/**
+ * 從名字抽出分組 key:取第一個 dash 之前的文字(去頭尾空白)。
+ * 支援半形 - 與全形 －、連字號 –—。無 dash 或前綴為空 → null(歸「其他」)。
+ * 例:「中信1-王」→「中信1」;「中信1」→ null;「業務部－張」→「業務部」。
+ */
+export function extractPrefixKey(name: string): string | null {
+  if (typeof name !== 'string') return null;
+  const m = name.match(/^([^\-–—－]+)[-–—－]/);
+  if (!m) return null;
+  const key = m[1].trim();
+  return key.length > 0 ? key : null;
+}
+
+/**
+ * 決定一個 join 進來的人在 prefix 模式下歸哪組:
+ * - 重連:名字已在某組 → 沿用原組。
+ * - dash 前綴 → 找/建同名組;無 dash → 「其他」組。
+ * 需要時即時建立新組(prefix 模式組數是長出來的)。回傳組名。
+ */
+export function pickTeamByPrefix(state: RoomState, name: string): string {
+  const existing = state.groups.find((g) => g.members.includes(name));
+  if (existing) return existing.name;
+  const groupName = extractPrefixKey(name) ?? PREFIX_FALLBACK_GROUP;
+  let group = state.groups.find((g) => g.name === groupName);
+  if (!group) {
+    group = {
+      idx: state.groups.length,
+      name: groupName,
+      score: 0,
+      members: [],
+      leader: null,
+    };
+    state.groups.push(group);
+  }
+  return groupName;
+}
+
+/**
+ * 依名字前綴把所有現連 participant 重新整組(切換到 prefix 模式時用)。
+ * 清空 groups 後逐人 find-or-create,並把 participant.team 同步更新。
+ * 「其他」組永遠排在最後(視覺上比較自然)。
+ */
+export function regroupByPrefix(state: RoomState): void {
+  state.groups = [];
+  for (const p of state.participants.values()) {
+    const team = pickTeamByPrefix(state, p.name);
+    p.team = team;
+    const g = state.groups.find((x) => x.name === team)!;
+    if (!g.members.includes(p.name)) g.members.push(p.name);
+  }
+  // 「其他」組挪到最後,重編 idx
+  state.groups.sort((a, b) => {
+    const af = a.name === PREFIX_FALLBACK_GROUP ? 1 : 0;
+    const bf = b.name === PREFIX_FALLBACK_GROUP ? 1 : 0;
+    return af - bf;
+  });
+  state.groups.forEach((g, i) => (g.idx = i));
+}
+
+/**
+ * 開賽凍結名單時,為每組隨機抽一位成員當組長。
+ * 空組 → leader = null。已抽過(重新呼叫)會重抽。
+ */
+export function assignLeaders(state: RoomState): void {
+  for (const g of state.groups) {
+    if (g.members.length === 0) {
+      g.leader = null;
+      continue;
+    }
+    g.leader = g.members[Math.floor(Math.random() * g.members.length)];
+  }
 }
 
 /**
@@ -367,7 +462,7 @@ export function snapshot(state: RoomState): RoomStateSnapshot {
   return {
     phase: state.phase,
     game: state.game,
-    groups: state.groups.map((g) => ({ idx: g.idx, name: g.name, score: g.score })),
+    groups: state.groups.map((g) => ({ idx: g.idx, name: g.name, score: g.score, leader: g.leader })),
     currQ: state.currQ,
     totalQ: state.game?.totalQ ?? 0,
     rushMode: state.rushMode,
@@ -382,6 +477,7 @@ export function snapshot(state: RoomState): RoomStateSnapshot {
     })),
     askedIds: [...state.usedIds],
     presenterClaimed: state.presenterClaimed,
+    groupingMode: state.groupingMode,
     // Topic-domain frameworks: read once at module load from bank metadata,
     // shipped on every snapshot so clients don't need their own copy.
     frameworks: { A: [...FRAMEWORKS_A], B: [...FRAMEWORKS_B] },

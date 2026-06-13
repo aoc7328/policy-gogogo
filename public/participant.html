@@ -387,7 +387,12 @@ input{-webkit-appearance:none;border-radius:0}
 }
 .tm-row.offline .stat{background:var(--ink-4);box-shadow:none}
 .tm-row.offline .nm{color:var(--ink-3);text-decoration:line-through;text-decoration-color:var(--ink-4);text-decoration-thickness:1px}
+.tm-row.leader{background:var(--accent-s)}
+.tm-row.leader .nm{color:var(--accent-b);font-weight:700}
+.tm-crown{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.1em;color:var(--accent);background:rgba(212,163,75,.12);border:1px solid var(--accent-l);padding:2px 7px;border-radius:2px;flex-shrink:0}
 .tm-empty{font-family:var(--font-serif);font-style:italic;font-size:13px;color:var(--ink-3);text-align:center;padding:32px 0}
+/* 「你是組長」頭部徽章 */
+.gs-leader-badge{display:inline-flex;align-items:center;gap:4px;font-family:"Noto Sans TC",sans-serif;font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--bg);background:var(--accent);padding:3px 10px;border-radius:3px;margin-left:8px;box-shadow:0 0 12px var(--accent-s)}
 
 /* ═══════════════════════════════════════════════
    即時分數長條(分組競爭視覺,固定在頂部狀態列下方)
@@ -1073,6 +1078,7 @@ body.tm-paradise .opt{border-radius:0 12px 12px 0;border-left:3px solid var(--se
       <div class="conn-dot"></div>
       <span class="gs-name"><span class="nm" id="gs-name">—</span></span>
       <span class="gs-team" id="gs-team" onclick="openTeamModal()" role="button" tabindex="0">—</span>
+      <span class="gs-leader-badge" id="gs-leader-badge" style="display:none">★ 組長</span>
       <button class="gs-mini-btn" id="gs-rename-btn" onclick="startEditTeamNameInBar()" title="改組名">✎</button>
       <input type="text" class="gs-rename-input" id="gs-rename-input" maxlength="8" style="display:none" />
       <span class="gs-rename-err" id="gs-rename-err"></span>
@@ -1460,11 +1466,19 @@ PartyBus.on('__room_state__', (snap) => {
     snap.participants.forEach(p => { if (p?.name && p?.team) _roster.set(p.name, p.team); });
     rebuildMyRoster();
   }
+  // 組長(reconnect 還原):snapshot 的 groups 帶 leader
+  if (Array.isArray(snap?.groups)) {
+    _leadersMap = {};
+    snap.groups.forEach(g => { if (g?.name) _leadersMap[g.name] = g.leader || null; });
+    if (typeof updateLeaderBadge === 'function') updateLeaderBadge();
+  }
 });
 
 /* ══ 組員名單(真實資料,來源:server __room_state__ / player_join /
    player_leave / roster_reshuffled。不再用任何 MOCK 假資料) ══ */
 const _roster = new Map();   // name -> team(全房現連名單)
+let _leadersMap = {};        // 組名 -> 組長名(server group_leaders / snapshot 填入)
+function myLeader() { return G.team ? (_leadersMap[G.team] || null) : null; }
 function rebuildMyRoster() {
   if (typeof updateTeamRoster !== 'function') return;
   if (!G.team) { updateTeamRoster([]); return; }
@@ -1475,6 +1489,24 @@ function rebuildMyRoster() {
   }
   updateTeamRoster(list);
 }
+
+/* 更新「我是組長」標示:遊戲頭部顯示徽章,讓本人知道自己是組長。 */
+function updateLeaderBadge() {
+  const badge = document.getElementById('gs-leader-badge');
+  if (!badge) return;
+  const iAmLeader = !!(G.name && myLeader() === G.name);
+  badge.style.display = iAmLeader ? '' : 'none';
+}
+
+/* server 開賽後廣播各組組長 */
+PartyBus.on('group_leaders', payload => {
+  if (!Array.isArray(payload?.leaders)) return;
+  _leadersMap = {};
+  payload.leaders.forEach(l => { if (l?.name) _leadersMap[l.name] = l.leader || null; });
+  updateLeaderBadge();
+  const modal = document.getElementById('team-modal');
+  if (modal?.classList.contains('show')) renderTeamList();
+});
 
 /* ══ 事件:模式切換(PartyKit 接管後由主持人端廣播) ══ */
 function simMode(m) {
@@ -1896,13 +1928,17 @@ function renderTeamList() {
   }
   const onlineCount = roster.filter(p => p.online !== false).length;
   count.textContent = `${onlineCount} / ${roster.length} 人`;
+  const leader = (typeof myLeader === 'function') ? myLeader() : null;
   list.innerHTML = roster.map((p, i) => {
     const isMe = (p.name === G.name);
+    const isLead = (p.name === leader);
     const offline = p.online === false;
-    const cls = [isMe ? 'me' : '', offline ? 'offline' : ''].filter(Boolean).join(' ');
+    const cls = [isMe ? 'me' : '', offline ? 'offline' : '', isLead ? 'leader' : ''].filter(Boolean).join(' ');
+    const crown = isLead ? `<span class="tm-crown">★ 組長</span>` : '';
     return `<div class="tm-row ${cls}">
       <span class="num">${String(i+1).padStart(2,'0')}</span>
       <span class="nm">${p.name}</span>
+      ${crown}
       <span class="stat"></span>
     </div>`;
   }).join('');
