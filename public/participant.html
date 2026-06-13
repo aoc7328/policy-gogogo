@@ -1047,7 +1047,7 @@ body.tm-paradise .opt{border-radius:0 12px 12px 0;border-left:3px solid var(--se
       <div>
         <label class="flbl" for="inp-name">輸入你的名字</label>
         <input class="login-input" id="inp-name" type="text"
-          placeholder="例：陳冠瑋" maxlength="20" autocomplete="off"
+          placeholder="例：王小明" maxlength="20" autocomplete="off"
           oninput="checkLogin()"
           onkeydown="if(event.key==='Enter')doLogin()">
       </div>
@@ -1310,7 +1310,7 @@ const G = {
   mode: '',
   round: 0,
   totalQ: 0,        // 總題數,由助理端設定;正式版透過 PartyKit 帶入
-  teamRoster: [],   // 我這組的組員名單 [{name:'李美慧', online:true}, ...];正式版由 PartyKit 帶入
+  teamRoster: [],   // 我這組的組員名單 [{name:'王小明', online:true}, ...];正式版由 PartyKit 帶入
   currentQ: null,
   revealed: false,
   canRenameTeam: false,  // 是否可改組名(進入遊戲後 true,助理按開始遊戲後 false)
@@ -1570,106 +1570,10 @@ function goStage(id) {
   if (el) el.classList.add('active');
 }
 
-/* ══ 題目模板 ══ */
-const Q_BANK = {
-  mc: {
-    type:'mc', diff:'困難級', cat:'F6 精算財務', label:'選擇題',
-    stem:'下列關於「保險公司責任準備金」的敘述，何者<strong>最為正確</strong>？',
-    options:[
-      '責任準備金屬於保險公司的負債，用於確保未來給付義務得以履行',
-      '責任準備金為保險公司的股東權益，可自由運用於投資決策',
-      '責任準備金只需於保單到期時提存，期中不必預先計算',
-      '責任準備金由金管會直接撥付，與保費收入無關',
-    ],
-    correct: 0,
-    answer: '選項 A。責任準備金依《保險法》第 145 條為負債科目，每期依精算方法提存，金管會監理其充足性而非直接撥付。'
-  },
-  word: {
-    type:'word', diff:'中等級', cat:'F2 契約條款', label:'一字千金',
-    word:'羈',
-    phonetics:['ㄐㄧ','ㄑㄧ','ㄐㄧˋ','ㄐㄩˋ'],
-    correct: 0,
-    answer:'音讀「ㄐㄧ」。本義為馬絡頭，引申為拘束、牽制。常見詞：羈絆（情感牽連）、羈押（法律拘留）、羈旅（客居異鄉）。'
-  },
-  essay: {
-    type:'essay', diff:'困難級', cat:'F5 險種規劃', label:'申論題',
-    stem:'客戶王先生：35 歲、雙薪家庭主力收入者、已婚、育有 5 歲及 8 歲兩名子女、房貸尚餘 800 萬（尚有 22 年）、年收入 150 萬、家庭年支出約 120 萬。請規劃其壽險保障結構，並說明配置邏輯。',
-    answer:'① 身故保額：建議涵蓋房貸餘額＋子女教育金＋家庭生活費，合計約 2,000 萬\n② 險種配置：20 年期定期壽險 1,200 萬為主軸，終身壽險 300–500 萬為輔\n③ 延伸保障：失能扶助險＋重大傷病險補強收入中斷風險\n④ 預算：年保費控制在 12–15 萬，每三年重新檢視保額需求'
-  }
-};
-
-/* ══ 事件:主持人推題(PartyKit 接管後由主持人端推送) ══ */
-function simPush(type) {
-  G.round++;
-  G.revealed = false;
-  G.currentQ = Q_BANK[type];
-  document.getElementById('gs-round').textContent = G.totalQ > 0
-    ? `${String(G.round).padStart(2,'0')} / ${String(G.totalQ).padStart(2,'0')}`
-    : `${String(G.round).padStart(2,'0')}`;
-  document.getElementById('q-wait').style.display = 'none';
-  const body = document.getElementById('q-body');
-  body.style.display = 'block';
-  body.innerHTML = buildQ(G.currentQ);
-  document.getElementById('q-zone').scrollTop = 0;
-  // 重置按鈕
-  resetBtns();
-  document.getElementById('btn-status').textContent = '';
-  document.getElementById('btn-status').className = 'btn-status';
-}
-
-function buildQ(q) {
-  let h = `<div class="q-tags">
-    <span class="q-tag hi">${q.diff}</span>
-    <span class="q-tag">${q.cat}</span>
-    <span class="q-tag">${q.label}</span>
-  </div>`;
-  if (q.type === 'mc') {
-    h += `<div class="q-stem">${q.stem}</div>
-      <div class="opts">${q.options.map((o,i)=>`
-        <div class="opt" data-i="${i}">
-          <span class="ol">${['A','B','C','D'][i]}</span>
-          <span class="ot">${o}</span>
-        </div>`).join('')}
-      </div>`;
-  } else if (q.type === 'word') {
-    h += `<div style="text-align:center;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.24em;color:var(--ink-3);text-transform:uppercase;margin-bottom:4px">請選出正確讀音</div>
-      <span class="word-char">${q.word}</span>
-      <div class="word-opts">${q.phonetics.map((p,i)=>`
-        <div class="word-opt" data-i="${i}">
-          <div class="wl">${['A','B','C','D'][i]}</div>
-          <div class="wp">${p}</div>
-        </div>`).join('')}
-      </div>`;
-  } else {
-    h += `<div class="q-stem">${q.stem}</div>`;
-  }
-  h += `<div class="ans-block" id="ans-block">
-    <div class="ans-lbl">解答</div>
-    <div class="ans-text">${(q.answer||'').replace(/\n/g,'<br>')}</div>
-  </div>`;
-  return h;
-}
-
-/* ══ 事件:公佈答案(PartyKit 接管後由助理端廣播) ══ */
-function simReveal() {
-  if (!G.currentQ || G.revealed) return;
-  G.revealed = true;
-  const q = G.currentQ;
-  if (q.type === 'mc') {
-    document.querySelectorAll('#q-body .opt').forEach(o => {
-      parseInt(o.dataset.i) === q.correct ? o.classList.add('ok') : o.classList.add('ng');
-    });
-  } else if (q.type === 'word') {
-    document.querySelectorAll('#q-body .word-opt').forEach(o => {
-      parseInt(o.dataset.i) === q.correct ? o.classList.add('ok') : o.classList.add('ng');
-    });
-  }
-  document.getElementById('ans-block')?.classList.add('show');
-}
-
-/* 遊戲結束的真實結算頁由 server 廣播的 export_result 處理(見下方
-   PartyBus.on('export_result'),用真資料填 end-* 與長條圖)。
-   原本這裡的 simEnd() + MOCK_TEAMS/MOCK_QA 假資料已移除。 */
+/* 題目渲染走真實路徑:question_pick 事件 → getQuestionByIdP(查真題庫)
+   → buildQFromBank;公佈答案走 reveal_answer → revealCurrentAnswer。
+   原本的 Q_BANK 範例題 + simPush/buildQ/simReveal demo 路徑已移除。
+   遊戲結束的真實結算頁由 export_result 處理(用真資料填 end-* 與長條圖)。 */
 
 /* ══ 搶答按鈕邏輯 ══
    states:
@@ -1901,7 +1805,7 @@ function _clearBuzzCooldown() {
 window._clearBuzzCooldown = _clearBuzzCooldown;
 
 function resetBtns() {
-  // 相容性 stub:某些舊呼叫點(如 simPush)仍會用,直接 lock 即可
+  // 相容性 stub:鎖回搶答鈕(舊呼叫點保留)
   lockBuzz();
 }
 
@@ -1969,7 +1873,7 @@ window.endPurgatory = endPurgatory;
 
 /* ══ 組員名單浮窗(點頂部組別 chip 觸發) ══
    updateTeamRoster(roster) 由 PartyKit 廣播組員變動時呼叫
-   roster: [{name:'李美慧', online:true}, ...]
+   roster: [{name:'王小明', online:true}, ...]
 */
 function updateTeamRoster(roster) {
   if (!Array.isArray(roster)) return;
@@ -2308,38 +2212,12 @@ function toggleScoreBar() {
 window.updateScoreBar = updateScoreBar;
 window.toggleScoreBar = toggleScoreBar;
 
-/* DEMO 預設值(實際由 PartyKit 廣播覆蓋) */
-updateScoreBar([
-  { name: '第一組', score: 0 },
-  { name: '第二組', score: 0 },
-  { name: '第三組', score: 0 },
-  { name: '第四組', score: 0 },
-], -1);
+// 計分條初始為空狀態(顯示「尚未開始」),真實組別與分數由 server 的
+// score_update / game_start 廣播帶入。不再預填任何假組別。
+updateScoreBar([], -1);
 
-/* DEMO 預設 totalQ(正式版由 PartyKit 從助理端設定帶入) */
+// totalQ 預設(正式版由 PartyKit 從助理端設定帶入,game_start 覆蓋)
 G.totalQ = 20;
-
-/* DEMO console 用 */
-window.mockScores = function(myIdx = 2) {
-  updateScoreBar([
-    { name: '第一組', score: 35 },
-    { name: '第二組', score: 28 },
-    { name: '第三組', score: 22 },
-    { name: '第四組', score: 18 },
-  ], myIdx);
-};
-window.mockScores8 = function(myIdx = 4) {
-  updateScoreBar([
-    { name: '第一組', score: 42 },
-    { name: '第二組', score: 35 },
-    { name: '第三組', score: 31 },
-    { name: '第四組', score: 28 },
-    { name: '第五組', score: 24 },
-    { name: '第六組', score: 18 },
-    { name: '第七組', score: 12 },
-    { name: '第八組', score: 8 },
-  ], myIdx);
-};
 
 /* ════════════════════════════════════════════════════════════════════
    題庫 BANK 對接(從助理端透過 PartyBus 收 question_pick 事件取題目)

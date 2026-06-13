@@ -2037,13 +2037,8 @@ function removePlayerFromPool(name) {
 window.addPlayerToPool = addPlayerToPool;
 window.removePlayerFromPool = removePlayerFromPool;
 
-/* === DEMO: 在 DevTools console 用 mockPlayers(35) 看玩家池滿載樣貌, clearPlayers() 還原 === */
-window.mockPlayers = function(n = 35) {
-  const list = document.getElementById('pp-list'); list.innerHTML = '';
-  const names = ['冠瑋','雅婷','建志','珮瑜','凱傑','子涵','宗翰','怡君','偉誠','詩涵','奕辰','宜萱','俊賢','美玲','志豪','婉婷','明達','佳穎','哲瑋','曉雯','士豪','靜怡','文謙','鈺婷','柏翰','若涵','建宏','麗華','大維','心怡','慶忠','怡萱','志強','雪婷','文彥'];
-  for (let i = 0; i < n; i++) list.appendChild(_makeChip(names[i % names.length] + (i >= names.length ? `_${i}` : '')));
-};
-window.clearPlayers = function() { document.getElementById('pp-list').innerHTML = '<div class="pp-empty">等待玩家加入</div>'; };
+/* 玩家池由真實 player_join 事件填入(見 _makeChip 的呼叫處)。
+   原本的 mockPlayers()/clearPlayers() 假玩家 demo 已移除。 */
 
 /* ══ 煉獄降臨(機率性事件,由主持人端透過 PartyKit 廣播給三端) ══ */
 /* 通用版:任何 .purg-embers-c 容器都可以填上隨機飄升的火星粒子。
