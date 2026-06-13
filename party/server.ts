@@ -709,6 +709,17 @@ export default class PolicyGogogoServer implements Party.Server {
 
   private onExportResult(): void {
     if (!this.state.game) return;
+    // 結束本場(極限情境修正):若在「搶答進行中」按下結束,搶答的 fallback
+    // 計時器仍排程著 — 它會在最多 8 秒後照樣 broadcast rush_winner、把
+    // phase 設成 won,於是已經跳到結束畫面的三端又突然冒出某組搶答成功、
+    // 接著進選題九宮格。這裡先取消搶答排程(rushAbort 清掉 timers + 歸零
+    // rushSession,pending callback 讀到 null 就 bail),再把 server phase
+    // 設成 ended,與三端結束畫面一致。
+    rushAbort(this.state);
+    if (this.state.currentQuestion?.difficulty === 'purgatory') {
+      this.broadcast({ type: 'purgatory_end', payload: {} });
+    }
+    this.state.phase = 'ended';
     const sortedGroups = [...this.state.groups]
       .sort((a, b) => b.score - a.score)
       .map((g) => ({ name: g.name, score: g.score, leader: g.leader, mvp: computeMvp(this.state, g.idx) }));
