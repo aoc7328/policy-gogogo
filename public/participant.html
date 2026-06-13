@@ -2486,6 +2486,18 @@ function revealCurrentAnswer() {
   G.revealed = true;
   const q = G.currentQ;
 
+  // 防呆:若本題經過搶答,q-body 會被 rush_winner 隱藏、改顯示得主卡(q-wait)。
+  // 公佈答案時答案文字寫進 q-body,但 q-body 仍 display:none → 參賽者看不到答案。
+  // 因此 reveal 一律把題目區帶回前景、收掉得主卡。若 q-body 內容已被清空
+  // (極端的重連情境),用 currentBankQ 重建一次題幹+答案容器。
+  const qbody = document.getElementById('q-body');
+  if (qbody && !qbody.querySelector('#ans-block') && G.currentBankQ) {
+    qbody.innerHTML = buildQFromBank(G.currentBankQ.q, G.currentBankQ.difficulty, G.currentBankQ.framework);
+  }
+  if (qbody) qbody.style.display = 'block';
+  const qwait = document.getElementById('q-wait');
+  if (qwait) qwait.style.display = 'none';
+
   if (q.type === 'multiple_choice') {
     document.querySelectorAll('#q-body .opt').forEach(o => {
       const isCorr = o.dataset.letter === q.correct;
@@ -3408,14 +3420,15 @@ PartyBus.on('timer_update', payload => {
   const val = document.getElementById('p-timer-val');
   if (_pTimerInt) { clearInterval(_pTimerInt); _pTimerInt = null; }
   let remain = Math.max(0, Math.round(payload?.remainingSec || 0));
-  if (remain <= 0) { if (box) { box.style.display = 'none'; box.classList.remove('urgent','done'); } return; }
+  if (remain <= 0) { if (box) { box.style.display = 'none'; box.classList.remove('urgent','critical','done'); } return; }
   if (box) { box.style.display = ''; box.classList.remove('done'); }
   const fmt = s => s >= 60 ? `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}` : `${s}`;
+  // 與投影端同步:剩 ≤10 秒進入心跳模式;手機多半靜音,用震動對應警示/結束音效。
   const render = () => {
     if (val) val.textContent = fmt(remain);
     if (box) {
-      box.classList.toggle('critical', remain <= 3 && remain > 0);   // 剩 3 秒:心跳加速
-      box.classList.toggle('urgent', remain <= 10 && remain > 3);
+      box.classList.toggle('critical', remain <= 10 && remain > 0);   // 剩 10 秒起:心跳模式
+      box.classList.remove('urgent');
     }
   };
   render();
@@ -3425,9 +3438,10 @@ PartyBus.on('timer_update', payload => {
       clearInterval(_pTimerInt); _pTimerInt = null;
       if (val) val.textContent = '時間到';
       if (box) { box.classList.remove('urgent','critical'); box.classList.add('done'); }
-      if (navigator.vibrate) navigator.vibrate([200, 80, 200]);
+      if (navigator.vibrate) navigator.vibrate([200, 80, 200]);   // 時間到:長震
       return;
     }
+    if (remain <= 5 && navigator.vibrate) navigator.vibrate(60);   // 5,4,3,2,1:短震警示
     render();
   }, 1000);
 });

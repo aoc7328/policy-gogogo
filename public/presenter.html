@@ -1390,6 +1390,13 @@ const PGGSound = (() => {
         o.start(t); o.stop(t + 1.6);
       });
     },
+    /* 倒數 5→1:時間即將截止的急促警示音(每秒一聲短促下滑 blip) */
+    warn() {
+      if (!ensure()) return;
+      const t = ctx.currentTime;
+      note('square', 988, 740, t, 0.14, 0.36);   // G5→F#5 急促 blip
+      note('sine', 1976, null, t, 0.09, 0.10);    // 高泛音點綴
+    },
     /* 答題時間到:鬧鐘聲(每 0.4s 一組「嗶-嗶」雙頻,持續約 3.6 秒) */
     alarm() {
       if (!ensure()) return;
@@ -2449,27 +2456,32 @@ PartyBus.on('timer_update', payload => {
   if (_presTimerInt) { clearInterval(_presTimerInt); _presTimerInt = null; }
   let remain = Math.max(0, Math.round(payload?.remainingSec || 0));
   if (remain <= 0) {   // 明確停止(公佈/下一題/跳題/重新搶答)
-    if (box) { box.style.display = 'none'; box.classList.remove('urgent','done'); }
+    if (box) { box.style.display = 'none'; box.classList.remove('urgent','critical','done'); }
     return;
   }
   if (box) { box.style.display = ''; box.classList.remove('done'); }
+  // 倒數視覺三段:
+  //   剩 ≤10 秒 → 心跳模式(critical,紅色放大脈動)
+  //   剩 ≤5  秒 → 每秒一聲急促警示音(warn)
+  //   歸零      → 鬧鐘聲(alarm)
   const render = () => {
     if (val) val.textContent = _fmtTime(remain);
     if (box) {
-      box.classList.toggle('critical', remain <= 3 && remain > 0);   // 剩 3 秒:心跳加速
-      box.classList.toggle('urgent', remain <= 10 && remain > 3);    // 4~10 秒:一般脈動
+      box.classList.toggle('critical', remain <= 10 && remain > 0);  // 剩 10 秒起:心跳模式
+      box.classList.remove('urgent');
     }
   };
-  render();
+  render();   // 初次套用(剛設定倒數時不發聲)
   _presTimerInt = setInterval(() => {
     remain--;
     if (remain <= 0) {
       clearInterval(_presTimerInt); _presTimerInt = null;
       if (val) val.textContent = '0';
       if (box) { box.classList.remove('urgent','critical'); box.classList.add('done'); }
-      try { PGGSound.alarm(); } catch (e) {}
+      try { PGGSound.alarm(); } catch (e) {}   // 時間到:叮~鬧鐘
       return;
     }
+    if (remain <= 5) { try { PGGSound.warn(); } catch (e) {} }   // 5,4,3,2,1:急促警示
     render();
   }, 1000);
 });
