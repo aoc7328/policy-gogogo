@@ -855,6 +855,14 @@ input::placeholder{color:var(--ink-3)}
             <button class="cust-chip"        data-wgcap="0" onclick="setWordGameCap(this)">關閉</button>
           </div>
         </div>
+        <div class="fld" style="margin-top:10px">
+          <span class="flbl">答題倒數預設(秒;進入遊戲後鎖定,題目內可微調。0 = 該題型不計時)</span>
+          <div class="setup-row" style="grid-template-columns:1fr 1fr 1fr;margin-top:4px">
+            <div class="fld"><span class="flbl">計算題</span><input type="number" id="i-timer-calc" value="120" min="0" max="600"></div>
+            <div class="fld"><span class="flbl">申論題</span><input type="number" id="i-timer-essay" value="60" min="0" max="600"></div>
+            <div class="fld"><span class="flbl">簡答/選擇/一字千金</span><input type="number" id="i-timer-other" value="30" min="0" max="600"></div>
+          </div>
+        </div>
       </div>
 
       <div class="setup-block">
@@ -994,14 +1002,11 @@ input::placeholder{color:var(--ink-3)}
       </div>
       <div class="ctrl-row" style="align-items:center">
         <span style="font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;color:var(--ink-3);text-transform:uppercase">答題倒數</span>
-        <div class="cust-chips" id="timer-chips">
-          <button class="cust-chip" data-sec="0" onclick="setQuestionTimer(this)">關閉</button>
-          <button class="cust-chip" data-sec="30" onclick="setQuestionTimer(this)">30s</button>
-          <button class="cust-chip active" data-sec="60" onclick="setQuestionTimer(this)">60s</button>
-          <button class="cust-chip" data-sec="120" onclick="setQuestionTimer(this)">120s</button>
-        </div>
-        <button class="cb" id="btn-timer-restart" onclick="restartQuestionTimer()" style="margin-left:auto" title="用目前秒數重新計時">↻ 重新計時</button>
-        <span id="timer-readout" style="font-family:var(--font-mono);font-size:14px;color:var(--accent);min-width:48px;text-align:right"></span>
+        <button class="cb" id="btn-timer-off"   onclick="timerOff()"        title="停止本題倒數">關閉</button>
+        <button class="cb" id="btn-timer-minus" onclick="adjustTimer(-10)"  title="當前倒數 −10 秒">−10</button>
+        <button class="cb" id="btn-timer-plus"  onclick="adjustTimer(10)"   title="當前倒數 +10 秒">+10</button>
+        <button class="cb" id="btn-timer-restart" onclick="restartQuestionTimer()" title="用此題型的預設秒數重新計時">↻ 重新計時</button>
+        <span id="timer-readout" style="font-family:var(--font-mono);font-size:14px;color:var(--accent);min-width:48px;text-align:right;margin-left:auto"></span>
       </div>
       <div class="ctrl-row">
         <button class="cb"        id="btn-restart" onclick="doRestart()">重新開始</button>
@@ -1148,8 +1153,10 @@ const S={
   groupingMode:'random',
   // 組長表 { 組名: 組長名 },由 server group_leaders 廣播填入。
   leaders:{},
-  // 答題倒數秒數(0=關閉);題目出現時自動開始,可隨時改。
-  timerSec:60,
+  // 答題倒數:各題型預設秒數(進場前設、遊戲中鎖)。題目出現時依題型自動起算。
+  timerDefaults:{ calculation:120, essay:60, other:30 },
+  _curTimerDefault:0,   // 當前題目該題型的預設秒數(供「重新計時」用)
+  _timerRemain:0,       // 當前倒數剩餘秒(供 +10/-10 計算)
   // 當前題目分類(F1~F9,助理九宮格選擇)
   currentCat:null,
   // 九宮格兩階段選擇狀態
@@ -1302,6 +1309,7 @@ function hydrateFromSnapshot(snap){
   S.spq = g.spq;
   S.rushMode = snap.rushMode || g.rushMode || S.rushMode;
   S.wordGameCap = (g.wordGameCap === undefined ? null : g.wordGameCap);
+  applyTimerDefaultsFromConfig(g.timerDefaults);   // 重連端共用同一份倒數預設 + 鎖輸入
   S.currQ = snap.currQ || 0;
   S.usedIds = new Set(Array.isArray(snap.askedIds) ? snap.askedIds : []);
   S.currentCat = snap.currentCat || null;
@@ -1724,6 +1732,7 @@ PartyBus.on('game_start', cfg => {
   S.spq = cfg.spq;
   S.rushMode = cfg.rushMode || S.rushMode;
   S.wordGameCap = (cfg.wordGameCap === undefined ? null : cfg.wordGameCap);
+  applyTimerDefaultsFromConfig(cfg.timerDefaults);   // 多助理共用同一份倒數預設 + 鎖輸入
   S.currQ = 0;
   S.usedIds = new Set();
   S.askedQuestions = [];
@@ -2266,39 +2275,73 @@ function setGroupingMode(el) {
 }
 
 /* ── 答題倒數計時 ──────────────────────────────────
-   - setQuestionTimer:改秒數;若正在答題,立刻用新秒數重啟。
-   - 題目出現(question_pick→answering)時自動開始;公佈/下一題/跳題時停止。
+   - 各題型預設秒數(進場前在設定頁設、遊戲中鎖)。題目出現時依題型自動起算。
+   - 遊戲中可用「關閉 / −10 / +10 / 重新計時」微調。
    - server 是計時權威(記 deadline + 廣播),本機只送 set_timer 命令。 */
-function setQuestionTimer(el) {
-  S.timerSec = parseInt(el.dataset.sec, 10) || 0;
-  document.querySelectorAll('#timer-chips .cust-chip').forEach(c => c.classList.toggle('active', c === el));
-  // 答題中改秒數 → 立刻重啟(或關閉)
-  if (S.phase === 'answering') {
-    PartyBus.emit('set_timer', { durationSec: S.timerSec });
+function readTimerDefaults() {
+  const num = (id, d) => { const v = parseInt(document.getElementById(id)?.value, 10); return Number.isFinite(v) && v >= 0 ? v : d; };
+  S.timerDefaults = {
+    calculation: num('i-timer-calc', 120),
+    essay:       num('i-timer-essay', 60),
+    other:       num('i-timer-other', 30),
+  };
+}
+function timerDefaultForType(type) {
+  const d = S.timerDefaults || {};
+  if (type === 'calculation') return d.calculation ?? 120;
+  if (type === 'essay')       return d.essay ?? 60;
+  return d.other ?? 30;   // short_answer / multiple_choice / word_game
+}
+/* 從 game_start config / snapshot 套用倒數預設(多助理/重連端共用):
+   存進 S、反映到三個輸入、並鎖定(遊戲已開始)。 */
+function applyTimerDefaultsFromConfig(td) {
+  if (td && typeof td === 'object') {
+    S.timerDefaults = {
+      calculation: Number.isFinite(td.calculation) ? td.calculation : 120,
+      essay:       Number.isFinite(td.essay) ? td.essay : 60,
+      other:       Number.isFinite(td.other) ? td.other : 30,
+    };
   }
+  const set = (id, v) => { const el = document.getElementById(id); if (el) { el.value = String(v); el.disabled = true; } };
+  set('i-timer-calc',  S.timerDefaults.calculation);
+  set('i-timer-essay', S.timerDefaults.essay);
+  set('i-timer-other', S.timerDefaults.other);
 }
+/* 題目出現:依題型預設秒數起算(0=該題型不計時) */
 function startQuestionTimer() {
-  if (S.timerSec > 0) PartyBus.emit('set_timer', { durationSec: S.timerSec });
+  const sec = timerDefaultForType(S.currentQuestion?.type);
+  S._curTimerDefault = sec;
+  PartyBus.emit('set_timer', { durationSec: sec });   // sec=0 → server 廣播停止
 }
-function stopQuestionTimer() {
-  PartyBus.emit('set_timer', { durationSec: 0 });
-}
+function stopQuestionTimer() { PartyBus.emit('set_timer', { durationSec: 0 }); }
+/* 「重新計時」:用此題型的預設秒數重來 */
 function restartQuestionTimer() {
-  if (S.timerSec > 0) PartyBus.emit('set_timer', { durationSec: S.timerSec });
+  const sec = S._curTimerDefault || timerDefaultForType(S.currentQuestion?.type);
+  if (sec > 0) PartyBus.emit('set_timer', { durationSec: sec });
 }
-window.setQuestionTimer = setQuestionTimer;
+/* 「關閉」:停止本題倒數 */
+function timerOff() { PartyBus.emit('set_timer', { durationSec: 0 }); }
+/* 「+10 / −10」:在當前剩餘秒上加減(下限 0) */
+function adjustTimer(delta) {
+  const nv = Math.max(0, (S._timerRemain || 0) + delta);
+  PartyBus.emit('set_timer', { durationSec: nv });
+}
 window.restartQuestionTimer = restartQuestionTimer;
-/* 本機也顯示倒數讀數(助理掌握時間) */
+window.timerOff = timerOff;
+window.adjustTimer = adjustTimer;
+/* 本機顯示倒數讀數(助理掌握時間)+ 追蹤剩餘秒供 +10/-10 用 */
 let _asstTimerInt = null;
 PartyBus.on('timer_update', payload => {
   const out = document.getElementById('timer-readout');
   if (_asstTimerInt) { clearInterval(_asstTimerInt); _asstTimerInt = null; }
   let remain = Math.max(0, Math.round(payload?.remainingSec || 0));
-  const render = () => { if (out) out.textContent = remain > 0 ? `${remain}s` : '時間到'; };
-  render();
+  S._timerRemain = remain;
+  // 廣播 remain=0 = 關閉/停止 → 清空讀數;自然倒數到 0 才顯示「時間到」
+  if (out) out.textContent = remain > 0 ? `${remain}s` : '';
   if (remain > 0) {
     _asstTimerInt = setInterval(() => {
-      remain--; render();
+      remain--; S._timerRemain = remain;
+      if (out) out.textContent = remain > 0 ? `${remain}s` : '時間到';
       if (remain <= 0) { clearInterval(_asstTimerInt); _asstTimerInt = null; }
     }, 1000);
   }
@@ -2546,6 +2589,7 @@ function startGame(){
   const n=parseInt(document.getElementById('i-n').value);
   S.totalQ=parseInt(document.getElementById('i-q').value);
   S.spq=parseInt(document.getElementById('i-s').value);
+  if (typeof readTimerDefaults === 'function') readTimerDefaults();   // 開賽快照倒數預設(供 game_start 帶出)
   S.currQ=0;
   // 新場次:重置已抽過的題目 ID 集合(嚴格不重複)
   S.usedIds = new Set();
@@ -2592,6 +2636,7 @@ function startGame(){
     rushMode: S.rushMode,
     wordGameCap: S.wordGameCap,
     groupingMode: S.groupingMode,
+    timerDefaults: { ...S.timerDefaults },
   });
   // Phase 3:不再本地 emit 初始 score_update;server 收到 game_start
   // 命令後會自己廣播一次 score_update(全 0 baseline)給三端。
@@ -2599,6 +2644,11 @@ function startGame(){
   // UI 鎖只是讓使用者一目瞭然遊戲已開始就不能再動結構)
   const inN = document.getElementById('i-n');
   if (inN) inN.disabled = true;
+  // 答題倒數預設:開賽快照 + 鎖定三個輸入(遊戲中不可改;題目內可微調)
+  if (typeof readTimerDefaults === 'function') readTimerDefaults();
+  ['i-timer-calc','i-timer-essay','i-timer-other'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.disabled = true;
+  });
   // 進入 idle 狀態(等助理按開始搶答)
   setPhase('idle');
   setStatus('遊戲已開始 · 按「開始搶答」進入下一輪');
@@ -3134,6 +3184,9 @@ function _doEndImpl(){
   // 並重新啟用「分幾組」輸入框,讓工作人員能直接回設定頁改分組重來。
   const inN = document.getElementById('i-n');
   if (inN) inN.disabled = false;
+  ['i-timer-calc','i-timer-essay','i-timer-other'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.disabled = false;
+  });
   applyTabLock();
   // 自動匯出結果(廣播給參賽者 → 跳出「是否觀看結果」浮窗)
   if (typeof doExport === 'function') doExport();
@@ -3163,6 +3216,10 @@ function _doRestartImpl(emit){
   // 解鎖「分幾組」(回到 lobby phase 後又能調整)
   const inN = document.getElementById('i-n');
   if (inN) inN.disabled = false;
+  // 解鎖答題倒數預設輸入
+  ['i-timer-calc','i-timer-essay','i-timer-other'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.disabled = false;
+  });
   S.usedIds = new Set();
   S.askedQuestions = [];
   S.currentQuestion = null;

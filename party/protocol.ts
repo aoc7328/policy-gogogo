@@ -50,6 +50,12 @@ export interface GameConfig {
   /** 分組方式(預設 'random')。'prefix' 時 groups 由名字前綴決定。 */
   groupingMode?: GroupingMode;
   /**
+   * 答題倒數各題型預設秒數(進場前設、遊戲中鎖)。0 = 該題型不計時。
+   * 純前端使用(助理依此決定每題的 set_timer 秒數);放進 config 是為了
+   * 讓多助理/重連端共用同一份預設,避免不同助理各送不同秒數打架。
+   */
+  timerDefaults?: { calculation: number; essay: number; other: number };
+  /**
    * 一字千金 (word_game) per-game cap for non-custom modes.
    * null / undefined = unlimited (legacy behavior); 0 = never pick;
    * N>0 = once N word_game questions have been picked this game, the
