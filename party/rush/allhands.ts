@@ -151,7 +151,9 @@ function lockWinner(ctx: RushCtx): void {
 
   // Edge case: nobody pressed.
   if (winnerIdx < 0) {
-    const fallback = ctx.state.groups[0];
+    const fallback =
+      ctx.state.groups.find((g) => !ctx.state.excludedTeams.includes(g.idx)) ??
+      ctx.state.groups[0];
     if (!fallback) return;
     ctx.broadcast({
       type: 'rush_winner',

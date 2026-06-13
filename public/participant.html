@@ -1766,6 +1766,15 @@ function handleBuzz() {
 function armBuzz() {
   const btn = document.getElementById('btn-buzz');
   if (!btn) return;
+  // 本題失格(答不出來被重新搶答)→ 不解鎖,顯示提示。server 也會擋下 buzz。
+  if (Array.isArray(G._buzzLockout) && G.team && G._buzzLockout.includes(G.team)) {
+    G.buzzed = true;   // 視為已搶,雙保險擋住 handleBuzz
+    btn.classList.remove('armed','dn','flash');
+    btn.classList.add('locked');
+    const st = document.getElementById('btn-status');
+    if (st) { st.textContent = '本題你們已搶過 · 不參與重新搶答'; st.className = 'btn-status active-err'; }
+    return;
+  }
   G.buzzed = false;
   btn.classList.remove('locked','dn','flash');
   btn.classList.add('armed');
@@ -3421,6 +3430,12 @@ PartyBus.on('timer_update', payload => {
     }
     render();
   }, 1000);
+});
+
+/* 本輪搶答失格組名單(重新搶答時,答不出來的組不能再搶)。每次 rush 開始
+   前由 server 廣播;armBuzz 會據此決定要不要解鎖本機搶答鈕。 */
+PartyBus.on('buzz_lockout', payload => {
+  G._buzzLockout = Array.isArray(payload?.teams) ? payload.teams : [];
 });
 
 /* 同一題重新搶答後回到該題:用快取的題目重新顯示(不增題號、不換題) */

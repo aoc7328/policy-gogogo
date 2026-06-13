@@ -628,6 +628,16 @@ export type ResumeQuestionEvent = {
   payload: Record<string, never>;
 };
 
+/**
+ * 本輪搶答的「失格組」名單(組名)。重新搶答時,答不出來的組會被列入,
+ * 該組參賽者的搶答鈕不解鎖、server 也擋掉他們的 buzz。每次 rush 開始時
+ * 廣播當前名單(一般搶答為空陣列)。
+ */
+export type BuzzLockoutEvent = {
+  type: 'buzz_lockout';
+  payload: { teams: string[] };
+};
+
 export type TeamRenameEvent = {
   type: 'team_rename';
   payload: { oldName: string; newName: string; by?: string };
@@ -711,7 +721,8 @@ export type ServerEvent =
   | GroupNoticeEvent
   | PlayerRenamedEvent
   | TimerUpdateEvent
-  | ResumeQuestionEvent;
+  | ResumeQuestionEvent
+  | BuzzLockoutEvent;
 
 // ──────────────────────────────────────────────────────────────────────
 // Privileged command type guard

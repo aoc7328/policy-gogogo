@@ -143,6 +143,12 @@ export interface RoomState {
   // 同一題重新搶答:true 表示這輪 rush 結束後要回到同一題作答,而非進九宮格。
   rebuzzPending: boolean;
 
+  // 本題已喪失搶答資格的組(teamIdx):答不出來被重新搶答時排除,累積。
+  // 進新題(next/skip)或新一輪 start_rush 時清空。
+  excludedTeams: number[];
+  // 最近一次搶到的組(teamIdx)= 當前答題者;重新搶答時把它加進 excludedTeams。
+  lastBuzzWinnerTeam: number | null;
+
   // Rush mode selection (UI choice) + resolved mode for current/last rush
   rushMode: RushMode;
   rushModeActual: ActualRushMode | null;
@@ -183,6 +189,8 @@ export function createInitialState(roomId: string, controlCode: string): RoomSta
     mvpTally: new Map(),
     timerDeadline: null,
     rebuzzPending: false,
+    excludedTeams: [],
+    lastBuzzWinnerTeam: null,
     rushMode: 'speed',
     rushModeActual: null,
     rushSession: null,
@@ -211,6 +219,8 @@ export function startGame(state: RoomState, config: GameConfig): void {
   state.wordGameAsked = 0;
   state.mvpTally = new Map();
   state.timerDeadline = null;
+  state.excludedTeams = [];
+  state.lastBuzzWinnerTeam = null;
   state.groups = config.groups.map((g, i) => ({
     idx: i,
     name: g.name,

@@ -88,7 +88,7 @@ function fallback(ctx: RushCtx): void {
   session.winnerLocked = true;
   // Pick a random non-empty team. (Disqualified players still count as
   // members of their team — this is just "nobody pressed in time" recovery.)
-  const eligible = ctx.state.groups.filter((g) => g.members.length > 0);
+  const eligible = ctx.state.groups.filter((g) => g.members.length > 0 && !ctx.state.excludedTeams.includes(g.idx));
   const pool = eligible.length > 0 ? eligible : ctx.state.groups;
   if (pool.length === 0) return;
   const team = pool[Math.floor(Math.random() * pool.length)]!;

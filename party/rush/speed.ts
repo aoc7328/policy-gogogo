@@ -58,7 +58,7 @@ function fallback(ctx: RushCtx): void {
   const session = ctx.state.rushSession;
   if (!session || session.winnerLocked) return;
   // Pick a random team that has at least one current participant.
-  const eligible = ctx.state.groups.filter((g) => g.members.length > 0);
+  const eligible = ctx.state.groups.filter((g) => g.members.length > 0 && !ctx.state.excludedTeams.includes(g.idx));
   const pool = eligible.length > 0 ? eligible : ctx.state.groups;
   if (pool.length === 0) return;
   const team = pool[Math.floor(Math.random() * pool.length)]!;

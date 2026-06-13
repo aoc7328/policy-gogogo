@@ -338,6 +338,10 @@ export default class PolicyGogogoServer implements Party.Server {
         `請按「重新開始」整場重置。`);
       return;
     }
+    // 一般「開始搶答 / 重新搶答(重抽)」= 新一輪,清掉本題失格名單
+    this.state.excludedTeams = [];
+    this.state.lastBuzzWinnerTeam = null;
+    this.broadcastBuzzLockout();
     rushStart(this.state, this.rushBroadcast, { rerush });
   }
 
@@ -353,9 +357,19 @@ export default class PolicyGogogoServer implements Party.Server {
       if (p.rushMode !== 'allhands' && typeof p.personName === 'string') {
         tallyMvpWin(this.state, p.groupIdx, p.personName);
       }
+      // 記住「當前答題者」= 最近搶到的組,供「同一題重新搶答」排除用
+      this.state.lastBuzzWinnerTeam = p.groupIdx;
     }
     this.broadcast(e);
   };
+
+  /** 廣播本輪搶答失格組(組名);一般搶答為空陣列。 */
+  private broadcastBuzzLockout(): void {
+    const teams = this.state.excludedTeams
+      .map((idx) => this.state.groups[idx]?.name)
+      .filter((n): n is string => typeof n === 'string');
+    this.broadcast({ type: 'buzz_lockout', payload: { teams } });
+  }
 
   private onEnterCategory(sender: Party.Connection<ConnState>): void {
     // 冪等:多助理協作時,每位助理 onRushWinner 都排了 3.5s 計時器送
@@ -519,6 +533,8 @@ export default class PolicyGogogoServer implements Party.Server {
     this.state.currentQuestion = null;
     this.state.currentCat = null;
     this.state.catLocked = false;
+    this.state.excludedTeams = [];           // 新題 → 清掉失格名單
+    this.state.lastBuzzWinnerTeam = null;
     this.state.phase = 'idle';
     this.broadcast({ type: 'next_question', payload: {} });
     // End game if we've reached totalQ.
@@ -544,6 +560,8 @@ export default class PolicyGogogoServer implements Party.Server {
     this.state.currentQuestion = null;
     this.state.currentCat = null;
     this.state.catLocked = false;
+    this.state.excludedTeams = [];           // 新題 → 清掉失格名單
+    this.state.lastBuzzWinnerTeam = null;
     this.state.phase = 'idle';
     this.broadcast({ type: 'skip_question', payload: {} });
   }
@@ -852,6 +870,18 @@ export default class PolicyGogogoServer implements Party.Server {
       this.sendError(sender, 'no_current', '目前沒有題目');
       return;
     }
+    // 答不出來的那組(當前答題者)失去本題搶答資格,累積排除。
+    const failed = this.state.lastBuzzWinnerTeam;
+    if (failed !== null && !this.state.excludedTeams.includes(failed)) {
+      const totalTeams = this.state.groups.length;
+      // 若再排除就全員失格 → 先清空(等於開放所有組重來,避免無人可搶)
+      if (this.state.excludedTeams.length + 1 >= totalTeams) {
+        this.state.excludedTeams = [];
+      } else {
+        this.state.excludedTeams.push(failed);
+      }
+    }
+    this.broadcastBuzzLockout();
     // 保留 currentQuestion/currentCat,標記「這輪 rush 完要回同一題」。停掉倒數。
     this.state.rebuzzPending = true;
     this.state.timerDeadline = null;
@@ -916,6 +946,8 @@ export default class PolicyGogogoServer implements Party.Server {
     // Resolve the presser's team idx authoritatively.
     const team = this.state.groups.find((g) => g.name === payload.team);
     if (!team) return;
+    // 本題已失格的組(答不出來被重新搶答)→ 丟棄其 buzz,不得參與。
+    if (this.state.excludedTeams.includes(team.idx)) return;
     const record: BuzzRecord = {
       name: payload.name,
       team: payload.team,
