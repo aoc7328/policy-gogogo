@@ -1002,12 +1002,12 @@ input::placeholder{color:var(--ink-3)}
       </div>
       <div class="ctrl-row" style="align-items:center">
         <span style="font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;color:var(--ink-3);text-transform:uppercase">答題倒數</span>
-        <button class="cb" id="btn-timer-off"    onclick="timerOff()"        title="停止本題倒數">關閉</button>
-        <button class="cb" id="btn-timer-m10"    onclick="adjustTimer(-10)"  title="當前倒數 −10 秒">−10</button>
-        <button class="cb" id="btn-timer-m5"     onclick="adjustTimer(-5)"   title="當前倒數 −5 秒">−5</button>
-        <button class="cb" id="btn-timer-p5"     onclick="adjustTimer(5)"    title="當前倒數 +5 秒">+5</button>
-        <button class="cb" id="btn-timer-p10"    onclick="adjustTimer(10)"   title="當前倒數 +10 秒">+10</button>
-        <button class="cb" id="btn-timer-restart" onclick="restartQuestionTimer()" title="用此題型的預設秒數重新計時">↻ 重新計時</button>
+        <button class="cb" id="btn-timer-off"    onclick="timerOff()"        title="停止本題倒數" disabled>關閉</button>
+        <button class="cb" id="btn-timer-m10"    onclick="adjustTimer(-10)"  title="當前倒數 −10 秒" disabled>−10</button>
+        <button class="cb" id="btn-timer-m5"     onclick="adjustTimer(-5)"   title="當前倒數 −5 秒" disabled>−5</button>
+        <button class="cb" id="btn-timer-p5"     onclick="adjustTimer(5)"    title="當前倒數 +5 秒" disabled>+5</button>
+        <button class="cb" id="btn-timer-p10"    onclick="adjustTimer(10)"   title="當前倒數 +10 秒" disabled>+10</button>
+        <button class="cb" id="btn-timer-restart" onclick="restartQuestionTimer()" title="用此題型的預設秒數重新計時" disabled>↻ 重新計時</button>
         <span id="timer-readout" style="font-family:var(--font-mono);font-size:14px;color:var(--accent);min-width:48px;text-align:right;margin-left:auto"></span>
       </div>
       <div class="ctrl-row">
@@ -2687,6 +2687,12 @@ function setPhase(p) {
   set('btn-redraw', !!en.redraw);
   set('btn-reveal', !!en.reveal);
   set('btn-next',   !!en.next);
+
+  // 答題倒數 6 個按鈕(關閉/-10/-5/+5/+10/重新計時):只有 answering 階段可按。
+  // 公佈答案後(revealed)鎖住,避免誤觸調整已結束的倒數(防呆)。
+  const timerOn = (p === 'answering');
+  ['btn-timer-off','btn-timer-m10','btn-timer-m5','btn-timer-p5','btn-timer-p10','btn-timer-restart']
+    .forEach(id => set(id, timerOn));
 
   // 九宮格啟用規則:只有 won / picking 兩個 phase 可點,避免誤觸
   // - idle/rushing/answering/revealed/ended 全部鎖
