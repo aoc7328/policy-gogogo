@@ -2683,6 +2683,10 @@ PartyBus.on('start_rush', payload => {
   if (reveal) reveal.style.display = 'none';
   const prog = document.getElementById('qw-rev-progress');
   if (prog) prog.classList.remove('run');
+  // 關掉上一輪的「搶答結果」卡片(第幾組搶到)。同一題重新搶答時,從題目
+  // 直接進倒數,若不清掉,舊組別會殘留在倒數下方(user-reported bug)。
+  const oldResult = document.getElementById('qw-result');
+  if (oldResult) oldResult.style.display = 'none';
 
   // 取出此模式的中文名與規則
   const meta = RUSH_MODE_META[G.rushMode] || { label: '搶答', rule: '' };
