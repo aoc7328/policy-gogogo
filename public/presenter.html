@@ -980,11 +980,11 @@ html, body { background: #080A10; font-family: var(--font-sans); -webkit-font-sm
         <div class="win-flash" id="win-flash"></div>
         <div class="win-core">
           <div class="win-badge" id="win-badge">搶答成功</div>
-          <div class="win-group" id="win-group">第三組</div>
+          <div class="win-group" id="win-group">—</div>
           <div class="win-rule"></div>
           <div class="win-sub" id="win-sub">
-            <span class="person" id="win-person">小熊蜂蜜</span>
-            &nbsp;搶答耗時&nbsp;<span class="ms" id="win-ms">0.003</span>&nbsp;秒
+            <span class="person" id="win-person">—</span>
+            &nbsp;搶答耗時&nbsp;<span class="ms" id="win-ms">0.000</span>&nbsp;秒
           </div>
           <!-- count 模式專用:第二名與點擊統計 -->
           <div class="win-runnerup" id="win-runnerup" style="display:none">
@@ -1007,8 +1007,8 @@ html, body { background: #080A10; font-family: var(--font-sans); -webkit-font-sm
         </div>
         <div class="winner-banner">
           <span class="winner-label">SELECTED</span>
-          <span class="winner-name" id="winner-name">陳冠瑋</span>
-          <span class="winner-group" id="winner-group">· 第三組</span>
+          <span class="winner-name" id="winner-name">—</span>
+          <span class="winner-group" id="winner-group"></span>
         </div>
         <div class="category-grid">
           <div class="cat-card" data-fid="F1"><div class="cat-id">F1</div><div class="cat-name">保險基礎與法規</div><div class="cat-count">剩 <span class="num">22</span> 題</div></div>
@@ -1162,13 +1162,9 @@ const modeConfig = {
     stats: { q: 0, t: 0, c: 9 }, remaining: 0
   }
 };
-const DEMO_WINNERS = [
-  { group: '第三組', person: '小熊蜂蜜', ms: '0.003' },
-  { group: '第一組', person: '陳冠瑋',   ms: '0.127' },
-  { group: '第四組', person: '許家豪',   ms: '0.041' },
-  { group: '第二組', person: '吳珮瑜',   ms: '0.089' },
-];
-let lastWinner = DEMO_WINNERS[0];
+// 最近一次搶答贏家(由真實 rush_winner 事件填入,見下方 handler)。
+// 初始為空,避免任何假資料在第一輪前露出於選題畫面。
+let lastWinner = { group: '', person: '', ms: '' };
 function goto(screenId) {
   // 切離 scr-select 時清掉 QR 倒數 timer(避免殘留)
   if (screenId !== 'scr-select' && typeof clearJoinQRTimers === 'function') {
@@ -1437,16 +1433,6 @@ function runCD(n) {
     setTimeout(() => { void r.offsetWidth; r.classList.add('burst'); }, i * 80);
   });
   setTimeout(() => runCD(n - 1), 1000);
-}
-function simulateWinner() {
-  lastWinner = DEMO_WINNERS[Math.floor(Math.random() * DEMO_WINNERS.length)];
-  document.getElementById('win-group').textContent  = lastWinner.group;
-  document.getElementById('win-person').textContent = lastWinner.person;
-  document.getElementById('win-ms').textContent     = lastWinner.ms;
-  const f = document.getElementById('win-flash');
-  f.style.animation = 'none'; void f.offsetWidth; f.style.animation = '';
-  goto('scr-winner');
-  try { playCorrectSound(); } catch(e) {}
 }
 function enterCategory() {
   document.getElementById('winner-name').textContent  = lastWinner.person;
@@ -2132,7 +2118,6 @@ window.endPurgatory = endPurgatory;
      window.backToSelect()           · 返回主選頁
      window.goHome()                 · 回首頁
      window.startRush()              · 開始搶答(進倒數)
-     window.simulateWinner()         · 顯示搶到結果(實際由助理呼叫帶資料)
      window.enterCategory()          · 進入分類選題頁
      window.selectCategory()         · 選一個分類
      window.switchType()             · 切換題型 demo
@@ -2153,7 +2138,6 @@ window.enterFromConfirm = enterFromConfirm;
 window.backToSelect     = backToSelect;
 window.goHome           = goHome;
 window.startRush        = startRush;
-window.simulateWinner   = simulateWinner;
 window.enterCategory    = enterCategory;
 window.selectCategory   = selectCategory;
 window.switchType       = switchType;

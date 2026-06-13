@@ -1453,7 +1453,28 @@ PartyBus.on('__room_state__', (snap) => {
     document.querySelectorAll('.brand-suffix').forEach(el => { el.textContent = b.titleSuffix; });
     document.title = `${b.titlePrefix}${b.titleSuffix} · 參與者`;
   }
+  // 真實組員名單:server snapshot 的 participants 是權威全房名單。
+  // 重建本機 _roster,再刷新「組員」浮窗(取代舊版的 MOCK_TEAMS 假名單)。
+  if (Array.isArray(snap?.participants)) {
+    _roster.clear();
+    snap.participants.forEach(p => { if (p?.name && p?.team) _roster.set(p.name, p.team); });
+    rebuildMyRoster();
+  }
 });
+
+/* ══ 組員名單(真實資料,來源:server __room_state__ / player_join /
+   player_leave / roster_reshuffled。不再用任何 MOCK 假資料) ══ */
+const _roster = new Map();   // name -> team(全房現連名單)
+function rebuildMyRoster() {
+  if (typeof updateTeamRoster !== 'function') return;
+  if (!G.team) { updateTeamRoster([]); return; }
+  const list = [];
+  if (G.name && _roster.get(G.name) === G.team) list.push({ name: G.name, online: true });
+  for (const [name, team] of _roster) {
+    if (team === G.team && name !== G.name) list.push({ name, online: true });
+  }
+  updateTeamRoster(list);
+}
 
 /* ══ 事件:模式切換(PartyKit 接管後由主持人端廣播) ══ */
 function simMode(m) {
@@ -1498,37 +1519,48 @@ function doLogin() {
    本端認自己的名字,把 server 決定的 team 填進 G.team + UI。 */
 PartyBus.on('player_join', payload => {
   if (!payload?.name || !payload?.team) return;
-  if (payload.name !== G.name) return;
-  if (G.team === payload.team) return;  // 已經對齊,免得重複觸發
-  G.team = payload.team;
-  const tEl = document.getElementById('gs-team');
-  if (tEl) tEl.textContent = G.team;
-  // 補存正確的 team 給下次 reload(同名重連時 server 會找回原組,但本機
-  // 也存一份比較順)
-  if (G.name) saveStoredParticipant(G.name, G.team);
-  // DEMO:用新組名重抓 mock roster(正式版由 server 的 roster 廣播帶入)
-  const myTeam = MOCK_TEAMS.find(t => t.name === G.team);
-  if (myTeam && typeof updateTeamRoster === 'function') {
-    const roster = myTeam.members.map(n => ({ name: n, online: true }));
-    if (!roster.find(p => p.name === G.name)) {
-      roster.unshift({ name: G.name, online: true });
-    }
-    updateTeamRoster(roster);
+  // 任何人加入都更新全房名單,讓「組員」浮窗即時反映真實隊友
+  _roster.set(payload.name, payload.team);
+  // 只有自己這筆要拿來認領 G.team
+  if (payload.name === G.name && G.team !== payload.team) {
+    G.team = payload.team;
+    const tEl = document.getElementById('gs-team');
+    if (tEl) tEl.textContent = G.team;
+    // 補存正確的 team 給下次 reload(同名重連時 server 會找回原組)
+    if (G.name) saveStoredParticipant(G.name, G.team);
   }
+  rebuildMyRoster();
+});
+
+/* 有人離開 → 從全房名單移除,刷新組員浮窗 */
+PartyBus.on('player_leave', payload => {
+  if (!payload?.name) return;
+  _roster.delete(payload.name);
+  rebuildMyRoster();
 });
 
 /* server 重洗(助理改組數)→ 找自己 → 同步 G.team。
    組名改變的話 UI 上方 badge 也要跟著更新。 */
 PartyBus.on('roster_reshuffled', payload => {
-  if (!Array.isArray(payload?.groups) || !G.name) return;
-  const mine = payload.groups.find(
-    g => Array.isArray(g.members) && g.members.includes(G.name)
-  );
-  if (!mine || mine.name === G.team) return;
-  G.team = mine.name;
-  const tEl = document.getElementById('gs-team');
-  if (tEl) tEl.textContent = G.team;
-  if (G.name) saveStoredParticipant(G.name, G.team);
+  if (!Array.isArray(payload?.groups)) return;
+  // 用權威分組重建全房名單(成員可能整批重洗,即使我的組名沒變也要刷新)
+  _roster.clear();
+  payload.groups.forEach(g => {
+    if (Array.isArray(g.members)) g.members.forEach(n => { if (n) _roster.set(n, g.name); });
+  });
+  // 找自己 → 同步 G.team(組名可能變了)
+  if (G.name) {
+    const mine = payload.groups.find(
+      g => Array.isArray(g.members) && g.members.includes(G.name)
+    );
+    if (mine && mine.name !== G.team) {
+      G.team = mine.name;
+      const tEl = document.getElementById('gs-team');
+      if (tEl) tEl.textContent = G.team;
+      saveStoredParticipant(G.name, G.team);
+    }
+  }
+  rebuildMyRoster();
 });
 
 /* ══ 階段切換 ══ */
@@ -1635,65 +1667,9 @@ function simReveal() {
   document.getElementById('ans-block')?.classList.add('show');
 }
 
-/* ══ 事件:遊戲結束 → 結算(PartyKit 接管後由助理端廣播) ══ */
-const MOCK_TEAMS = [
-  { name:'第一組', score:90, members:['陳冠瑋','林雅婷','黃建志','吳俊男','蘇宛萱','賴志宏','王曼麗'] },
-  { name:'第三組', score:80, members:['李美慧','劉志豪','鄭雅文','王雯','林宗翰','陳怡君','許承德','張育銘'] },
-  { name:'第二組', score:60, members:['吳珮瑜','張凱傑','王文豪','蔡語涵','楊昆達','江尚達'] },
-  { name:'第四組', score:40, members:['許家豪','謝依婷','蔡明宏','黃郁雯','洪嘉萱','邱俊瑋','彭士豪'] },
-];
-const MOCK_QA = [
-  { q:'下列關於「保險公司責任準備金」的敘述，何者最為正確？', a:'選項 A。責任準備金為保險公司負債，用於確保未來給付義務得以履行。' },
-  { q:'「不可抗辯條款」適用於保險契約生效滿幾年後？', a:'兩年後，保險人不得以告知不實為由解除契約或拒絕給付。' },
-  { q:'「羈」的正確讀音為何？', a:'ㄐㄧ。義為拘束、牽制，常見詞彙：羈絆、羈押、羈旅。' },
-];
-
-function simEnd() {
-  const myTeam = MOCK_TEAMS.find(t => t.name === G.team) || MOCK_TEAMS[1];
-  const sorted = [...MOCK_TEAMS].sort((a,b) => b.score-a.score);
-  const myRank = sorted.findIndex(t => t.name === myTeam.name) + 1;
-  const maxScore = sorted[0].score;
-
-  // 填入我的資訊
-  document.getElementById('end-name').textContent = G.name || '（未登入）';
-  document.getElementById('end-group').textContent = myTeam.name;
-  document.getElementById('end-members').textContent = '組員：' + myTeam.members.join('、');
-  document.getElementById('end-rank').textContent = myRank;
-  document.getElementById('end-score').textContent = myTeam.score;
-  document.getElementById('end-q').textContent = MOCK_QA.length;
-
-  // 長條圖排行
-  document.getElementById('bar-chart').innerHTML = sorted.map((t, r) => {
-    const pct = maxScore > 0 ? Math.round(t.score / maxScore * 100) : 0;
-    const isMe = t.name === myTeam.name;
-    const isTop = r === 0;
-    return `
-      <div class="bar-row ${isMe ? 'my-row' : ''}">
-        <div class="bar-name">${t.name}${isMe ? ' ★' : ''}</div>
-        <div class="bar-track">
-          <div class="bar-fill ${isTop && !isMe ? 'top' : ''}" style="width:0%" data-pct="${pct}"></div>
-        </div>
-        <div class="bar-val">${t.score}</div>
-      </div>`;
-  }).join('');
-
-  // Q&A
-  document.getElementById('qa-list').innerHTML = MOCK_QA.map((item,i) => `
-    <div class="qa-item">
-      <div class="qa-num">Q${String(i+1).padStart(2,'0')}</div>
-      <div class="qa-q">${item.q}</div>
-      <div class="qa-a">${item.a}</div>
-    </div>`).join('');
-
-  goStage('end');
-
-  // 長條圖動畫（微延遲觸發 transition）
-  setTimeout(() => {
-    document.querySelectorAll('.bar-fill').forEach(el => {
-      el.style.width = el.dataset.pct + '%';
-    });
-  }, 80);
-}
+/* 遊戲結束的真實結算頁由 server 廣播的 export_result 處理(見下方
+   PartyBus.on('export_result'),用真資料填 end-* 與長條圖)。
+   原本這裡的 simEnd() + MOCK_TEAMS/MOCK_QA 假資料已移除。 */
 
 /* ══ 搶答按鈕邏輯 ══
    states:

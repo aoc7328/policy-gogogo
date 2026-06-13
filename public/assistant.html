@@ -3093,20 +3093,8 @@ function doExport(){
   setStatus('已匯出結果到參賽者畫面');
 }
 
-/* === DEMO: console 用 mockLog() 看進退場紀錄滿載樣貌, addLog(name,action,type,group) 手動加 === */
-window.mockLog=function(){
-  S.log=[
-    {time:'10:32:18',name:'陳冠瑋',action:'加入',type:'join',group:'第一組'},
-    {time:'10:32:24',name:'林雅婷',action:'加入',type:'join',group:'第二組'},
-    {time:'10:33:51',name:'黃建志',action:'加入',type:'join',group:'第三組'},
-    {time:'10:35:02',name:'吳珮瑜',action:'加入',type:'join',group:'第四組'},
-    {time:'10:38:47',name:'王詩涵',action:'加入',type:'join',group:'第一組'},
-    {time:'10:41:15',name:'王詩涵',action:'重連',type:'reconn',group:'第一組'},
-    {time:'10:42:33',name:'張凱傑',action:'退出',type:'leave',group:'第二組'},
-    {time:'10:43:08',name:'張凱傑',action:'重連',type:'reconn',group:'第二組'},
-  ];
-  renderLog();
-};
+/* addLog(name,action,type,group) — 真實進退場紀錄由 player_join /
+   player_leave 等事件呼叫。原本的 mockLog() 假名單已移除。 */
 window.addLog=addLog;
 
 /* ══ 煉獄狀態徽章(由主持人端透過 PartyKit 廣播煉獄事件時呼叫) ══ */
