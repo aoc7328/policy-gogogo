@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>保險知識星攻略 · 助理端</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -23,7 +23,7 @@
 .app[data-mode="hell"]{--accent:#D8344A;--accent-b:#EC5068;--accent-s:rgba(216,52,74,.12);--accent-l:rgba(216,52,74,.35)}
 .app[data-mode="paradise"]{--accent:#D4A34B;--accent-b:#F0C060;--accent-s:rgba(212,163,75,.12);--accent-l:rgba(212,163,75,.35)}
 .app[data-mode="custom"]{--accent:#C49A5A;--accent-b:#D9B477;--accent-s:rgba(196,154,90,.12);--accent-l:rgba(196,154,90,.35)}
-*{box-sizing:border-box;margin:0;padding:0}
+*{box-sizing:border-box;margin:0;padding:0;touch-action:manipulation}
 html,body{background:var(--bg-void);color:var(--ink-1);font-family:var(--font-sans);min-height:100vh;-webkit-font-smoothing:antialiased;letter-spacing:.01em}
 button{cursor:pointer;font-family:inherit}
 input{font-family:var(--font-mono);background:var(--bg-raised);border:1px solid var(--line-s);color:var(--ink-1);padding:9px 12px;font-size:14px;outline:none;width:100%;transition:border-color 180ms;letter-spacing:.04em}
@@ -571,12 +571,17 @@ input::placeholder{color:var(--ink-3)}
   .bank-grid{grid-template-columns:1fr}
 }
 
-/* 揭曉後加分選項 */
+/* 揭曉後加分選項(申論/簡答可部分給分:25% / 50% / 100% / 不計分) */
 .rev-acts{display:none;gap:8px}
-.rev-acts.show{display:flex}
-.rev-btn{flex:1;border:none;font-family:var(--font-mono);font-size:12px;font-weight:700;padding:12px 0;letter-spacing:.12em;text-transform:uppercase;transition:all 200ms}
+.rev-acts.show{display:grid;grid-template-columns:repeat(4,1fr)}
+.rev-btn{border:none;font-family:var(--font-mono);font-size:11px;font-weight:700;padding:12px 2px;letter-spacing:.06em;text-transform:uppercase;transition:all 200ms;line-height:1.5}
+.rev-btn .rb-pct{display:block;font-size:13px;letter-spacing:.1em}
+.rev-btn .rb-pts{display:block;font-size:10px;opacity:.75}
+.rev-btn.p25{background:#8A6A3A;color:#F5EDD8}.rev-btn.p25:hover{filter:brightness(1.12)}
+.rev-btn.p50{background:#B98C3E;color:var(--bg-void)}.rev-btn.p50:hover{filter:brightness(1.12)}
 .rev-btn.ok{background:var(--ok);color:var(--bg-void)}.rev-btn.ok:hover{filter:brightness(1.12)}
 .rev-btn.pass{background:var(--err);color:#fff}.rev-btn.pass:hover{filter:brightness(1.12)}
+@media(max-width:520px){.rev-acts.show{grid-template-columns:repeat(2,1fr)}}
 
 /* 長條圖排行 */
 .ranking{margin-top:12px;padding:18px 20px;background:var(--bg-surface);border:1px solid var(--line)}
@@ -987,7 +992,9 @@ input::placeholder{color:var(--ink-3)}
       </div>
 
       <div class="rev-acts" id="rev-acts">
-        <button class="rev-btn ok" id="rev-ok" onclick="scoreOk()">答對 · 加分</button>
+        <button class="rev-btn p25" id="rev-p25" onclick="scorePartial(0.25)">加 25%</button>
+        <button class="rev-btn p50" id="rev-p50" onclick="scorePartial(0.5)">加 50%</button>
+        <button class="rev-btn ok" id="rev-ok" onclick="scorePartial(1)">加 100%</button>
         <button class="rev-btn pass" onclick="scorePass()">不計分</button>
       </div>
 
@@ -1800,11 +1807,10 @@ PartyBus.on('reveal_answer', () => {
   const acts = document.getElementById('rev-acts');
   if (acts) acts.classList.add('show');
   S.pendingIdx = S.selectedIdx;
-  if (S.pendingIdx !== null) {
-    const ok = document.getElementById('rev-ok');
-    if (ok) ok.textContent = `答對 · ${S.groups[S.pendingIdx]?.name} +${S.spq}分`;
-  }
-  setStatus('已公佈答案 · 請判斷是否計分');
+  updateRevActLabels();
+  setStatus(S.pendingIdx !== null
+    ? `已公佈答案 · ${S.groups[S.pendingIdx]?.name || ''} 得分判定`
+    : '已公佈答案 · 請判斷是否計分');
 });
 
 /* 下一題:所有助理重置本輪狀態回 idle */
@@ -2796,15 +2802,19 @@ function onRushWinner(idx, _serverPayload) {
   setPhase('won');
   renderScores();
   setStatus(`${g?.name || ''} 搶答成功 · 點九宮格選分類`);
-  // 給觀眾足夠時間看 winner 頁(3.5 秒),然後通知 server 進九宮格階段。
+  // 給觀眾足夠時間看 winner 頁,然後通知 server 進九宮格階段。
+  // 資訊量大的模式(狂點奪魁/全組到位有次數、第二名等)停久一點;
+  // 助理提早點九宮格可跳過等待(pickCategory 會自己送 enter_category)。
   // 重要:本機 phase 也要 setPhase('picking'),不然之後 user 第一次點 grid
   // 時 pickCategory 看 S.phase 還是 'won',會重複 emit 一次 enter_category,
   // server 已在 picking → 跳 wrong_phase 錯誤。
+  const rushMode = _serverPayload?.rushMode || S.rushMode || 'speed';
+  const winnerCardMs = (rushMode === 'count' || rushMode === 'allhands') ? 8000 : 5000;
   S._winnerCardTimer = setTimeout(() => {
     if (S.phase !== 'won') return;
     PartyBus.emit('enter_category', {});
     setPhase('picking');
-  }, 3500);
+  }, winnerCardMs);
 }
 
 function doReveal(){
@@ -2818,20 +2828,35 @@ function doReveal(){
   setStatus('已公佈答案 · 請判斷是否計分');
   document.getElementById('rev-acts').classList.add('show');
   S.pendingIdx = S.selectedIdx;
+  updateRevActLabels();
   if (S.pendingIdx !== null) {
-    document.getElementById('rev-ok').textContent =
-      `答對 · ${S.groups[S.pendingIdx]?.name} +${S.spq}分`;
+    setStatus(`已公佈答案 · ${S.groups[S.pendingIdx]?.name || ''} 得分判定`);
   }
   // 廣播:主持人/參賽者顯示完整答案
   PartyBus.emit('reveal_answer', {});
 }
 
-function scoreOk(){
+/* 部分給分:申論/簡答答得不完整時,依比例給 25% / 50%,全對給 100%。
+   分數 = round(每題分數 × 比例)。 */
+function scorePartial(pct){
   if(S.pendingIdx===null)return;
-  adj(S.pendingIdx,S.spq);
+  const pts = Math.round((S.spq || 0) * pct);
+  if (pts > 0) adj(S.pendingIdx, pts);
   afterScore();
 }
+function scoreOk(){scorePartial(1);}
 function scorePass(){afterScore();}
+
+/* 揭曉後把三顆給分鈕的字樣換成實際分數(如 25% · +5分) */
+function updateRevActLabels(){
+  const pcts = { 'rev-p25': 0.25, 'rev-p50': 0.5, 'rev-ok': 1 };
+  Object.entries(pcts).forEach(([id, pct]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = `<span class="rb-pct">${Math.round(pct*100)}%</span>` +
+                   `<span class="rb-pts">+${Math.round((S.spq || 0) * pct)}分</span>`;
+  });
+}
 function afterScore(){
   document.getElementById('rev-acts').classList.remove('show');
   S.selectedIdx=null;

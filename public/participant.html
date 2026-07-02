@@ -58,7 +58,7 @@
 }
 
 /* ── 基礎 ─────────────────────────────────────── */
-*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 html{height:100%;overflow:hidden}
 body{
   height:100dvh;overflow:hidden;
@@ -580,6 +580,18 @@ input{-webkit-appearance:none;border-radius:0}
 .btn-cooldown{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:var(--font-mono);font-weight:700;font-size:32px;color:var(--accent);text-shadow:0 0 18px var(--accent-l);pointer-events:none;animation:cdFade 200ms ease-out}
 @keyframes cdFade{from{opacity:0;transform:translate(-50%,-50%) scale(.7)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
 
+/* 選題階段:F1-F9 九宮格鏡射(唯讀) */
+.qw-catgrid{display:flex;flex-direction:column;align-items:center;gap:12px;width:100%;max-width:340px;animation:revIn 400ms cubic-bezier(.2,.7,.2,1)}
+.qcg-eyebrow{font-family:var(--font-mono);font-size:10px;letter-spacing:.32em;color:var(--accent);text-transform:uppercase}
+.qcg-title{font-family:"Noto Serif TC",serif;font-weight:700;font-size:20px;color:var(--ink-1);letter-spacing:.05em}
+.qcg-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;width:100%}
+.qcg-cell{border:1px solid var(--line-s);background:var(--bg-s);padding:10px 4px 9px;display:flex;flex-direction:column;gap:3px;align-items:center;transition:all 220ms}
+.qcg-cell .qcg-id{font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;color:var(--ink-3);font-weight:700}
+.qcg-cell .qcg-name{font-size:11px;line-height:1.45;color:var(--ink-2)}
+.qcg-cell.preview{border-color:var(--accent);background:var(--accent-s);box-shadow:0 0 0 1px var(--accent),0 0 18px var(--accent-l)}
+.qcg-cell.preview .qcg-id,.qcg-cell.preview .qcg-name{color:var(--accent);font-weight:700}
+.qcg-hint{font-family:var(--font-mono);font-size:10px;letter-spacing:.2em;color:var(--ink-3);text-transform:uppercase}
+
 /* 隨機模式 · 揭曉(5 秒) */
 .qw-reveal{display:flex;flex-direction:column;align-items:center;gap:10px;animation:revIn 500ms cubic-bezier(.2,.7,.2,1)}
 @keyframes revIn{from{opacity:0;transform:translateY(8px) scale(.94)}to{opacity:1;transform:none}}
@@ -655,6 +667,20 @@ body.tm-paradise .opt{border-radius:0 12px 12px 0;border-left:3px solid var(--se
 @keyframes ansIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 .ans-lbl{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.22em;color:var(--accent);text-transform:uppercase;margin-bottom:8px}
 .ans-text{font-size:14px;line-height:1.78;color:var(--ink-1)}
+/* 完整詳解區塊(簡答/申論/計算把主持人端的詳解、算式搬過來) */
+.ans-sec-lbl{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.22em;color:var(--accent);text-transform:uppercase;margin:14px 0 6px}
+.ans-sec-lbl:first-child{margin-top:0}
+.ans-main{font-size:16px;font-weight:700;line-height:1.7;color:var(--ink-1)}
+.ans-points{list-style:none;margin:0;padding:0}
+.ans-points li{position:relative;padding-left:16px;font-size:13px;line-height:1.7;color:var(--ink-1);margin-bottom:5px}
+.ans-points li::before{content:'·';position:absolute;left:2px;color:var(--accent);font-weight:700}
+.ans-model{font-size:13px;line-height:1.85;color:var(--ink-2)}
+.ans-model p{margin-bottom:10px}
+.ans-model p:last-child{margin-bottom:0}
+.ans-model strong{color:var(--accent);font-weight:700}
+.ans-steps{list-style:none;counter-reset:pStep;margin:0;padding:0}
+.ans-steps li{counter-increment:pStep;position:relative;padding-left:30px;font-family:"JetBrains Mono",monospace;font-size:13px;line-height:1.75;color:var(--ink-1);margin-bottom:6px}
+.ans-steps li::before{content:counter(pStep,decimal-leading-zero);position:absolute;left:0;top:1px;font-size:10px;color:var(--accent)}
 
 /* 捲動漸層 */
 .scroll-fade{position:sticky;bottom:0;left:0;right:0;height:28px;background:linear-gradient(to bottom,transparent,var(--bg));pointer-events:none;margin:-28px -20px 0}
@@ -1156,6 +1182,13 @@ body.tm-paradise .opt{border-radius:0 12px 12px 0;border-left:3px solid var(--se
       <div class="qw-allhands-panel" id="qw-allhands-panel" style="display:none">
         <div class="qah-remain"><span id="qah-remain-num">5.0</span><span class="qah-unit">s</span></div>
         <div class="qah-list" id="qah-list"></div>
+      </div>
+      <!-- 選題階段:F1-F9 九宮格鏡射(唯讀輔助畫面,實際選擇由口頭告知助理操作) -->
+      <div class="qw-catgrid" id="qw-catgrid" style="display:none">
+        <div class="qcg-eyebrow">Category Selection</div>
+        <div class="qcg-title" id="qcg-title">選題中</div>
+        <div class="qcg-grid" id="qcg-grid"></div>
+        <div class="qcg-hint">口頭告知你們要選的分類</div>
       </div>
       <div class="qw-hint" id="qw-hint">主持人正在準備中</div>
     </div>
@@ -2510,17 +2543,32 @@ function revealCurrentAnswer() {
     });
   }
 
-  // 答案文字
+  // 答案內容:完整搬主持人端的詳解(評分要點+參考範文、解題步驟+最終答案),
+  // 投影幕太小時大家直接看手機就有全部資訊。
   const ansText = document.getElementById('ans-text');
   const ansBlock = document.getElementById('ans-block');
   if (ansText && ansBlock) {
-    let text = '';
-    if (q.type === 'multiple_choice')   text = `${q.correct}. ${q.options?.[q.correct] || ''}\n${q.explanation || ''}`;
-    else if (q.type === 'short_answer') text = q.answer || '';
-    else if (q.type === 'essay')        text = (q.key_points || []).map(p => `· ${p}`).join('\n');
-    else if (q.type === 'calculation')  text = `${q.answer || ''} ${q.unit || ''}`;
-    else if (q.type === 'word_game')    text = `${q.correct} · ${q.meaning || q.context_phrase || ''}`;
-    ansText.innerHTML = text.replace(/\n/g, '<br>');
+    let html = '';
+    if (q.type === 'multiple_choice') {
+      html = `<div class="ans-main">${q.correct}. ${q.options?.[q.correct] || ''}</div>`
+           + (q.explanation ? `<div class="ans-sec-lbl">解題要點</div><div class="ans-model"><p>${q.explanation}</p></div>` : '');
+    } else if (q.type === 'short_answer') {
+      html = `<div class="ans-main">${(q.answer || '').replace(/\n/g, '<br>')}</div>`;
+    } else if (q.type === 'essay') {
+      const kp = (q.key_points || []).map(p => `<li>${p}</li>`).join('');
+      const ma = (q.model_answer || '').split('\n\n').map(p =>
+        `<p>${p.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')}</p>`).join('');
+      html = (kp ? `<div class="ans-sec-lbl">評分要點</div><ul class="ans-points">${kp}</ul>` : '')
+           + (ma ? `<div class="ans-sec-lbl">參考範文</div><div class="ans-model">${ma}</div>` : '');
+    } else if (q.type === 'calculation') {
+      const steps = (q.steps || []).map(s => `<li>${s}</li>`).join('');
+      html = (steps ? `<div class="ans-sec-lbl">解題步驟</div><ol class="ans-steps">${steps}</ol>` : '')
+           + `<div class="ans-sec-lbl">最終答案</div><div class="ans-main">${q.answer || ''} ${q.unit || ''}</div>`;
+    } else if (q.type === 'word_game') {
+      html = `<div class="ans-main">${q.correct || ''}</div>`
+           + ((q.meaning || q.context_phrase) ? `<div class="ans-sec-lbl">字義</div><div class="ans-model"><p>${q.meaning || q.context_phrase}</p></div>` : '');
+    }
+    ansText.innerHTML = html;
     ansBlock.style.display = 'block';
   }
 }
@@ -2622,6 +2670,7 @@ function resetWaitToIdle() {
   setShow('qw-allhands-panel', false);
   setShow('qw-reveal', false);
   setShow('qw-result', false);
+  setShow('qw-catgrid', false);
   setShow('qw-hint', true);
   document.getElementById('qw-hint').textContent = '下一輪搶答模式';
   // 顯示模式 chip + 規則(從 G.rushMode 讀,若還沒收到就用 'speed' 預設)
@@ -2670,6 +2719,7 @@ PartyBus.on('rush_reveal', payload => {
   setShow('qw-countdown', false);
   setShow('qw-count-panel', false);
   setShow('qw-allhands-panel', false);
+  setShow('qw-catgrid', false);
   setShow('qw-hint', false);
   // 顯示揭曉區塊
   document.getElementById('qw-rev-name').textContent = meta.label;
@@ -2710,6 +2760,9 @@ PartyBus.on('start_rush', payload => {
   // 直接進倒數,若不清掉,舊組別會殘留在倒數下方(user-reported bug)。
   const oldResult = document.getElementById('qw-result');
   if (oldResult) oldResult.style.display = 'none';
+  // 同理:上一輪殘留的九宮格鏡射也收掉
+  const oldCatGrid = document.getElementById('qw-catgrid');
+  if (oldCatGrid) oldCatGrid.style.display = 'none';
 
   // 取出此模式的中文名與規則
   const meta = RUSH_MODE_META[G.rushMode] || { label: '搶答', rule: '' };
@@ -2902,6 +2955,7 @@ PartyBus.on('rush_winner', payload => {
   setShow('qw-count-panel', false);
   setShow('qw-allhands-panel', false);
   setShow('qw-reveal', false);
+  setShow('qw-catgrid', false);
   setShow('qw-hint', false);
   // 結果頁
   const resultEl = document.getElementById('qw-result');
@@ -2911,6 +2965,7 @@ PartyBus.on('rush_winner', payload => {
   document.getElementById('q-body').style.display = 'none';
 
   const group = payload.groupName || `第${payload.groupIdx + 1}組`;
+  G.lastWinGroup = group;   // 選題鏡射的標題用(「XX組 選題中」)
   const myWin = (payload.groupName && G.team === payload.groupName);
   resultEl.classList.toggle('mine', myWin);
 
@@ -2967,6 +3022,55 @@ PartyBus.on('rush_winner', payload => {
       status.className = 'btn-status active-err';
     }
   }
+});
+
+/* ── 選題階段:九宮格鏡射(唯讀輔助) ─────────────────────
+   投影幕太小時看不清九宮格 → 手機也列出 F1-F9 有哪些分類。
+   純顯示、不可點:實際選擇由搶到的組口頭告知、助理端操作。 */
+function showCategoryMirror() {
+  document.getElementById('q-body').style.display = 'none';
+  const wait = document.getElementById('q-wait');
+  if (wait) wait.style.display = 'flex';
+  ['qw-glyph','qw-title','qw-mode','qw-rule','qw-countdown','qw-count-panel',
+   'qw-allhands-panel','qw-reveal','qw-result','qw-hint'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  // F1-F9 從 BANK_SCHEMA_P.frameworksA 動態建(標籤跟著題庫走,
+  // server __room_state__ 若帶了新題庫的 framework 標籤會自動套上)
+  const grid = document.getElementById('qcg-grid');
+  if (grid) {
+    grid.innerHTML = (BANK_SCHEMA_P.frameworksA || []).map(f =>
+      `<div class="qcg-cell" data-fid="${f.shortId}">
+        <span class="qcg-id">${f.shortId}</span>
+        <span class="qcg-name">${f.label}</span>
+      </div>`).join('');
+  }
+  const title = document.getElementById('qcg-title');
+  if (title) title.textContent = G.lastWinGroup ? `${G.lastWinGroup} 選題中` : '選題中';
+  const panel = document.getElementById('qw-catgrid');
+  if (panel) panel.style.display = 'flex';
+  const status = document.getElementById('btn-status');
+  if (status) { status.textContent = '選題中'; status.className = 'btn-status'; }
+}
+
+PartyBus.on('enter_category', () => {
+  showCategoryMirror();
+});
+
+/* 助理點格子預覽 → 手機同步高亮該格 */
+PartyBus.on('category_preview', payload => {
+  if (!payload?.fid) return;
+  const panel = document.getElementById('qw-catgrid');
+  if (!panel || panel.style.display === 'none') return;
+  document.querySelectorAll('#qcg-grid .qcg-cell').forEach(c =>
+    c.classList.toggle('preview', c.dataset.fid === payload.fid));
+});
+
+/* 九宮格重置(重新搶答等) → 清掉高亮 */
+PartyBus.on('category_reset', () => {
+  document.querySelectorAll('#qcg-grid .qcg-cell.preview').forEach(c =>
+    c.classList.remove('preview'));
 });
 
 PartyBus.on('question_pick', payload => {

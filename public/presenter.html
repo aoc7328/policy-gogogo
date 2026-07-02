@@ -18,6 +18,13 @@ html, body { background: #080A10; font-family: var(--font-sans); -webkit-font-sm
 .demo-tips { font-family: var(--font-mono); font-size: 10px; color: #5C6480; letter-spacing: 0.14em; text-transform: uppercase; }
 .demo-tips .dot { color: #D4A34B; }
 .stage-wrap { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; }
+/* 投影縮放控制(投影幕太小/太大時手動縮放整個舞台;設定記在 localStorage) */
+.zoom-ctl { position: fixed; right: 12px; bottom: 12px; z-index: 2000; display: flex; align-items: center; gap: 4px; opacity: 0.28; transition: opacity 220ms; }
+.zoom-ctl:hover { opacity: 1; }
+.zoom-ctl button { font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: #F2EDE1; background: rgba(20,27,46,0.88); border: 1px solid rgba(155,163,181,0.3); width: 32px; height: 32px; cursor: pointer; transition: all 160ms; }
+.zoom-ctl button:hover { border-color: #D4A34B; color: #D4A34B; }
+.zoom-ctl button.zc-fit { width: auto; padding: 0 10px; font-size: 10px; letter-spacing: 0.1em; }
+.zoom-ctl .zc-val { font-family: var(--font-mono); font-size: 10px; color: #9BA3B5; min-width: 42px; text-align: center; letter-spacing: 0.05em; }
 .stage { width: 100%; max-width: 1024px; aspect-ratio: 4 / 3; position: relative; overflow: hidden; box-shadow: 0 0 0 1px var(--line, rgba(155,163,181,0.16)), 0 24px 72px -12px rgba(0,0,0,0.9); transition: background 900ms var(--ease), color 900ms var(--ease); background: radial-gradient(ellipse at 20% 15%, var(--glow, rgba(212,163,75,0.2)) 0%, transparent 55%), radial-gradient(ellipse at 85% 90%, var(--glow, rgba(212,163,75,0.2)) 0%, transparent 50%), var(--bg-deep, #0B1020); color: var(--ink-1, #F2EDE1); }
 .stage[data-mode="select"] { --bg-void: #050912; --bg-deep: #0B1020; --bg-surface: #141B2E; --bg-raised: #1C2540; --ink-1: #F2EDE1; --ink-2: #9BA3B5; --ink-3: #5C6480; --accent: #D4A34B; --accent-bright: #E8BD5E; --accent-deep: #8B6820; --line: rgba(155,163,181,0.16); --line-strong: rgba(155,163,181,0.32); --glow: rgba(212,163,75,0.2); }
 /* 普通 — 書院晨光:暖木深褐 + 墨金,直欄書卷格線、頂部晨光金線 */
@@ -687,6 +694,15 @@ html, body { background: #080A10; font-family: var(--font-sans); -webkit-font-sm
     <div class="demo-tips"><span><span class="dot">●</span> 合併版 · 模式選擇 + 自由設定 + 遊戲流程</span></div>
   </div>
 
+  <!-- 投影縮放控制(右下角,滑鼠移過去才會亮) -->
+  <div class="zoom-ctl" id="zoom-ctl">
+    <button onclick="stageZoomBy(-0.05)" title="縮小">−</button>
+    <span class="zc-val" id="zoom-val">100%</span>
+    <button onclick="stageZoomBy(0.05)" title="放大">+</button>
+    <button class="zc-fit" onclick="stageZoomFit()" title="放大到貼齊螢幕">填滿</button>
+    <button class="zc-fit" onclick="stageZoomReset()" title="回到 100%">重設</button>
+  </div>
+
   <div class="stage-wrap">
     <div class="stage" id="stage" data-mode="select" data-selected="">
 
@@ -1143,6 +1159,40 @@ window.addEventListener('storage', e => {
 });
 
 const stage = document.getElementById('stage');
+
+/* ── 投影縮放:transform scale 整個 stage(存 localStorage,重整不掉)。
+   投影幕太小時按「填滿」把 4:3 舞台放大到貼齊螢幕邊。 ── */
+let stageZoom = (() => {
+  const v = parseFloat(localStorage.getItem('pgg_stage_zoom') || '1');
+  return (isFinite(v) && v >= 0.5 && v <= 2.5) ? v : 1;
+})();
+function applyStageZoom() {
+  stage.style.transform = (stageZoom === 1) ? '' : `scale(${stageZoom})`;
+  const el = document.getElementById('zoom-val');
+  if (el) el.textContent = `${Math.round(stageZoom * 100)}%`;
+  try { localStorage.setItem('pgg_stage_zoom', String(stageZoom)); } catch (e) {}
+}
+function stageZoomBy(d) {
+  stageZoom = Math.min(2.5, Math.max(0.5, Math.round((stageZoom + d) * 100) / 100));
+  applyStageZoom();
+}
+function stageZoomFit() {
+  // 以未縮放的 stage 尺寸為基準,取寬/高較小的倍率貼齊視窗
+  const prev = stage.style.transform;
+  stage.style.transform = '';
+  const r = stage.getBoundingClientRect();
+  stage.style.transform = prev;
+  if (!r.width || !r.height) return;
+  const s = Math.min(window.innerWidth / r.width, window.innerHeight / r.height);
+  stageZoom = Math.max(0.5, Math.min(2.5, Math.floor(s * 100) / 100));
+  applyStageZoom();
+}
+function stageZoomReset() { stageZoom = 1; applyStageZoom(); }
+window.stageZoomBy = stageZoomBy;
+window.stageZoomFit = stageZoomFit;
+window.stageZoomReset = stageZoomReset;
+applyStageZoom();
+
 let currentMode   = null;  // 正式進入的模式
 let selectedMode  = null;  // 在主選頁選中的模式(尚未確認)
 let pendingMode   = null;  // 確認頁待確認的模式
