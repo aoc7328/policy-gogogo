@@ -43,6 +43,9 @@ import {
   computeMvp,
   reshuffleParticipants,
   snapshot,
+  dehydrateState,
+  hydrateState,
+  type PersistedState,
   type RoomState,
   type BuzzRecord,
 } from './state';
@@ -69,6 +72,10 @@ interface ConnState {
   verified: boolean;         // controlCode validated for assistants
 }
 
+const STATE_STORAGE_KEY = 'pgg_room_state_v1';
+// 存檔超過 24 小時視為上一場活動的殘留,不還原(活動不會跨日進行)
+const STATE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
 export default class PolicyGogogoServer implements Party.Server {
   state: RoomState;
 
@@ -79,6 +86,38 @@ export default class PolicyGogogoServer implements Party.Server {
   // ────────────────────────────────────────────────────────────
   // Lifecycle
   // ────────────────────────────────────────────────────────────
+
+  /** DO 重啟(deploy / eviction / dev hot-reload)後從 storage 還原遊戲,
+   *  中場 deploy 不再把整場打回 lobby(user-reported start_rush lobby 錯誤)。 */
+  async onStart(): Promise<void> {
+    try {
+      const saved = await this.room.storage.get<PersistedState>(STATE_STORAGE_KEY);
+      if (!saved || saved.v !== 1) return;
+      if (Date.now() - saved.savedAt > STATE_MAX_AGE_MS) {
+        await this.room.storage.delete(STATE_STORAGE_KEY);
+        return;
+      }
+      hydrateState(this.state, saved);
+      console.log(
+        `[room ${this.room.id}] state restored (phase=${this.state.phase}, currQ=${this.state.currQ})`
+      );
+    } catch (err) {
+      console.error(`[room ${this.room.id}] state restore failed:`, err);
+    }
+  }
+
+  /** 每個指令處理完後排程存檔;1 秒 coalesce(狂點奪魁一秒幾十個 buzz,
+   *  不需要每個都寫一次 storage)。 */
+  private _persistTimer: ReturnType<typeof setTimeout> | null = null;
+  private schedulePersist(): void {
+    if (this._persistTimer) return;
+    this._persistTimer = setTimeout(() => {
+      this._persistTimer = null;
+      this.room.storage
+        .put(STATE_STORAGE_KEY, dehydrateState(this.state))
+        .catch((err) => console.error(`[room ${this.room.id}] state persist failed:`, err));
+    }, 1000);
+  }
 
   onConnect(conn: Party.Connection<ConnState>, ctx: Party.ConnectionContext): void {
     const url = new URL(ctx.request.url);
@@ -203,6 +242,8 @@ export default class PolicyGogogoServer implements Party.Server {
 
     try {
       this.dispatch(cmd, sender);
+      // 指令可能改了遊戲狀態 → 排程存檔(coalesced),DO 重啟後可還原
+      this.schedulePersist();
     } catch (err) {
       console.error('dispatch error:', err);
       this.sendError(

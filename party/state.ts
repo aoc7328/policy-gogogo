@@ -623,3 +623,102 @@ export function snapshot(state: RoomState): RoomStateSnapshot {
     branding: { titlePrefix: BRANDING.titlePrefix, titleSuffix: BRANDING.titleSuffix },
   };
 }
+
+// ──────────────────────────────────────────────────────────────────────
+// Persistence — DO 重啟(deploy / eviction / dev hot-reload)後還原遊戲
+// ──────────────────────────────────────────────────────────────────────
+// 中場 deploy 或 DO 被回收會讓 in-memory state 歸零,所有指令撞
+// 「不能在 lobby 階段送」(user-reported)。核心遊戲狀態存 room storage,
+// onStart 還原。不存的:rushSession(有活 timer,重啟後由助理重新開始
+// 搶答)、participants(連線層資料,重連後由 player_join / onConnect 重建)。
+
+export interface PersistedState {
+  v: 1;
+  savedAt: number;
+  roomId: string;
+  controlCode: string;
+  createdAt: number;
+  phase: Phase;
+  game: GameConfig | null;
+  groupingMode: GroupingMode;
+  groups: TeamState[];
+  currQ: number;
+  currentQuestion: RoomState['currentQuestion'];
+  currentCat: string | null;
+  catLocked: boolean;
+  purgArmed: boolean;
+  usedIds: string[];
+  askedQuestions: RoomState['askedQuestions'];
+  wordGameAsked: number;
+  mvpTally: [number, [string, number][]][];
+  timerDeadline: number | null;
+  rebuzzPending: boolean;
+  excludedTeams: number[];
+  lastBuzzWinnerTeam: number | null;
+  rushMode: RushMode;
+  rushModeActual: ActualRushMode | null;
+  presenterClaimed: boolean;
+}
+
+export function dehydrateState(state: RoomState): PersistedState {
+  return {
+    v: 1,
+    savedAt: Date.now(),
+    roomId: state.roomId,
+    controlCode: state.controlCode,
+    createdAt: state.createdAt,
+    phase: state.phase,
+    game: state.game,
+    groupingMode: state.groupingMode,
+    groups: state.groups.map((g) => ({ ...g, members: [...g.members] })),
+    currQ: state.currQ,
+    currentQuestion: state.currentQuestion,
+    currentCat: state.currentCat,
+    catLocked: state.catLocked,
+    purgArmed: state.purgArmed,
+    usedIds: [...state.usedIds],
+    askedQuestions: [...state.askedQuestions],
+    wordGameAsked: state.wordGameAsked,
+    mvpTally: [...state.mvpTally.entries()].map(([idx, m]) => [idx, [...m.entries()]]),
+    timerDeadline: state.timerDeadline,
+    rebuzzPending: state.rebuzzPending,
+    excludedTeams: [...state.excludedTeams],
+    lastBuzzWinnerTeam: state.lastBuzzWinnerTeam,
+    rushMode: state.rushMode,
+    rushModeActual: state.rushModeActual,
+    presenterClaimed: state.presenterClaimed,
+  };
+}
+
+/** 還原存檔到 in-memory state。transient 欄位重置:rushSession=null、
+ *  participants 清空(重連後重建)。phase 若停在 rushing(搶答仲裁中),
+ *  timer 已隨舊 DO 消失 → 退回 idle,助理重按「開始搶答」即可。 */
+export function hydrateState(state: RoomState, saved: PersistedState): void {
+  state.roomId = saved.roomId;
+  state.controlCode = saved.controlCode;
+  state.createdAt = saved.createdAt;
+  state.phase = saved.phase === 'rushing' ? 'idle' : saved.phase;
+  state.game = saved.game;
+  state.groupingMode = saved.groupingMode;
+  state.groups = saved.groups.map((g) => ({ ...g, members: [...g.members] }));
+  state.currQ = saved.currQ;
+  state.currentQuestion = saved.currentQuestion;
+  state.currentCat = saved.currentCat;
+  state.catLocked = saved.catLocked;
+  state.purgArmed = saved.purgArmed;
+  state.usedIds = new Set(saved.usedIds);
+  state.askedQuestions = [...saved.askedQuestions];
+  state.wordGameAsked = saved.wordGameAsked;
+  state.mvpTally = new Map(saved.mvpTally.map(([idx, m]) => [idx, new Map(m)]));
+  // 倒數截止已過(重啟耗掉的時間)→ 清掉,避免還原後立刻誤響鬧鐘
+  state.timerDeadline =
+    saved.timerDeadline && saved.timerDeadline > Date.now() ? saved.timerDeadline : null;
+  state.rebuzzPending = saved.rebuzzPending;
+  state.excludedTeams = [...saved.excludedTeams];
+  state.lastBuzzWinnerTeam = saved.lastBuzzWinnerTeam;
+  state.rushMode = saved.rushMode;
+  state.rushModeActual = saved.rushModeActual;
+  state.presenterClaimed = saved.presenterClaimed;
+  state.rushSession = null;
+  state.participants = new Map();
+}

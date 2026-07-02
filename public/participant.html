@@ -997,23 +997,37 @@ body.tm-paradise .opt{border-radius:0 12px 12px 0;border-left:3px solid var(--se
 .qa-act-btn.done{border-color:var(--accent);color:var(--accent);background:var(--accent-s)}
 .qa-actions-hint{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.08em;color:var(--ink-3);margin-top:8px;line-height:1.6}
 
-/* ── 新手引導(首次進入遊戲頁顯示;可由 ? 鈕重看) ────────── */
-.onboard{position:fixed;inset:0;z-index:9000;background:rgba(3,6,14,.92);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;padding:24px}
-.onboard.show{display:flex;animation:obIn 300ms ease-out}
+/* ── 新手引導(聚光燈式:遮罩挖洞 + 箭頭指向實際按鈕) ────────── */
+.onboard{position:fixed;inset:0;z-index:9000;display:none}
+.onboard.show{display:block;animation:obIn 280ms ease-out}
 @keyframes obIn{from{opacity:0}to{opacity:1}}
-.ob-card{width:100%;max-width:340px;background:var(--bg-s);border:1px solid var(--line-s);padding:28px 24px 22px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:12px}
-.ob-icon{font-size:44px;line-height:1;margin-bottom:2px}
+/* 聚光燈框:框住目標元素,巨大 box-shadow 把其餘畫面壓暗 */
+.ob-spot{
+  position:fixed;border:1.5px solid var(--accent);border-radius:10px;
+  box-shadow:0 0 0 200vmax rgba(3,6,14,.87),0 0 22px var(--accent-l);
+  transition:all 320ms cubic-bezier(.2,.7,.2,1);pointer-events:none;
+}
+/* 說明卡:跟著目標移動,箭頭指向目標 */
+.ob-tip{
+  position:fixed;width:min(320px,calc(100vw - 32px));
+  background:var(--bg-s);border:1px solid var(--line-s);
+  padding:16px 18px 14px;display:flex;flex-direction:column;gap:8px;
+  transition:all 320ms cubic-bezier(.2,.7,.2,1);
+}
+.ob-arrow{position:absolute;width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent}
+.ob-arrow.up{top:-9px;border-bottom:9px solid var(--accent)}
+.ob-arrow.down{bottom:-9px;border-top:9px solid var(--accent)}
 .ob-eyebrow{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.3em;color:var(--accent);text-transform:uppercase}
-.ob-title{font-family:"Noto Serif TC",serif;font-weight:700;font-size:21px;color:var(--ink-1);letter-spacing:.04em}
-.ob-desc{font-size:13.5px;line-height:1.8;color:var(--ink-2);min-height:88px}
+.ob-title{font-family:"Noto Serif TC",serif;font-weight:700;font-size:19px;color:var(--ink-1);letter-spacing:.04em}
+.ob-desc{font-size:13px;line-height:1.75;color:var(--ink-2)}
 .ob-desc .hi{color:var(--accent);font-weight:700}
 .ob-dots{display:flex;gap:7px;margin-top:2px}
 .ob-dot{width:7px;height:7px;border-radius:50%;background:var(--ink-4);transition:all 220ms}
 .ob-dot.on{background:var(--accent);transform:scale(1.25)}
-.ob-btns{display:flex;gap:8px;width:100%;margin-top:8px}
-.ob-skip{flex:1;border:1px solid var(--line-s);background:transparent;color:var(--ink-3);font-size:13px;padding:11px 0;cursor:pointer;font-family:inherit;transition:all 180ms}
+.ob-btns{display:flex;gap:8px;width:100%;margin-top:6px}
+.ob-skip{flex:1;border:1px solid var(--line-s);background:transparent;color:var(--ink-3);font-size:13px;padding:10px 0;cursor:pointer;font-family:inherit;transition:all 180ms}
 .ob-skip:hover{color:var(--ink-1);border-color:var(--ink-3)}
-.ob-next{flex:2;border:none;background:var(--accent);color:var(--bg);font-size:14px;font-weight:700;padding:11px 0;cursor:pointer;font-family:inherit;letter-spacing:.06em;transition:filter 180ms}
+.ob-next{flex:2;border:none;background:var(--accent);color:var(--bg);font-size:14px;font-weight:700;padding:10px 0;cursor:pointer;font-family:inherit;letter-spacing:.06em;transition:filter 180ms}
 .ob-next:hover{filter:brightness(1.12)}
 
 @media(min-height:700px){
@@ -1319,10 +1333,11 @@ body.tm-paradise .opt{border-radius:0 12px 12px 0;border-left:3px solid var(--se
 
 </div>
 
-<!-- ═══════ 新手引導(首次進入遊戲頁自動顯示,? 鈕可重看) ═══════ -->
+<!-- ═══════ 新手引導(聚光燈式:遮罩挖洞框住實際按鈕,箭頭+說明卡,一頁一重點) ═══════ -->
 <div class="onboard" id="onboard">
-  <div class="ob-card">
-    <div class="ob-icon" id="ob-icon">👋</div>
+  <div class="ob-spot" id="ob-spot"></div>
+  <div class="ob-tip" id="ob-tip">
+    <div class="ob-arrow" id="ob-arrow"></div>
     <div class="ob-eyebrow" id="ob-eyebrow">STEP 1</div>
     <div class="ob-title" id="ob-title">—</div>
     <div class="ob-desc" id="ob-desc">—</div>
@@ -1658,6 +1673,9 @@ function doLogin() {
   } else {
     // 還沒開始遊戲:就只是切到 game(等候主持人)
     goStage('game');
+    // 首次登入就跳新手導覽(不必等主持人開賽 — 實測回報:開賽前登入
+    // 走這個分支,原本漏了觸發)。延遲讓 stage 切換動畫跑完再定位聚光燈。
+    setTimeout(() => showOnboarding(false), 400);
   }
 }
 
@@ -2719,8 +2737,9 @@ function enterGameStage() {
   document.getElementById('q-body').style.display = 'none';
   resetWaitToIdle();
   lockBuzz();
-  // 首次進入 → 顯示新手引導(看過就不再跳,右上角 ? 可重看)
-  showOnboarding(false);
+  // 首次進入 → 顯示新手引導(看過就不再跳,右上角 ? 可重看)。
+  // 延遲讓 stage 切換動畫跑完,聚光燈才能量到正確的元素位置。
+  setTimeout(() => showOnboarding(false), 400);
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -2728,17 +2747,18 @@ function enterGameStage() {
    (localStorage 記錄),之後可從頂部 bar 的 ? 按鈕重看。
    ════════════════════════════════════════════════════════════════════ */
 const OB_SEEN_KEY = 'pgg_onboard_seen_v1';
+/* 聚光燈式:每一步框住一個真實 UI 元素,箭頭+說明卡跟著移動 */
 const ONBOARD_STEPS = [
-  { icon: '👋', title: '歡迎加入!',
-    desc: '左上角是<span class="hi">你的名字和組別</span>。點組名可以看同組有哪些人;遊戲開始前,按 <span class="hi">✎</span> 還可以幫你們組改個響亮的組名(開賽後就鎖定囉)。' },
-  { icon: '📲', title: '找隊友一起玩',
-    desc: '右上角的 <span class="hi">QR</span> 按鈕會顯示加入用的 QR Code,還沒進來的同事用手機掃一下,就能加入這一場遊戲。' },
-  { icon: '🔴', title: '搶答就看這顆',
-    desc: '底部的<span class="hi">大紅鈕</span>是搶答鍵。聽主持人倒數 3、2、1 — GO 之後用力按!搶答方式有四種,每輪開始前畫面會提示規則。' },
-  { icon: '💡', title: '題目與解答都在手機',
-    desc: '搶到的組口頭作答;<span class="hi">公佈答案後,完整詳解會直接顯示在你的手機上</span>。選題階段手機也會列出 F1–F9 分類,投影幕看不清楚就看手機。' },
-  { icon: '🏆', title: '戰況隨時看',
-    desc: '上方「<span class="hi">戰況</span>」列點開可看各組即時分數。遊戲結束後,還能把整場題目與詳解<span class="hi">下載保存或寄給自己</span>。祝旗開得勝!' },
+  { sel: '.gs-left', title: '你的名字與組別',
+    desc: '這裡顯示<span class="hi">你的名字和組別</span>。點組名可以看同組有哪些人;開賽前按 <span class="hi">✎</span> 還能改組名(開賽後鎖定)。' },
+  { sel: '#gs-invite-btn', title: '邀請隊友加入',
+    desc: '按 <span class="hi">QR</span> 會出現本場的 QR Code,還沒進來的同事用手機掃一下就能加入。' },
+  { sel: '#score-bar', title: '即時戰況',
+    desc: '點「<span class="hi">戰況</span>」可以展開各組即時分數,隨時掌握排名。' },
+  { sel: '#q-zone', title: '題目都在這裡',
+    desc: '題目、選項、公佈答案後的<span class="hi">完整詳解</span>,還有選題階段的 F1–F9 分類,全部顯示在這一區。投影幕看不清楚,看手機就對了。' },
+  { sel: '#btn-buzz', title: '搶答就按它!',
+    desc: '聽主持人倒數 3、2、1 — GO 之後<span class="hi">用力按下大紅鈕</span>!搶答方式有四種,每輪開始前畫面會提示規則。祝旗開得勝!' },
 ];
 let _obStep = 0;
 
@@ -2747,13 +2767,31 @@ function showOnboarding(force) {
     try { if (localStorage.getItem(OB_SEEN_KEY)) return; } catch { /* ignore */ }
   }
   _obStep = 0;
-  renderOnboardStep();
   document.getElementById('onboard')?.classList.add('show');
+  renderOnboardStep();
 }
 function renderOnboardStep() {
   const s = ONBOARD_STEPS[_obStep];
   if (!s) return;
-  document.getElementById('ob-icon').textContent = s.icon;
+  const spot = document.getElementById('ob-spot');
+  const tip = document.getElementById('ob-tip');
+  const arrow = document.getElementById('ob-arrow');
+  if (!spot || !tip || !arrow) return;
+  const vw = window.innerWidth, vh = window.innerHeight;
+
+  // 目標元素的框(量不到就退回畫面中央,導覽照樣能走完)
+  const el = document.querySelector(s.sel);
+  const r = el?.getBoundingClientRect();
+  const PAD = 6;
+  const rect = (r && r.width > 0 && r.height > 0)
+    ? { x: r.left - PAD, y: r.top - PAD, w: r.width + PAD * 2, h: r.height + PAD * 2 }
+    : { x: vw / 2 - 40, y: vh / 2 - 40, w: 80, h: 80 };
+  spot.style.left = rect.x + 'px';
+  spot.style.top = rect.y + 'px';
+  spot.style.width = rect.w + 'px';
+  spot.style.height = rect.h + 'px';
+
+  // 先填內容才能量卡片高度
   document.getElementById('ob-eyebrow').textContent = `STEP ${_obStep + 1} / ${ONBOARD_STEPS.length}`;
   document.getElementById('ob-title').textContent = s.title;
   document.getElementById('ob-desc').innerHTML = s.desc;
@@ -2764,6 +2802,19 @@ function renderOnboardStep() {
   const isLast = _obStep === ONBOARD_STEPS.length - 1;
   if (next) next.textContent = isLast ? '開始遊戲!' : '下一步';
   if (skip) skip.style.display = isLast ? 'none' : '';
+
+  // 卡片位置:目標下方空間夠就放下面(箭頭朝上),不夠放上面(箭頭朝下)
+  const tipW = Math.min(320, vw - 32);
+  const tipH = tip.offsetHeight || 200;
+  const belowTop = rect.y + rect.h + 14;
+  const placeBelow = belowTop + tipH <= vh - 12;
+  const top = placeBelow ? belowTop : Math.max(12, rect.y - 14 - tipH);
+  const cx = rect.x + rect.w / 2;
+  const left = Math.min(Math.max(cx - tipW / 2, 16), Math.max(16, vw - 16 - tipW));
+  tip.style.top = top + 'px';
+  tip.style.left = left + 'px';
+  arrow.className = 'ob-arrow ' + (placeBelow ? 'up' : 'down');
+  arrow.style.left = Math.min(Math.max(cx - left - 9, 14), tipW - 32) + 'px';
 }
 function nextOnboarding() {
   if (_obStep >= ONBOARD_STEPS.length - 1) { closeOnboarding(); return; }
@@ -2774,6 +2825,10 @@ function closeOnboarding() {
   document.getElementById('onboard')?.classList.remove('show');
   try { localStorage.setItem(OB_SEEN_KEY, '1'); } catch { /* ignore */ }
 }
+/* 轉向/縮放時重新定位聚光燈 */
+window.addEventListener('resize', () => {
+  if (document.getElementById('onboard')?.classList.contains('show')) renderOnboardStep();
+});
 window.showOnboarding = showOnboarding;
 window.nextOnboarding = nextOnboarding;
 window.closeOnboarding = closeOnboarding;
