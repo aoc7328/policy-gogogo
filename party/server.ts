@@ -747,16 +747,18 @@ export default class PolicyGogogoServer implements Party.Server {
       return;
     }
 
-    // 替換 currentQuestion + askedQuestions 最後一筆
+    // 替換 currentQuestion,但 askedQuestions 改「push 新一筆」(不再覆蓋最後一筆):
+    // 重抽也算實際玩過的一題,回顧才能反映真實題數 —— user 場景:設定 5 題,
+    // 但第一題重抽了 3 次 → 實際共玩 8 題,回顧數量要顯示 8。被換掉的舊題
+    // 仍留在 askedQuestions(照抽題順序列出「第一題第一次/第二次/第三次」)。
+    // currQ 不變(還是同一輪),所以 actualQ(askedQuestions.length)會 > currQ。
     this.state.usedIds.add(result.question.id);
     if (result.question.type === 'word_game') this.state.wordGameAsked++;
-    if (this.state.askedQuestions.length > 0) {
-      this.state.askedQuestions[this.state.askedQuestions.length - 1] = {
-        id: result.question.id,
-        difficulty: result.question.difficulty,
-        framework: result.question.framework,
-      };
-    }
+    this.state.askedQuestions.push({
+      id: result.question.id,
+      difficulty: result.question.difficulty,
+      framework: result.question.framework,
+    });
     this.state.currentQuestion = {
       id: result.question.id,
       difficulty: result.question.difficulty,
