@@ -3,5 +3,7 @@
 /gamer   /participant.html  200
 /ass     /assistant.html    200
 
-# 參賽者加入短連結 → 遊戲者頁(/gamer)
-/r/:code /gamer?room=:code  302
+# 參賽者加入短連結(帶房號)→ 遊戲者頁(/gamer?room=房號)。
+# 兩種寫法都通:/r/房號(QR 用、最短)與 /gamer/房號(語意化、好記)。
+/r/:code     /gamer?room=:code  302
+/gamer/:code /gamer?room=:code  302

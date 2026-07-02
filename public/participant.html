@@ -1451,13 +1451,26 @@ function _readLastRoomHint() {
 }
 const PGG_ROOM_CODE = _PGG_QS.get('room') || _readLastRoomHint() || null;
 if (!PGG_ROOM_CODE) {
+  // 沒帶房號(例:直接開 /gamer 而非掃 QR / 開 /gamer/房號)→ 不再只報錯,
+  // 顯示一個「輸入房號」欄位,輸入後導到 /gamer?room=房號 正常進場。
   document.addEventListener('DOMContentLoaded', () => {
     document.body.innerHTML =
       '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;'
       + 'background:#050912;color:#F2EDE1;font-family:\'Noto Sans TC\',system-ui,sans-serif;'
       + 'text-align:center;padding:40px 24px;line-height:1.7">'
-      + '<div><div style="font-size:18px;font-weight:700;margin-bottom:8px">無法進入</div>'
-      + '<div style="font-size:14px;color:#9BA3B5">請從主持人提供的 QR Code 進入</div></div></div>';
+      + '<div style="width:100%;max-width:300px">'
+      + '<div style="font-size:19px;font-weight:700;margin-bottom:6px">加入遊戲</div>'
+      + '<div style="font-size:13px;color:#9BA3B5;margin-bottom:20px;line-height:1.8">'
+      + '掃描主持人提供的 QR Code 即可加入<br>或在下方輸入主持人給的房號</div>'
+      + '<input id="pgg-room-in" inputmode="numeric" autocomplete="off" placeholder="輸入房號" '
+      + 'oninput="this.value=this.value.toUpperCase().replace(/[^0-9A-Z]/g,\'\')" '
+      + 'onkeydown="if(event.key===\'Enter\'){var v=this.value.trim();if(v)location.href=\'/gamer?room=\'+encodeURIComponent(v);}" '
+      + 'style="width:100%;box-sizing:border-box;padding:13px 14px;font-size:20px;text-align:center;letter-spacing:.35em;'
+      + 'background:#141B2E;border:1px solid #2A3550;border-radius:10px;color:#F2EDE1;outline:none;margin-bottom:12px">'
+      + '<button onclick="var v=document.getElementById(\'pgg-room-in\').value.trim();if(v)location.href=\'/gamer?room=\'+encodeURIComponent(v);" '
+      + 'style="width:100%;padding:13px;font-size:16px;font-weight:700;background:#D4A34B;border:none;border-radius:10px;color:#050912;cursor:pointer">加入遊戲</button>'
+      + '</div></div>';
+    setTimeout(function () { var el = document.getElementById('pgg-room-in'); if (el) el.focus(); }, 120);
   });
   throw new Error('PGG_ROOM_CODE missing — refusing to connect to default room');
 }
