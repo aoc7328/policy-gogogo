@@ -1193,6 +1193,33 @@ window.stageZoomFit = stageZoomFit;
 window.stageZoomReset = stageZoomReset;
 applyStageZoom();
 
+/* ── Screen Wake Lock:投影機沒人顧,防止螢幕自動熄掉 ──────────
+   跟網路心跳是兩回事:這是向作業系統聲明「畫面正在被觀看」,
+   Windows 的「閒置 X 分鐘關閉螢幕」就不會作動(也連帶避免系統
+   閒置休眠把網路凍結)。分頁切到背景時系統會自動釋放,回前景再補。
+   不支援的瀏覽器(舊版)靜默略過 — 那就得靠系統電源設定調成「永不」。 */
+let _wakeLock = null;
+async function _requestWakeLock() {
+  if (!('wakeLock' in navigator)) {
+    console.warn('[PGG/presenter] 此瀏覽器不支援 Wake Lock — 請把系統電源設定的「關閉螢幕」調成永不');
+    return;
+  }
+  if (_wakeLock) return;
+  try {
+    _wakeLock = await navigator.wakeLock.request('screen');
+    _wakeLock.addEventListener('release', () => { _wakeLock = null; });
+    console.log('[PGG/presenter] Wake Lock 已啟用 — 螢幕不會自動熄掉');
+  } catch (e) {
+    console.warn('[PGG/presenter] Wake Lock 取得失敗:', e.message);
+  }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') _requestWakeLock();
+});
+// 載入先試一次;部分環境要有使用者互動才給,失敗就等首次點擊再補
+_requestWakeLock();
+window.addEventListener('pointerdown', () => _requestWakeLock());
+
 let currentMode   = null;  // 正式進入的模式
 let selectedMode  = null;  // 在主選頁選中的模式(尚未確認)
 let pendingMode   = null;  // 確認頁待確認的模式

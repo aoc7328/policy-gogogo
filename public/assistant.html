@@ -1396,6 +1396,26 @@ window.PGG.ping = function(msg) {
   PartyBus.emit('ping', { from: 'assistant', msg: msg || 'hello', t: new Date().toLocaleTimeString() });
   console.log('[PGG] ping sent from assistant');
 };
+
+/* ── Screen Wake Lock:遊戲進行中防止螢幕自動熄掉(熄屏會斷線) ──
+   分頁切到背景時系統會釋放,回前景 visibilitychange 再補;
+   省電模式/舊瀏覽器拒絕就靜默略過。 */
+let _wakeLock = null;
+async function _requestWakeLock() {
+  if (!('wakeLock' in navigator) || _wakeLock) return;
+  try {
+    _wakeLock = await navigator.wakeLock.request('screen');
+    _wakeLock.addEventListener('release', () => { _wakeLock = null; });
+    console.log('[PGG/assistant] Wake Lock 已啟用 — 螢幕不會自動熄掉');
+  } catch (e) {
+    console.warn('[PGG/assistant] Wake Lock 取得失敗:', e.message);
+  }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') _requestWakeLock();
+});
+_requestWakeLock();
+window.addEventListener('pointerdown', () => _requestWakeLock());
 PartyBus.on('ping', p => {
   console.log(`[PGG] PING from ${p.from} @ ${p.t}: ${p.msg}`);
 });
