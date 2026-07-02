@@ -4356,6 +4356,80 @@ PartyBus.on('resume_question', () => {
   // 給其他初始化(e.g. inline DOM render)一個 tick 跑完再 login。
   setTimeout(() => doLogin(), 0);
 })();
+
+/* ── Clarity 埋點:追蹤「不小心滑出視窗 / 切走分頁」現象 ──────────────
+   實測:有些手機使用者(疑似特定 OS/機型 或手勢習慣)會在遊戲途中不小心把
+   分頁切走(切別的 App、回桌面、鎖屏),要再切回來才能繼續。用
+   visibilitychange 記錄:何時離開、離開當下在哪個階段、多久才切回,並帶上
+   裝置 OS /(Android 可取的)機型 / 螢幕規格,方便在 Clarity 後台交叉比對
+   「是不是特定 OS 或機型比較容易發生」。純前端、只在參賽者端(手機)。 ── */
+(function trackTabAway() {
+  var C = function () { return (typeof window.clarity === 'function') ? window.clarity : null; };
+
+  // 一次性:裝置 OS + 螢幕規格 +(Android 才拿得到的)機型字串。
+  // iOS 基於隱私不提供機型,userAgent 一律是「iPhone」,只能到 OS 層級 —— 但這
+  // 正好足以回答「iPhone vs Android 誰比較容易滑出去」。
+  try {
+    var ua = navigator.userAgent || '';
+    var os = /iPhone|iPad|iPod/i.test(ua) ? 'iOS' : /Android/i.test(ua) ? 'Android' : 'Other';
+    var c0 = C();
+    if (c0) {
+      c0('set', 'device_os', os);
+      c0('set', 'screen', (screen.width || 0) + 'x' + (screen.height || 0) + '@' + (window.devicePixelRatio || 1));
+      if (os === 'Android') {
+        var m = ua.match(/Android\s[\d.]+;\s*([^;)]+?)(?:\s+Build|\))/i);
+        if (m && m[1]) c0('set', 'device_model', m[1].trim().slice(0, 40));
+      }
+    }
+  } catch (e) {}
+
+  // 離開當下大致在哪個階段(靠可見的 stage / 搶答鈕狀態推斷)
+  function phaseLabel() {
+    try {
+      var active = document.querySelector('.stage.active');
+      var id = active ? active.id : '';
+      if (id === 'stage-login') return 'login';
+      if (id === 'stage-lobby') return 'lobby';          // 現場集合(開賽前)
+      if (id === 'stage-end') return 'ended';
+      if (id === 'stage-purg-arrival') return 'purgatory';
+      if (id === 'stage-game') {
+        var btn = document.getElementById('btn-buzz');
+        if (btn && btn.classList.contains('armed')) return 'rushing';    // 搶答開放中(最可能誤觸)
+        var qb = document.getElementById('q-body');
+        if (qb && qb.style.display !== 'none') return 'answering';
+        return 'waiting';
+      }
+      return id || 'unknown';
+    } catch (e) { return 'unknown'; }
+  }
+
+  function awayBucket(sec) {
+    if (sec <= 3) return '0-3s';
+    if (sec <= 10) return '4-10s';
+    if (sec <= 30) return '11-30s';
+    if (sec <= 60) return '31-60s';
+    return '60s+';
+  }
+
+  var leftAt = null;
+  document.addEventListener('visibilitychange', function () {
+    var c = C();
+    if (document.visibilityState === 'hidden') {
+      leftAt = Date.now();
+      if (c) {
+        c('event', 'tab_left');                  // 滑出去了(切走)
+        c('set', 'left_phase', phaseLabel());    // 離開當下在哪個階段
+      }
+    } else if (document.visibilityState === 'visible' && leftAt) {
+      var sec = Math.round((Date.now() - leftAt) / 1000);
+      leftAt = null;
+      if (c) {
+        c('event', 'tab_returned');              // 切回來了
+        c('set', 'away_time', awayBucket(sec));  // 離開多久才回來(分桶)
+      }
+    }
+  });
+})();
 </script>
 </body>
 </html>
