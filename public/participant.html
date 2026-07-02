@@ -965,7 +965,7 @@ body.tm-paradise .opt{border-radius:0 12px 12px 0;border-left:3px solid var(--se
 .qa-item.expanded .qa-num .qa-toggle{transform:rotate(180deg)}
 .qa-q{font-size:14px;font-weight:500;line-height:1.6;color:var(--ink-1)}
 .qa-answer-wrap{max-height:0;overflow:hidden;transition:max-height 360ms ease,margin-top 240ms ease,padding-top 240ms ease;margin-top:0;padding-top:0;border-top:0 solid var(--line)}
-.qa-item.expanded .qa-answer-wrap{max-height:1500px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.qa-item.expanded .qa-answer-wrap{max-height:4000px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
 .qa-meta{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.14em;color:var(--ink-3);margin-bottom:8px;text-transform:uppercase}
 .qa-options{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
 .qa-opt{font-size:13px;line-height:1.6;color:var(--ink-2);padding:8px 10px;background:var(--bg);border:1px solid var(--line);border-left-width:2px}
@@ -979,6 +979,42 @@ body.tm-paradise .opt{border-radius:0 12px 12px 0;border-left:3px solid var(--se
 .qa-word-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:6px;margin-bottom:10px}
 .qa-word-opt{font-size:13px;text-align:center;padding:6px 4px;background:var(--bg);border:1px solid var(--line);font-family:"Noto Sans TC"}
 .qa-word-opt.correct{border-color:var(--accent);color:var(--accent);background:var(--accent-s);font-weight:700}
+/* 計算題完整詳解(題目條件 / 解題步驟 / 最終答案) */
+.qa-given{font-size:13px;line-height:1.7;color:var(--ink-2);padding:8px 12px;background:var(--bg);border-left:2px solid var(--accent-l)}
+.qa-given strong{color:var(--ink-1);font-weight:500;margin-right:4px}
+.qa-steps{list-style:none;counter-reset:qaStep;margin:0;padding:0}
+.qa-steps li{counter-increment:qaStep;position:relative;padding-left:30px;font-family:"JetBrains Mono",monospace;font-size:13px;line-height:1.75;color:var(--ink-2);margin-bottom:5px}
+.qa-steps li::before{content:counter(qaStep,decimal-leading-zero);position:absolute;left:0;top:1px;font-size:10px;color:var(--accent)}
+.qa-final{font-size:15px;font-weight:700;color:var(--ink-1)}
+.qa-section-body p{margin:0 0 8px}
+.qa-section-body p:last-child{margin-bottom:0}
+.qa-section-body strong{color:var(--accent);font-weight:700}
+
+/* 結束頁:保存 / 分享按鈕列 */
+.qa-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.qa-act-btn{border:1px solid var(--line-s);background:var(--bg-s);color:var(--ink-1);font-family:var(--font-sans,"Noto Sans TC");font-size:13px;font-weight:500;padding:12px 4px;cursor:pointer;transition:all 180ms;letter-spacing:.02em}
+.qa-act-btn:hover{border-color:var(--accent);color:var(--accent)}
+.qa-act-btn.done{border-color:var(--accent);color:var(--accent);background:var(--accent-s)}
+.qa-actions-hint{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.08em;color:var(--ink-3);margin-top:8px;line-height:1.6}
+
+/* ── 新手引導(首次進入遊戲頁顯示;可由 ? 鈕重看) ────────── */
+.onboard{position:fixed;inset:0;z-index:9000;background:rgba(3,6,14,.92);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;padding:24px}
+.onboard.show{display:flex;animation:obIn 300ms ease-out}
+@keyframes obIn{from{opacity:0}to{opacity:1}}
+.ob-card{width:100%;max-width:340px;background:var(--bg-s);border:1px solid var(--line-s);padding:28px 24px 22px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:12px}
+.ob-icon{font-size:44px;line-height:1;margin-bottom:2px}
+.ob-eyebrow{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.3em;color:var(--accent);text-transform:uppercase}
+.ob-title{font-family:"Noto Serif TC",serif;font-weight:700;font-size:21px;color:var(--ink-1);letter-spacing:.04em}
+.ob-desc{font-size:13.5px;line-height:1.8;color:var(--ink-2);min-height:88px}
+.ob-desc .hi{color:var(--accent);font-weight:700}
+.ob-dots{display:flex;gap:7px;margin-top:2px}
+.ob-dot{width:7px;height:7px;border-radius:50%;background:var(--ink-4);transition:all 220ms}
+.ob-dot.on{background:var(--accent);transform:scale(1.25)}
+.ob-btns{display:flex;gap:8px;width:100%;margin-top:8px}
+.ob-skip{flex:1;border:1px solid var(--line-s);background:transparent;color:var(--ink-3);font-size:13px;padding:11px 0;cursor:pointer;font-family:inherit;transition:all 180ms}
+.ob-skip:hover{color:var(--ink-1);border-color:var(--ink-3)}
+.ob-next{flex:2;border:none;background:var(--accent);color:var(--bg);font-size:14px;font-weight:700;padding:11px 0;cursor:pointer;font-family:inherit;letter-spacing:.06em;transition:filter 180ms}
+.ob-next:hover{filter:brightness(1.12)}
 
 @media(min-height:700px){
   .circ-btn{width:104px;height:104px}
@@ -1128,6 +1164,7 @@ body.tm-paradise .opt{border-radius:0 12px 12px 0;border-left:3px solid var(--se
       <span class="purg-badge">◆ 煉獄</span>
     </div>
     <div class="gs-right">
+      <button class="gs-mini-btn" id="gs-help-btn" onclick="showOnboarding(true)" title="操作說明">?</button>
       <button class="gs-mini-btn invite" id="gs-invite-btn" onclick="openInviteModal()" title="邀請朋友加入">QR</button>
       <span class="gs-round" id="gs-round">—</span>
     </div>
@@ -1263,12 +1300,38 @@ body.tm-paradise .opt{border-radius:0 12px 12px 0;border-left:3px solid var(--se
     <div class="bar-chart" id="bar-chart"></div>
   </div>
 
+  <!-- 保存 / 分享本場內容 -->
+  <div>
+    <div class="sec-lbl">保存本場內容</div>
+    <div class="qa-actions">
+      <button class="qa-act-btn" onclick="downloadGameReport()">⬇ 下載回顧檔</button>
+      <button class="qa-act-btn" onclick="copyGameReport(this)">⧉ 複製文字</button>
+      <button class="qa-act-btn" onclick="shareGameReport()">✉ 分享 / 寄出</button>
+    </div>
+    <div class="qa-actions-hint">回顧檔含完整題目與詳解,可用瀏覽器開啟、列印、或當 Email 附件轉寄;「複製文字」適合貼到 LINE 群組。</div>
+  </div>
+
   <!-- 題目回顧 -->
   <div>
     <div class="sec-lbl">本場題目與解答</div>
     <div class="qa-list" id="qa-list"></div>
   </div>
 
+</div>
+
+<!-- ═══════ 新手引導(首次進入遊戲頁自動顯示,? 鈕可重看) ═══════ -->
+<div class="onboard" id="onboard">
+  <div class="ob-card">
+    <div class="ob-icon" id="ob-icon">👋</div>
+    <div class="ob-eyebrow" id="ob-eyebrow">STEP 1</div>
+    <div class="ob-title" id="ob-title">—</div>
+    <div class="ob-desc" id="ob-desc">—</div>
+    <div class="ob-dots" id="ob-dots"></div>
+    <div class="ob-btns">
+      <button class="ob-skip" id="ob-skip" onclick="closeOnboarding()">跳過</button>
+      <button class="ob-next" id="ob-next" onclick="nextOnboarding()">下一步</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -2635,7 +2698,64 @@ function enterGameStage() {
   document.getElementById('q-body').style.display = 'none';
   resetWaitToIdle();
   lockBuzz();
+  // 首次進入 → 顯示新手引導(看過就不再跳,右上角 ? 可重看)
+  showOnboarding(false);
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   新手引導:App 式五步驟導覽。首次進入遊戲頁自動顯示一次
+   (localStorage 記錄),之後可從頂部 bar 的 ? 按鈕重看。
+   ════════════════════════════════════════════════════════════════════ */
+const OB_SEEN_KEY = 'pgg_onboard_seen_v1';
+const ONBOARD_STEPS = [
+  { icon: '👋', title: '歡迎加入!',
+    desc: '左上角是<span class="hi">你的名字和組別</span>。點組名可以看同組有哪些人;遊戲開始前,按 <span class="hi">✎</span> 還可以幫你們組改個響亮的組名(開賽後就鎖定囉)。' },
+  { icon: '📲', title: '找隊友一起玩',
+    desc: '右上角的 <span class="hi">QR</span> 按鈕會顯示加入用的 QR Code,還沒進來的同事用手機掃一下,就能加入這一場遊戲。' },
+  { icon: '🔴', title: '搶答就看這顆',
+    desc: '底部的<span class="hi">大紅鈕</span>是搶答鍵。聽主持人倒數 3、2、1 — GO 之後用力按!搶答方式有四種,每輪開始前畫面會提示規則。' },
+  { icon: '💡', title: '題目與解答都在手機',
+    desc: '搶到的組口頭作答;<span class="hi">公佈答案後,完整詳解會直接顯示在你的手機上</span>。選題階段手機也會列出 F1–F9 分類,投影幕看不清楚就看手機。' },
+  { icon: '🏆', title: '戰況隨時看',
+    desc: '上方「<span class="hi">戰況</span>」列點開可看各組即時分數。遊戲結束後,還能把整場題目與詳解<span class="hi">下載保存或寄給自己</span>。祝旗開得勝!' },
+];
+let _obStep = 0;
+
+function showOnboarding(force) {
+  if (!force) {
+    try { if (localStorage.getItem(OB_SEEN_KEY)) return; } catch { /* ignore */ }
+  }
+  _obStep = 0;
+  renderOnboardStep();
+  document.getElementById('onboard')?.classList.add('show');
+}
+function renderOnboardStep() {
+  const s = ONBOARD_STEPS[_obStep];
+  if (!s) return;
+  document.getElementById('ob-icon').textContent = s.icon;
+  document.getElementById('ob-eyebrow').textContent = `STEP ${_obStep + 1} / ${ONBOARD_STEPS.length}`;
+  document.getElementById('ob-title').textContent = s.title;
+  document.getElementById('ob-desc').innerHTML = s.desc;
+  document.getElementById('ob-dots').innerHTML = ONBOARD_STEPS.map((_, i) =>
+    `<span class="ob-dot ${i === _obStep ? 'on' : ''}"></span>`).join('');
+  const next = document.getElementById('ob-next');
+  const skip = document.getElementById('ob-skip');
+  const isLast = _obStep === ONBOARD_STEPS.length - 1;
+  if (next) next.textContent = isLast ? '開始遊戲!' : '下一步';
+  if (skip) skip.style.display = isLast ? 'none' : '';
+}
+function nextOnboarding() {
+  if (_obStep >= ONBOARD_STEPS.length - 1) { closeOnboarding(); return; }
+  _obStep++;
+  renderOnboardStep();
+}
+function closeOnboarding() {
+  document.getElementById('onboard')?.classList.remove('show');
+  try { localStorage.setItem(OB_SEEN_KEY, '1'); } catch { /* ignore */ }
+}
+window.showOnboarding = showOnboarding;
+window.nextOnboarding = nextOnboarding;
+window.closeOnboarding = closeOnboarding;
 
 /* 重置 q-wait 到「pre-game」狀態:用於 game_restart 後。
    差別於 resetWaitToIdle:這個是「整場還沒開始」,助理還在選模式;
@@ -3270,6 +3390,9 @@ function renderEndStage(payload) {
         _framework: meta.framework,
       };
     });
+    // 存起來給「下載回顧檔 / 複製文字 / 分享」用
+    G._lastResult = payload;
+    G._lastEnriched = enriched;
 
     if (enriched.length === 0) {
       qaList.innerHTML = '<div class="qa-item" style="cursor:default"><div class="qa-q" style="opacity:.5">本場無題目記錄</div></div>';
@@ -3353,33 +3476,50 @@ function renderQaAnswerBody(q) {
   if (t === 'essay') {
     const keypoints = Array.isArray(q.key_points) ? q.key_points : [];
     const ans = (q.model_answer || '').trim();
+    // 參考範文照主持人端格式:雙換行分段、**粗體** 轉 <strong>
+    const ansHtml = ans.split('\n\n').map(p =>
+      `<p>${p.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')}</p>`).join('');
     return `
       ${keypoints.length ? `
         <div class="qa-section">
-          <div class="qa-section-lbl">關鍵要點</div>
+          <div class="qa-section-lbl">評分要點</div>
           <ul class="qa-keypts">${keypoints.map(k => `<li>${k}</li>`).join('')}</ul>
         </div>` : ''}
       ${ans ? `
         <div class="qa-section">
-          <div class="qa-section-lbl">參考答案</div>
-          <div class="qa-section-body">${ans}</div>
+          <div class="qa-section-lbl">參考範文</div>
+          <div class="qa-section-body">${ansHtml}</div>
         </div>` : ''}
     `;
   }
 
   if (t === 'calculation') {
+    // 真 BANK schema:given(條件物件)+ steps(步驟陣列)+ answer + unit。
+    // 舊版只讀不存在的 q.solution → 解題過程永遠空白(實測回報的缺漏)。
+    const given = (q.given && typeof q.given === 'object') ? Object.entries(q.given) : [];
+    const steps = Array.isArray(q.steps) ? q.steps : [];
+    const sol = (q.solution || '').trim();   // 兼容 fixture 版 schema
     const ans = (q.answer || q.final_answer || q.model_answer || '').toString().trim();
-    const sol = (q.solution || '').trim();
+    const unit = (q.unit || '').toString().trim();
     return `
-      ${ans ? `
+      ${given.length ? `
         <div class="qa-section">
-          <div class="qa-section-lbl">最終答案</div>
-          <div class="qa-section-body">${ans}</div>
+          <div class="qa-section-lbl">題目條件</div>
+          <div class="qa-given">${given.map(([k, v]) => `<div><strong>${k}:</strong>${v}</div>`).join('')}</div>
         </div>` : ''}
-      ${sol ? `
+      ${steps.length ? `
+        <div class="qa-section">
+          <div class="qa-section-lbl">解題步驟</div>
+          <ol class="qa-steps">${steps.map(s => `<li>${s}</li>`).join('')}</ol>
+        </div>` : (sol ? `
         <div class="qa-section">
           <div class="qa-section-lbl">解題過程</div>
           <div class="qa-section-body">${sol}</div>
+        </div>` : '')}
+      ${ans ? `
+        <div class="qa-section">
+          <div class="qa-section-lbl">最終答案</div>
+          <div class="qa-section-body qa-final">${ans}${unit ? ' ' + unit : ''}</div>
         </div>` : ''}
     `;
   }
@@ -3405,6 +3545,187 @@ function renderQaAnswerBody(q) {
   return fallback ? `<div class="qa-section-body">${fallback}</div>` : '';
 }
 window.renderQaAnswerBody = renderQaAnswerBody;
+
+/* ════════════════════════════════════════════════════════════════════
+   賽後回顧保存:下載 HTML 回顧檔 / 複製純文字 / 系統分享(Email、LINE)
+   內容 = 完整題目 + 詳解(評分要點、參考範文、解題步驟),供會後研討。
+   ════════════════════════════════════════════════════════════════════ */
+function _reportBrand() {
+  const p = document.querySelector('.brand-prefix')?.textContent || '保險知識';
+  const s = document.querySelector('.brand-suffix')?.textContent || '星攻略';
+  return p + s;
+}
+function _reportDateStr() {
+  const d = new Date();
+  return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/* 自包含 HTML 回顧檔:白底可列印,重用 renderQaAnswerBody 的 qa-* 結構,
+   樣式由內嵌 <style> 提供(不依賴本頁 CSS)。 */
+function buildGameReportHTML() {
+  const payload = G._lastResult, enriched = G._lastEnriched;
+  if (!payload || !enriched) return null;
+  const brand = _reportBrand();
+  const dateStr = new Date().toLocaleString('zh-TW', { hour12: false });
+  const sorted = payload.sortedGroups || payload.groups || [];
+  const scoreRows = sorted.map((g, i) =>
+    `<tr><td>${i + 1}</td><td>${g.name || ''}</td><td>${g.score || 0}</td><td>${g.leader || ''}</td></tr>`).join('');
+  const qBlocks = enriched.map((q, i) => {
+    const stem = (q.question || q.word || '').trim();
+    const meta = [
+      getDifficultyLabelP(q._difficulty),
+      getFrameworkLabelP(q._framework || q.topic),
+      TYPE_LABELS_P[q.type] || q.type,
+    ].filter(Boolean).join(' · ');
+    return `<section class="q">
+      <div class="q-num">Q${String(i + 1).padStart(2, '0')} · ${q.id || ''}<span class="q-meta">${meta}</span></div>
+      <div class="q-stem">${stem || '—'}</div>
+      ${renderQaAnswerBody(q)}
+    </section>`;
+  }).join('');
+  return `<!DOCTYPE html>
+<html lang="zh-Hant"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${brand} · 題目回顧 ${_reportDateStr()}</title>
+<style>
+body{font-family:"Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;color:#2A2418;background:#FBF9F4;margin:0;padding:28px 20px;line-height:1.7}
+.wrap{max-width:720px;margin:0 auto}
+h1{font-size:22px;margin:0 0 2px;color:#1A1410}
+.sub{font-size:12px;color:#8A8272;margin-bottom:24px}
+h2{font-size:15px;color:#7A5C30;border-bottom:2px solid #D4A34B;padding-bottom:6px;margin:28px 0 12px}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{border:1px solid #E3DCC9;padding:7px 10px;text-align:left}
+th{background:#F2ECDF;color:#6A5A38;font-weight:700}
+.q{border:1px solid #E3DCC9;background:#fff;padding:16px 18px;margin-bottom:14px;border-radius:4px;page-break-inside:avoid}
+.q-num{font-size:11px;letter-spacing:.14em;color:#A09070;margin-bottom:6px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px}
+.q-meta{color:#B0A488}
+.q-stem{font-size:15px;font-weight:700;color:#1A1410;margin-bottom:8px}
+.qa-options{display:flex;flex-direction:column;gap:5px;margin-bottom:8px}
+.qa-opt{font-size:13.5px;padding:6px 10px;border:1px solid #EAE3D2;border-left-width:3px;color:#5A5244}
+.qa-opt.correct{border-left-color:#B8860B;background:#FBF3DD;color:#2A2418;font-weight:500}
+.qa-opt-letter{font-weight:700;color:#B8860B;margin-right:6px}
+.qa-section{margin-top:10px}
+.qa-section-lbl{font-size:11px;letter-spacing:.18em;color:#B8860B;margin-bottom:4px;font-weight:700}
+.qa-section-body{font-size:13.5px;color:#3A3428;padding-left:10px;border-left:2px solid #E0C88A;white-space:pre-wrap}
+.qa-section-body p{margin:0 0 8px}
+.qa-section-body strong{color:#8B5E12}
+.qa-final{font-size:15px;font-weight:700;color:#1A1410}
+.qa-keypts{font-size:13.5px;color:#3A3428;padding-left:20px;margin:0}
+.qa-keypts li{margin-bottom:4px}
+.qa-given{font-size:13.5px;color:#3A3428;padding:8px 12px;background:#F7F3E8;border-left:2px solid #E0C88A}
+.qa-given strong{margin-right:4px}
+.qa-steps{list-style:none;counter-reset:st;margin:0;padding:0}
+.qa-steps li{counter-increment:st;position:relative;padding-left:32px;font-size:13.5px;color:#3A3428;margin-bottom:5px;font-family:"Consolas","Noto Sans TC",monospace}
+.qa-steps li::before{content:counter(st,decimal-leading-zero);position:absolute;left:0;color:#B8860B;font-size:11px;top:2px}
+.qa-word-grid{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.qa-word-opt{font-size:13.5px;padding:5px 12px;border:1px solid #EAE3D2}
+.qa-word-opt.correct{border-color:#B8860B;background:#FBF3DD;font-weight:700}
+.foot{font-size:11px;color:#A09070;margin-top:28px;text-align:center}
+@media print{body{background:#fff;padding:0}.q{border-color:#CCC}}
+</style></head><body><div class="wrap">
+<h1>${brand} · 本場題目回顧</h1>
+<div class="sub">${payload.modeLabel || ''} · 共 ${payload.actualQ ?? enriched.length} 題 · 匯出時間 ${dateStr}</div>
+<h2>各組成績</h2>
+<table><tr><th>名次</th><th>組別</th><th>得分</th><th>組長</th></tr>${scoreRows}</table>
+<h2>題目與詳解</h2>
+${qBlocks}
+<div class="foot">${brand} · 由參賽者端匯出</div>
+</div></body></html>`;
+}
+
+/* 純文字版(LINE / Email 內文用) */
+function buildGameReportText() {
+  const payload = G._lastResult, enriched = G._lastEnriched;
+  if (!payload || !enriched) return null;
+  const L = [];
+  L.push(`【${_reportBrand()} · 本場題目回顧】`);
+  L.push(`${payload.modeLabel || ''} · 共 ${payload.actualQ ?? enriched.length} 題`);
+  L.push('');
+  L.push('■ 各組成績');
+  (payload.sortedGroups || payload.groups || []).forEach((g, i) => {
+    L.push(`${i + 1}. ${g.name} — ${g.score || 0} 分`);
+  });
+  L.push('');
+  L.push('■ 題目與詳解');
+  enriched.forEach((q, i) => {
+    L.push('');
+    L.push(`Q${String(i + 1).padStart(2, '0')}【${TYPE_LABELS_P[q.type] || q.type}】${(q.question || q.word || '').trim()}`);
+    if (q.type === 'multiple_choice') {
+      Object.entries(q.options || {}).forEach(([k, v]) =>
+        L.push(`  ${k === q.correct ? '★' : ' '} ${k}. ${v}`));
+      if (q.explanation) L.push(`  解析:${q.explanation}`);
+    } else if (q.type === 'short_answer') {
+      L.push(`  答案:${q.answer || ''}`);
+    } else if (q.type === 'essay') {
+      (q.key_points || []).forEach(k => L.push(`  · ${k}`));
+      if (q.model_answer) L.push(`  參考範文:${q.model_answer.replace(/\*\*/g, '')}`);
+    } else if (q.type === 'calculation') {
+      Object.entries(q.given || {}).forEach(([k, v]) => L.push(`  ${k}:${v}`));
+      (q.steps || []).forEach((s, si) => L.push(`  步驟${si + 1}:${s}`));
+      L.push(`  答案:${q.answer || ''} ${q.unit || ''}`);
+    } else if (q.type === 'word_game') {
+      L.push(`  正確讀音:${q.correct || ''}${q.meaning ? ' · ' + q.meaning : ''}`);
+    }
+  });
+  return L.join('\n');
+}
+
+function downloadGameReport() {
+  const html = buildGameReportHTML();
+  if (!html) return;
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${_reportBrand()}_題目回顧_${_reportDateStr()}.html`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+}
+window.downloadGameReport = downloadGameReport;
+
+async function copyGameReport(btn) {
+  const text = buildGameReportText();
+  if (!text) return;
+  let ok = false;
+  try { await navigator.clipboard.writeText(text); ok = true; }
+  catch {
+    // http / 舊瀏覽器 fallback
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.cssText = 'position:fixed;opacity:0';
+    document.body.appendChild(ta); ta.select();
+    try { ok = document.execCommand('copy'); } catch { /* ignore */ }
+    ta.remove();
+  }
+  if (btn) {
+    btn.textContent = ok ? '✓ 已複製' : '複製失敗';
+    btn.classList.toggle('done', ok);
+    setTimeout(() => { btn.textContent = '⧉ 複製文字'; btn.classList.remove('done'); }, 2000);
+  }
+}
+window.copyGameReport = copyGameReport;
+
+async function shareGameReport() {
+  const html = buildGameReportHTML();
+  if (!html) return;
+  const fname = `${_reportBrand()}_題目回顧_${_reportDateStr()}.html`;
+  // 手機優先走系統分享(可選 Email / LINE / 儲存到檔案)
+  try {
+    const file = new File([html], fname, { type: 'text/html' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: `${_reportBrand()} 題目回顧` });
+      return;
+    }
+  } catch (e) {
+    if (e && e.name === 'AbortError') return;  // 使用者取消分享,不 fallback
+  }
+  // 桌機 / 不支援分享檔案 → mailto 帶純文字(過長截斷,完整版靠下載)
+  const text = buildGameReportText() || '';
+  const body = text.length > 1600
+    ? text.slice(0, 1600) + '\n\n……(內容過長已截斷,完整版請用結算頁的「下載回顧檔」)'
+    : text;
+  window.location.href = `mailto:?subject=${encodeURIComponent(`${_reportBrand()} · 題目回顧 ${_reportDateStr()}`)}&body=${encodeURIComponent(body)}`;
+}
+window.shareGameReport = shareGameReport;
 
 /* ══ 同裝置去重:被踢分頁的提示 ══
    server 偵測到同 deviceId 新分頁進來,本連線會被 close,partybus.js 內部

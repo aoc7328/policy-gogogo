@@ -216,7 +216,9 @@ export default class PolicyGogogoServer implements Party.Server {
   private dispatch(cmd: ClientCommand, sender: Party.Connection<ConnState>): void {
     switch (cmd.type) {
       case 'ping':
-        return; // diagnostic; no echo needed
+        // keepalive:回私訊 __pong__ 給發送端,讓 client 端知道連線還活著
+        // (半死 TCP 偵測用,見 client/partybus.ts keepalive)。
+        return this.send(sender, { type: '__pong__', payload: { t: Date.now() } });
       case 'game_start':
         return this.onGameStart(cmd.payload);
       case 'score_adjust':

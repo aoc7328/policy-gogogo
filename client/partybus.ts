@@ -110,6 +110,14 @@ class PartyBusImpl {
       }
       if (!env || typeof env.type !== 'string') return;
 
+      // Keepalive:任何 server 訊息都證明連線活著。
+      this._lastMsgAt = Date.now();
+      if (env.type === '__pong__') {
+        // server 支援 pong → 啟用「太久沒訊息就強制重連」判定。
+        this._pongCapable = true;
+        return; // 純 keepalive 訊框,不用 dispatch
+      }
+
       // Intercept server-private frames before dispatching.
       if (env.type === '__welcome__') {
         const wp = env.payload as { controlCode?: string } | undefined;
@@ -133,10 +141,69 @@ class PartyBusImpl {
         this._kicked = true;
         try { this.socket?.close(); } catch { /* ignore */ }
         this.socket = null;
+        this._stopKeepalive();
       }
 
       this._dispatch(env.type, env.payload);
     });
+
+    this._startKeepalive();
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // Keepalive — 半死連線偵測
+  // ─────────────────────────────────────────────────────────────────
+  // TCP 連線可能「已死但瀏覽器沒收到 close」(NAT timeout、網卡休眠、
+  // AP 掉包等):訊息從此收不到,partysocket 也不會重連(它只聽
+  // close/error)。現場症狀:投影端卡在舊畫面 ~30 秒,直到瀏覽器自己
+  // 發現連線死了 → partysocket 重連 → __room_state__ 快照把畫面救回。
+  //
+  // 對策:閒置超過 IDLE_PING_MS 就送 ping(server 回 __pong__;任何
+  // server 訊息都會刷新 _lastMsgAt);完全沉默超過 STALE_RECONNECT_MS
+  // → 主動 reconnect(),讓快照立刻還原畫面,不等瀏覽器慢慢發現。
+  //
+  // 相容性:收到第一個 __pong__ 前不啟動強制重連(_pongCapable gate),
+  // 避免「前端已更新、PartyKit server 還沒 deploy」的空窗期在安靜房間
+  // 每 25 秒白白重連一次。
+  private _lastMsgAt = 0;
+  private _pongCapable = false;
+  private _keepaliveTimer: ReturnType<typeof setInterval> | null = null;
+
+  private static readonly IDLE_PING_MS = 8_000;
+  private static readonly STALE_RECONNECT_MS = 25_000;
+
+  private _startKeepalive(): void {
+    this._lastMsgAt = Date.now();
+    if (this._keepaliveTimer) clearInterval(this._keepaliveTimer);
+    this._keepaliveTimer = setInterval(() => this._keepaliveTick(), 5_000);
+    // 手機解鎖 / 切回分頁 / 網路恢復:立刻檢查,不等下一個 tick。
+    window.addEventListener('online', () => this._keepaliveTick());
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') this._keepaliveTick();
+    });
+  }
+
+  private _stopKeepalive(): void {
+    if (this._keepaliveTimer) {
+      clearInterval(this._keepaliveTimer);
+      this._keepaliveTimer = null;
+    }
+  }
+
+  private _keepaliveTick(): void {
+    if (this._kicked || !this.socket) return;
+    const idle = Date.now() - this._lastMsgAt;
+    if (this._pongCapable && idle > PartyBusImpl.STALE_RECONNECT_MS) {
+      console.warn(
+        `PartyBus keepalive: ${Math.round(idle / 1000)}s 沒收到任何 server 訊息 — 判定連線半死,強制重連`
+      );
+      this._lastMsgAt = Date.now(); // 重連期間不重複觸發
+      this.setStatus('connecting');
+      try { this.socket.reconnect(); } catch { /* ignore */ }
+    } else if (idle > PartyBusImpl.IDLE_PING_MS) {
+      // 閒置才 ping;有正常廣播流量時不多嘴。
+      try { this.emit('ping', { from: this.role, keepalive: true }); } catch { /* ignore */ }
+    }
   }
 
   /** True after server sent __kicked__; emit/init become no-ops. */

@@ -2488,6 +2488,20 @@ PartyBus.on('question_pick', payload => {
     renderQuestion();
     goto('scr-question');
   }
+  // 看門狗:正常流程靠 category_confirm → lockCategory 850ms 動畫 →
+  // selectCategory() 進題目頁。若那條鏈斷了(category_confirm 掉包/動畫
+  // timer 被清),投影會卡在舊畫面而參賽者手機已顯示題目。question_pick
+  // 是「本輪已抽題」的權威訊號:2 秒後還沒進題目頁就強制切過去。
+  // (正常流程 ≤950ms 就會進,永遠搶在看門狗前;煉獄降臨頁有自己的
+  // 2.5s 流程,跳過不搶。)
+  setTimeout(() => {
+    if (currentQuestion !== q) return;   // 已經換題/清題,別亂跳
+    const onQuestion = document.getElementById('scr-question')?.classList.contains('active');
+    const onPurg = document.getElementById('scr-purg-arrival')?.classList.contains('active');
+    if (onQuestion || onPurg) return;
+    console.warn('[PGG/presenter] question_pick 後 2s 仍未進題目頁 — 看門狗強制切換');
+    selectCategory();
+  }, 2000);
 });
 
 /* server 開賽後廣播各組組長 → 存起來,結算頁領獎時顯示 */

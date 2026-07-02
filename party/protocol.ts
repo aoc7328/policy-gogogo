@@ -407,6 +407,19 @@ export type KickedEvent = {
   payload: { reason: 'replaced_by_new_tab' };
 };
 
+/**
+ * Private reply to a `ping` command (sent only to the pinging connection).
+ * Powers the client-side keepalive in PartyBus: clients ping when the
+ * socket has been idle, and treat prolonged total silence (no pong, no
+ * broadcasts) as a half-dead TCP connection → force reconnect so the
+ * `__room_state__` snapshot restores the screen immediately, instead of
+ * waiting ~30s+ for the browser to notice the dead socket on its own.
+ */
+export type PongEvent = {
+  type: '__pong__';
+  payload: { t: number };
+};
+
 // Public broadcasts (match EVENTS.md verb-for-verb).
 
 export type GameStartEvent = {
@@ -688,6 +701,7 @@ export type ServerEvent =
   | RoomStateEvent
   | ErrorEvent
   | KickedEvent
+  | PongEvent
   | GameStartEvent
   | ModePreviewEvent
   | CustomTiersChangedEvent
