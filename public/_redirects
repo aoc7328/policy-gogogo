@@ -1,1 +1,7 @@
-/r/:code  /participant.html?room=:code  302
+# 短網址(200 = rewrite,網址列保留 /pj /gamer /ass;實體檔名不變)
+/pj      /presenter.html    200
+/gamer   /participant.html  200
+/ass     /assistant.html    200
+
+# 參賽者加入短連結 → 遊戲者頁(/gamer)
+/r/:code /gamer?room=:code  302

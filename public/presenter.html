@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<title>保險知識星攻略 · 主持人端</title>
+<title>保險知識星攻略 · 投影端</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&family=Noto+Serif+TC:wght@400;600;700;900&family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
@@ -690,7 +690,7 @@ html, body { background: #080A10; font-family: var(--font-sans); -webkit-font-sm
 
 <div class="demo-chrome">
   <div class="demo-header">
-    <div class="demo-brand"><span class="brand-prefix">保險知識</span><span class="brand-suffix">星攻略</span> · 主持人端 <span class="tag">v1.0</span></div>
+    <div class="demo-brand"><span class="brand-prefix">保險知識</span><span class="brand-suffix">星攻略</span> · 投影端 <span class="tag">v1.0</span></div>
     <div class="demo-tips"><span><span class="dot">●</span> 合併版 · 模式選擇 + 自由設定 + 遊戲流程</span></div>
   </div>
 
@@ -1142,7 +1142,7 @@ if (!PGG_ROOM_CODE) {
       + 'background:#050912;color:#F2EDE1;font-family:\'Noto Sans TC\',system-ui,sans-serif;'
       + 'text-align:center;padding:40px 24px;line-height:1.7">'
       + '<div><div style="font-size:18px;font-weight:700;margin-bottom:8px">無法進入</div>'
-      + '<div style="font-size:14px;color:#9BA3B5">請從助理端的「主持人短網址」進入</div></div></div>';
+      + '<div style="font-size:14px;color:#9BA3B5">請從助理端的「投影端短網址」進入</div></div></div>';
   });
   throw new Error('PGG_ROOM_CODE missing — refusing to connect to default room');
 }
@@ -1770,7 +1770,7 @@ PartyBus.on('__room_state__', snap => {
   if (b && typeof b.titlePrefix === 'string' && typeof b.titleSuffix === 'string') {
     document.querySelectorAll('.brand-prefix').forEach(el => { el.textContent = b.titlePrefix; });
     document.querySelectorAll('.brand-suffix').forEach(el => { el.textContent = b.titleSuffix; });
-    document.title = `${b.titlePrefix}${b.titleSuffix} · 主持人端`;
+    document.title = `${b.titlePrefix}${b.titleSuffix} · 投影端`;
   }
   // 多投影機:遊戲進行中/已結束時,用 server 快照還原現場畫面,
   // 讓「中途開機/重整的第 2~5 台投影」不會卡在 scr-select。

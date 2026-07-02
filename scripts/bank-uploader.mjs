@@ -102,8 +102,8 @@ main{max-width:720px;margin:0 auto}
 
 <div class="urlbar">
 <span class="urlbar-label">助理端網址</span>
-<a class="urlbar-link" href="${LIVE_URL_BASE}/assistant.html" target="_blank" rel="noopener">${LIVE_URL_BASE}/assistant.html</a>
-<button class="urlbar-copy" onclick="copyText(this, '${LIVE_URL_BASE}/assistant.html')">複製</button>
+<a class="urlbar-link" href="${LIVE_URL_BASE}/ass" target="_blank" rel="noopener">${LIVE_URL_BASE}/ass</a>
+<button class="urlbar-copy" onclick="copyText(this, '${LIVE_URL_BASE}/ass')">複製</button>
 </div>
 
 <nav class="tabs">

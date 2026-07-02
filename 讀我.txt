@@ -1,0 +1,19 @@
+助理介面網址【 https://policy-gogogo.pages.dev/ass 】
+
+三端短網址:
+  投影端(投影機那台) https://policy-gogogo.pages.dev/pj
+  助理端            https://policy-gogogo.pages.dev/ass
+  遊戲者端          https://policy-gogogo.pages.dev/gamer
+(舊網址 /assistant.html /presenter.html /participant.html 仍可用)
+
+
+
+如果有修正線上版的話，需要sync-deploy.bat。
+
+有三個要更新到伺服器上的東西：開啟這個檔案，它會自己跑
+
+
+
+bank-uploader.vbs
+
+這個檔案是上傳題庫的專用檔案。你上傳了題庫以後，它會自動推到伺服器。

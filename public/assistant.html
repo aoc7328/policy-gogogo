@@ -767,7 +767,7 @@ input::placeholder{color:var(--ink-3)}
           </div>
         </div>
       </div>
-      <p class="hint">投影機那台電腦:開參賽者網址 → 右下角「投影或助理登入」→ 輸入此碼,即轉為投影端(主持人)畫面。</p>
+      <p class="hint">投影機那台電腦:開參賽者網址 → 右下角「投影或助理登入」→ 輸入此碼,即轉為投影端畫面。</p>
     </div>
 
     <div class="room-block">
@@ -794,10 +794,10 @@ input::placeholder{color:var(--ink-3)}
             <span class="invite-url" id="invite-url">—</span>
             <button class="copy-btn" id="btn-copy-url" onclick="copyInviteUrl()">複製</button>
           </div>
-          <button class="invite-show-btn" id="btn-show-presenter-qr" onclick="showPresenterQR()">在主持人介面顯示 QR Code</button>
+          <button class="invite-show-btn" id="btn-show-presenter-qr" onclick="showPresenterQR()">在投影端顯示 QR Code</button>
         </div>
       </div>
-      <p class="hint">將此 QR Code 或短網址提供給參賽者掃描加入。主持人介面的 QR 會在 1 分鐘後自動消失,可隨時按上方按鈕讓它重新出現。遊戲開始後 QR 永久消失。</p>
+      <p class="hint">將此 QR Code 或短網址提供給參賽者掃描加入。投影端的 QR 會在 1 分鐘後自動消失,可隨時按上方按鈕讓它重新出現。遊戲開始後 QR 永久消失。</p>
     </div>
   </div>
 
@@ -1112,7 +1112,7 @@ input::placeholder{color:var(--ink-3)}
   <!-- ===== BANK (題庫) ===== -->
   <!-- ═══════ 題目與答案(主持人判定用) ═══════
        抽題當下就同步顯示題目+完整答案(參賽者要等公佈才看得到)。
-       手機優先排版;第二位助理可獨立開 assistant.html#qa 全程掛在這頁。 -->
+       手機優先排版;第二位助理可獨立開 /ass#qa 全程掛在這頁。 -->
   <div class="page" id="pg-qa">
     <div class="qa-page">
       <div class="qav-head">
@@ -1488,7 +1488,7 @@ document.addEventListener('visibilitychange', () => {
 _requestWakeLock();
 window.addEventListener('pointerdown', () => _requestWakeLock());
 
-/* ── #qa 深連結:第二位助理(主持人)開 assistant.html#qa 直接進
+/* ── #qa 深連結:第二位助理(主持人)開 /ass#qa 直接進
    「題目」分頁,全程看題目與答案,不用手動切換。 ── */
 if (window.location.hash === '#qa') {
   sw('qa');
@@ -1672,7 +1672,7 @@ PartyBus.on('start_rush', payload => {
   setPhase('rushing');
   const label = (typeof RUSH_MODE_LABELS !== 'undefined' && RUSH_MODE_LABELS[S.rushModeActual])
     || S.rushModeActual;
-  setStatus(`搶答進行中 · ${label} · 主持人倒數中`);
+  setStatus(`搶答進行中 · ${label} · 投影端倒數中`);
 });
 
 /* server 在 random 模式時先發 rush_reveal,5 秒後才發 start_rush */
@@ -1800,7 +1800,7 @@ PartyBus.on('question_pick', payload => {
 /* ════════════════════════════════════════════════════════════════════
    題目與答案檢視(pg-qa):主持人判定用
    - 抽題當下同步顯示題目 + 完整答案(參賽者要等公佈才看得到)
-   - 手機優先排版;第二位助理開 assistant.html#qa 全程掛在這頁
+   - 手機優先排版;第二位助理開 /ass#qa 全程掛在這頁
    ════════════════════════════════════════════════════════════════════ */
 const QA_TYPE_LABELS = {
   multiple_choice: '選擇題', short_answer: '簡答題', essay: '申論題',
@@ -2338,7 +2338,7 @@ function renderInviteQR() {
 }
 window.renderInviteQR = renderInviteQR;
 
-/* 在主持人介面顯示 QR Code:每次按下都讓主持人端的 QR 倒數重置回 60 秒。
+/* 在投影端顯示 QR Code:每次按下都讓投影端的 QR 倒數重置回 60 秒。
    不鎖按鈕(presenter 端的 startJoinQRCountdown 收到事件就會 clear 舊 timer
    重新計時,所以連按只是不斷把時間延長到 60 秒,不會疊加)。
    1.5 秒的文字回饋讓助理知道按鍵生效,但不影響再次按下。 */
@@ -2346,10 +2346,10 @@ function showPresenterQR() {
   PartyBus.emit('presenter_show_qr', { durationMs: 60000 });
   const btn = document.getElementById('btn-show-presenter-qr');
   if (!btn) return;
-  btn.textContent = '已通知主持人 ✓';
+  btn.textContent = '已通知投影端 ✓';
   if (btn._restoreTimer) clearTimeout(btn._restoreTimer);
   btn._restoreTimer = setTimeout(() => {
-    btn.textContent = '在主持人介面顯示 QR Code';
+    btn.textContent = '在投影端顯示 QR Code';
   }, 1500);
 }
 window.showPresenterQR = showPresenterQR;
@@ -3488,7 +3488,7 @@ function _doRestartImpl(emit){
   applyTabLock();
   // 6. 廣播給主持人 / 參賽者(鏡射呼叫時 emit=false,不再廣播)
   if (emit) PartyBus.emit('game_restart', {});
-  setStatus('遊戲已重置 · 主持人回模式選擇 · 參賽者回等待頁');
+  setStatus('遊戲已重置 · 投影端回模式選擇 · 參賽者回等待頁');
 }
 
 /* 重新開始:跳確認 modal,確定後才執行 */
@@ -3496,7 +3496,7 @@ function doRestart(){
   cfOpen({
     eyebrow: 'Restart · 重新開始',
     title: '確定要重新開始嗎?',
-    sub: '本場進度與分數將全部清空,主持人/參賽者將回到初始狀態。組名會保留。',
+    sub: '本場進度與分數將全部清空,投影端/參賽者將回到初始狀態。組名會保留。',
     okText: '重新開始',
     okClass: 'danger',
     onOk: _doRestartImpl,
