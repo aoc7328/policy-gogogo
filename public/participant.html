@@ -3126,11 +3126,17 @@ PartyBus.on('allhands_progress', payload => {
 PartyBus.on('rush_mode_changed', payload => {
   if (!payload?.mode) return;
   G.rushMode = payload.mode;
-  // 若當前在等待態(q-wait 顯示中、未開始倒數),即時刷新預告
+  // 若當前在等待態(q-wait 顯示中、未開始倒數),即時刷新預告。
+  // 但九宮格鏡射(選題中)或搶答結果卡顯示中就不動 — 那些不是 idle
+  // 等待畫面,reset 會把它們蓋成「等待主持人開始搶答」(user-reported:
+  // 選題中改搶答模式,參賽者的九宮格被蓋掉)。模式預告等下一輪
+  // resetWaitToIdle 時自然會帶到。
   const wait = document.getElementById('q-wait');
   const cdEl = document.getElementById('qw-countdown');
   const isCountingDown = cdEl && cdEl.style.display !== 'none';
-  if (wait && wait.style.display !== 'none' && !isCountingDown) {
+  const catgridShowing = document.getElementById('qw-catgrid')?.style.display !== 'none';
+  const resultShowing = document.getElementById('qw-result')?.style.display !== 'none';
+  if (wait && wait.style.display !== 'none' && !isCountingDown && !catgridShowing && !resultShowing) {
     if (typeof resetWaitToIdle === 'function') resetWaitToIdle();
   }
 });
@@ -3254,11 +3260,15 @@ PartyBus.on('enter_category', () => {
   showCategoryMirror();
 });
 
-/* 助理點格子預覽 → 手機同步高亮該格 */
+/* 助理點格子預覽 → 手機同步高亮該格。
+   server 只在 picking 階段廣播 preview → 若九宮格鏡射被別的畫面蓋掉
+   (例如選題中改搶答模式),這裡自動把它帶回來(user-reported:被蓋掉
+   後助理再點九宮格,參賽者卡在等待畫面回不去)。 */
 PartyBus.on('category_preview', payload => {
   if (!payload?.fid) return;
   const panel = document.getElementById('qw-catgrid');
-  if (!panel || panel.style.display === 'none') return;
+  if (!panel) return;
+  if (panel.style.display === 'none') showCategoryMirror();
   document.querySelectorAll('#qcg-grid .qcg-cell').forEach(c =>
     c.classList.toggle('preview', c.dataset.fid === payload.fid));
 });
