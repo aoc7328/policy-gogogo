@@ -585,9 +585,8 @@ input::placeholder{color:var(--ink-3)}
 
 /* ── 題目與答案檢視(主持人判定用,手機優先排版) ─────────── */
 .qa-page{max-width:640px;margin:0 auto;padding:4px 0 40px}
-.qav-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px}
-.qav-eyebrow{font-family:var(--font-mono);font-size:10px;letter-spacing:.26em;color:var(--accent);text-transform:uppercase}
-.qav-round{font-family:var(--font-mono);font-size:12px;color:var(--ink-2)}
+.qav-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px}
+.qav-round{font-family:var(--font-mono);font-size:12px;color:var(--ink-2);white-space:nowrap}
 .qav-empty{padding:70px 20px;text-align:center;font-size:17px;color:var(--ink-3);line-height:2;border:1px dashed var(--line-s)}
 .qav-empty span{font-size:12px;color:var(--ink-4)}
 .qav-meta{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
@@ -612,15 +611,14 @@ input::placeholder{color:var(--ink-3)}
 .qav-steps li{counter-increment:qavStep;position:relative;padding-left:34px;font-family:var(--font-mono);font-size:14px;line-height:1.8;color:var(--ink-1);margin-bottom:6px}
 .qav-steps li::before{content:counter(qavStep,decimal-leading-zero);position:absolute;left:0;top:2px;font-size:11px;color:var(--accent)}
 .qav-word{font-family:var(--font-serif);font-size:56px;font-weight:900;color:var(--ink-1);text-align:center;margin:8px 0 14px}
-.qav-foot{margin-top:22px;padding-top:12px;border-top:1px solid var(--line);font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;line-height:1.8;color:var(--ink-3)}
-/* 題目分頁:鎖定鈕 + 螢幕恆亮指示 */
-.qav-head-r{display:flex;align-items:center;gap:10px}
+/* 題目分頁:倒數計時 + 鎖定鈕 */
+.qav-timer{flex:1;text-align:center;font-family:var(--font-mono);font-size:21px;font-weight:700;letter-spacing:.04em;color:var(--accent)}
+.qav-timer.urgent{color:var(--err);animation:qavTimerPulse 1s ease-in-out infinite}
+.qav-timer.ended{color:var(--err)}
+@keyframes qavTimerPulse{0%,100%{opacity:1}50%{opacity:.4}}
 .qav-lock-btn{font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;color:var(--ink-2);background:var(--bg-deep);border:1px solid var(--line-s);padding:6px 12px;cursor:pointer;transition:all 160ms;white-space:nowrap}
 .qav-lock-btn:hover{border-color:var(--accent-l);color:var(--accent)}
 .qav-lock-btn.on{background:var(--accent);border-color:var(--accent);color:var(--bg-void);font-weight:700}
-.qav-wake{font-family:var(--font-mono);font-size:10px;letter-spacing:.04em;color:var(--ink-3);margin:-6px 0 14px;min-height:14px}
-.qav-wake.on{color:var(--ok)}
-.qav-wake.warn{color:var(--err)}
 /* 分頁鎖定:鎖住時其他分頁鈕不可點,只有「題目」與頁內解鎖鈕可用 */
 #tab-bar.qa-locked .tab-btn:not(#tb-qa){opacity:.3;pointer-events:none;filter:grayscale(.5)}
 
@@ -1126,20 +1124,12 @@ input::placeholder{color:var(--ink-3)}
   <div class="page" id="pg-qa">
     <div class="qa-page">
       <div class="qav-head">
-        <span class="qav-eyebrow">Host View · 僅助理可見</span>
-        <div class="qav-head-r">
-          <span class="qav-round" id="qav-round">—</span>
-          <button class="qav-lock-btn" id="qav-lock-btn" onclick="toggleQaLock()" title="鎖定後不能切換分頁,避免誤觸;可隨時點此解鎖">🔓 鎖定分頁</button>
-        </div>
+        <span class="qav-round" id="qav-round">—</span>
+        <span class="qav-timer" id="qav-timer" style="display:none"></span>
+        <button class="qav-lock-btn" id="qav-lock-btn" onclick="toggleQaLock()" title="鎖定後不能切換分頁,避免誤觸;可隨時點此解鎖">🔓 鎖定分頁</button>
       </div>
-      <div class="qav-wake" id="qav-wake"></div>
       <div id="qav-body">
         <div class="qav-empty">等待抽題<br><span>抽到題目後,這裡會同步顯示題目與完整答案</span></div>
-      </div>
-      <div class="qav-foot">
-        參賽者要等「公佈答案」才看得到答案。判定流程:聽答題組口頭作答 →
-        對照本頁答案 → 答對回計分表給分(25% / 50% / 100%);答錯按「不計分」,
-        可再按「同一題重新搶答」讓其他組挑戰。
       </div>
     </div>
   </div>
@@ -1503,23 +1493,10 @@ document.addEventListener('visibilitychange', () => {
 _requestWakeLock();
 window.addEventListener('pointerdown', () => _requestWakeLock());
 
-/* 題目分頁上的「螢幕恆亮」指示(主持人手機用):Wake Lock 只能防止自動
-   熄屏/變暗睡眠,無法用網頁 API 調整實際亮度 — 亮度請在手機系統設定
-   關掉自動亮度並手動調亮。 */
-function updateWakeIndicator() {
-  const el = document.getElementById('qav-wake');
-  if (!el) return;
-  if (!('wakeLock' in navigator)) {
-    el.textContent = '⚠ 此瀏覽器不支援螢幕恆亮,請到手機系統設定關掉自動鎖定/變暗';
-    el.className = 'qav-wake warn';
-  } else if (_wakeLock) {
-    el.textContent = '🔆 螢幕恆亮中 · 不會自動熄屏(亮度請於手機設定調整)';
-    el.className = 'qav-wake on';
-  } else {
-    el.textContent = '🔅 螢幕恆亮待啟用 · 點一下畫面即開啟';
-    el.className = 'qav-wake';
-  }
-}
+/* 螢幕恆亮(Wake Lock)功能保留 — 只是不再於題目分頁顯示狀態文字(依需求
+   移除該行贅字)。此函式留成 no-op,讓既有呼叫點(_requestWakeLock / sw())
+   不必改動。 */
+function updateWakeIndicator() { /* no-op:不再顯示螢幕恆亮指示文字 */ }
 window.updateWakeIndicator = updateWakeIndicator;
 
 /* ── 題目分頁鎖定:鎖住後不能切到別的分頁(主持人手機防誤觸),隨時可解鎖。
@@ -2570,17 +2547,40 @@ window.timerOff = timerOff;
 window.adjustTimer = adjustTimer;
 /* 本機顯示倒數讀數(助理掌握時間)+ 追蹤剩餘秒供 +10/-10 用 */
 let _asstTimerInt = null;
-PartyBus.on('timer_update', payload => {
+/* 同步兩處倒數:流程頁的 timer-readout + 題目頁(pg-qa)的 qav-timer。
+   qav-timer 讓主持人讀完題目與答案後,直接在同一頁掌握還剩幾秒。 */
+function _paintAsstTimer(remain, ended) {
   const out = document.getElementById('timer-readout');
+  if (out) out.textContent = remain > 0 ? `${remain}s` : (ended ? '時間到' : '');
+  const qav = document.getElementById('qav-timer');
+  if (qav) {
+    if (remain > 0) {
+      qav.textContent = `⏱ 剩 ${remain} 秒`;
+      qav.classList.toggle('urgent', remain <= 10);
+      qav.classList.remove('ended');
+      qav.style.display = '';
+    } else if (ended) {
+      qav.textContent = '⏱ 時間到';
+      qav.classList.remove('urgent');
+      qav.classList.add('ended');
+      qav.style.display = '';
+    } else {
+      qav.textContent = '';
+      qav.classList.remove('urgent', 'ended');
+      qav.style.display = 'none';
+    }
+  }
+}
+PartyBus.on('timer_update', payload => {
   if (_asstTimerInt) { clearInterval(_asstTimerInt); _asstTimerInt = null; }
   let remain = Math.max(0, Math.round(payload?.remainingSec || 0));
   S._timerRemain = remain;
   // 廣播 remain=0 = 關閉/停止 → 清空讀數;自然倒數到 0 才顯示「時間到」
-  if (out) out.textContent = remain > 0 ? `${remain}s` : '';
+  _paintAsstTimer(remain, false);
   if (remain > 0) {
     _asstTimerInt = setInterval(() => {
       remain--; S._timerRemain = remain;
-      if (out) out.textContent = remain > 0 ? `${remain}s` : '時間到';
+      _paintAsstTimer(remain, true);
       if (remain <= 0) { clearInterval(_asstTimerInt); _asstTimerInt = null; }
     }, 1000);
   }
