@@ -23,6 +23,10 @@ Thumbs.db
 
 # Claude Code local settings (project-shared settings.json is OK to commit)
 .claude/settings.local.json
+# Claude Code local-only scaffolding (git worktrees + local test server)
+.claude/worktrees/
+.claude/launch.json
+.claude/static-server.mjs
 
 # (quiz-bank-metadata.json used to be marked personal, but was promoted to
 #  source of truth for branding + topic frameworks in the metadata-driven

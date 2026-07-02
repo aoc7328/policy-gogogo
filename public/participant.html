@@ -136,6 +136,45 @@ input{-webkit-appearance:none;border-radius:0}
 .stage{position:absolute;inset:0;display:flex;flex-direction:column;opacity:0;pointer-events:none;transition:opacity 480ms ease-out;z-index:1}
 .stage.active{opacity:1;pointer-events:all}
 
+/* ── 現場集合(玩家池,遊戲開始前的等待大廳)────────
+   目標:讓參賽者感覺「大家正在同一個房間集合」——
+   我是誰/我在哪組(大字)、全場分組名單、即時加入動態。 */
+.lb-wrap{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:26px 20px 14px;display:flex;flex-direction:column;gap:16px}
+.lb-eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.32em;color:var(--ink-3);text-align:center}
+.lb-me{text-align:center;padding:20px 16px;background:var(--bg-s);border:1px solid var(--line);border-radius:14px}
+.lb-me-hello{font-size:15px;color:var(--ink-2)}
+.lb-me-hello .nm{color:var(--ink-1);font-weight:700}
+.lb-me-team{font-family:'Noto Serif TC',serif;font-size:34px;font-weight:900;color:var(--accent-b);line-height:1.3;margin-top:4px}
+.lb-me-sub{font-size:12px;color:var(--ink-3);margin-top:8px}
+.lb-rename-btn{margin-top:10px;font-size:12px;color:var(--ink-2);background:none;border:1px solid var(--line-s);border-radius:999px;padding:6px 16px;cursor:pointer}
+.lb-rename-input{margin-top:10px;font-size:16px;text-align:center;background:var(--bg-r);border:1px solid var(--accent-l);border-radius:8px;color:var(--ink-1);padding:9px 10px;width:75%;outline:none}
+.lb-rename-err{font-size:11px;color:#E06868;min-height:14px;margin-top:4px}
+.lb-groups{display:flex;flex-direction:column;gap:10px}
+.lb-group{background:var(--bg-s);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.lb-group.mine{border-color:var(--accent-l)}
+.lb-g-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.lb-g-name{font-size:15px;font-weight:700;color:var(--ink-1)}
+.lb-group.mine .lb-g-name{color:var(--accent-b)}
+.lb-g-count{font-size:11px;color:var(--ink-3)}
+.lb-g-tag{margin-left:auto;font-size:10px;color:var(--accent-b);border:1px solid var(--accent-l);border-radius:999px;padding:2px 9px;white-space:nowrap}
+.lb-g-members{display:flex;flex-wrap:wrap;gap:6px}
+.lb-chip{font-size:12px;color:var(--ink-2);background:var(--bg-r);border:1px solid var(--line);border-radius:999px;padding:4px 11px}
+.lb-chip.me{color:var(--bg);background:var(--accent);border-color:var(--accent);font-weight:700}
+.lb-g-empty{font-size:12px;color:var(--ink-4)}
+.lb-feed-block{background:var(--bg-s);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.lb-feed-title{font-size:11px;letter-spacing:.18em;color:var(--ink-3);margin-bottom:8px}
+.lb-feed{display:flex;flex-direction:column;gap:5px;max-height:118px;overflow:hidden}
+.lb-feed-item{font-size:12px;color:var(--ink-2);animation:lbIn 300ms ease-out}
+.lb-feed-item .hi{color:var(--ink-1);font-weight:700}
+.lb-feed-empty{font-size:12px;color:var(--ink-4)}
+@keyframes lbIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.lb-actions{display:flex;gap:10px}
+.lb-act-btn{flex:1;font-size:13px;padding:12px 0;border-radius:10px;background:var(--accent-s);border:1px solid var(--accent-l);color:var(--accent-b);cursor:pointer}
+.lb-act-btn.ghost{background:none;border-color:var(--line-s);color:var(--ink-2)}
+.lb-status{display:flex;align-items:center;justify-content:center;gap:9px;padding:12px 16px calc(14px + env(safe-area-inset-bottom));font-size:13px;color:var(--ink-2);border-top:1px solid var(--line)}
+.lb-pulse{width:8px;height:8px;border-radius:50%;background:var(--accent);animation:lbPulse 1.6s ease-in-out infinite}
+@keyframes lbPulse{0%,100%{opacity:1;box-shadow:0 0 0 0 var(--glow)}50%{opacity:.5;box-shadow:0 0 0 7px transparent}}
+
 /* ── 主持人登入入口(任何階段都顯示;被 claim 後變灰)──
    原本只在 stage-login 顯示,但加了 auto-rejoin 後使用者會直接跳過
    stage-login,看不到按鈕 → 拿不到 presenter 角色。改成一直顯示,
@@ -1121,7 +1160,7 @@ body.tm-paradise .opt{border-radius:0 12px 12px 0;border-left:3px solid var(--se
   <div class="rm-backdrop" onclick="closeResultModal()"></div>
   <div class="rm-card">
     <button class="rm-close" onclick="closeResultModal()" aria-label="關閉">×</button>
-    <div class="rm-eyebrow">Game Over · 遊戲結束</div>
+    <div class="rm-eyebrow">遊戲結束</div>
     <div class="rm-title">是否觀看結果</div>
     <div class="rm-sub">本場已落幕<br>按下確定查看本場成績與題目回顧</div>
     <div class="rm-actions">
@@ -1138,7 +1177,7 @@ body.tm-paradise .opt{border-radius:0 12px 12px 0;border-left:3px solid var(--se
       <div class="lr-line"></div><div class="lr-dot"></div><div class="lr-line r"></div>
     </div>
     <div class="login-title"><span class="brand-prefix">保險知識</span><span class="brand-suffix">星攻略</span></div>
-    <div class="login-sub">Gamer · 參與者</div>
+    <div class="login-sub">參賽者入口</div>
   </div>
   <div style="display:flex;justify-content:center;padding:0 32px">
     <div class="login-form">
@@ -1154,6 +1193,34 @@ body.tm-paradise .opt{border-radius:0 12px 12px 0;border-left:3px solid var(--se
     </div>
   </div>
   <div style="flex:1.5"></div>
+</div>
+
+<!-- ═══════ A2. 現場集合(遊戲開始前的玩家池)═══════
+     登入 → 看完操作說明後停在這頁:顯示「我是誰/我在哪組」、全場分組
+     名單與加入動態,讓參賽者感覺大家正在同一個房間集合。助理按下
+     「開始遊戲」(game_start)那一刻才切到遊戲頁的等待畫面。 -->
+<div class="stage" id="stage-lobby">
+  <div class="lb-wrap">
+    <div class="lb-eyebrow">現場集合中</div>
+    <div class="lb-me">
+      <div class="lb-me-hello">你好,<span class="nm" id="lb-my-name">—</span>!你在</div>
+      <div class="lb-me-team" id="lb-my-team">分組中…</div>
+      <div class="lb-me-sub">開賽前可以幫你的組取個響亮的名字</div>
+      <button class="lb-rename-btn" id="lb-rename-btn" onclick="lobbyStartRename()">✎ 修改組名</button>
+      <input type="text" class="lb-rename-input" id="lb-rename-input" maxlength="8" style="display:none" placeholder="輸入新組名">
+      <div class="lb-rename-err" id="lb-rename-err"></div>
+    </div>
+    <div class="lb-groups" id="lb-groups"></div>
+    <div class="lb-feed-block">
+      <div class="lb-feed-title">現場動態</div>
+      <div class="lb-feed" id="lb-feed"><div class="lb-feed-empty">等待夥伴加入…</div></div>
+    </div>
+    <div class="lb-actions">
+      <button class="lb-act-btn" onclick="openInviteModal()">邀請夥伴加入</button>
+      <button class="lb-act-btn ghost" onclick="lobbyShowHelp()">重看操作說明</button>
+    </div>
+  </div>
+  <div class="lb-status"><span class="lb-pulse"></span><span id="lb-status-text">連線中…</span></div>
 </div>
 
 <!-- ═══════ B. 遊戲頁 ═══════ -->
@@ -1179,7 +1246,7 @@ body.tm-paradise .opt{border-radius:0 12px 12px 0;border-left:3px solid var(--se
     </div>
     <div class="gs-right">
       <button class="gs-mini-btn" id="gs-help-btn" onclick="showOnboarding(true)" title="操作說明">?</button>
-      <button class="gs-mini-btn invite" id="gs-invite-btn" onclick="openInviteModal()" title="邀請朋友加入">QR</button>
+      <button class="gs-mini-btn invite" id="gs-invite-btn" onclick="openInviteModal()" title="邀請朋友加入">邀請</button>
       <span class="gs-round" id="gs-round">—</span>
     </div>
   </div>
@@ -1236,7 +1303,7 @@ body.tm-paradise .opt{border-radius:0 12px 12px 0;border-left:3px solid var(--se
       </div>
       <!-- 選題階段:F1-F9 九宮格鏡射(唯讀輔助畫面,實際選擇由口頭告知助理操作) -->
       <div class="qw-catgrid" id="qw-catgrid" style="display:none">
-        <div class="qcg-eyebrow">Category Selection</div>
+        <div class="qcg-eyebrow">選擇題目分類</div>
         <div class="qcg-title" id="qcg-title">選題中</div>
         <div class="qcg-grid" id="qcg-grid"></div>
         <div class="qcg-hint">口頭告知你們要選的分類</div>
@@ -1272,16 +1339,16 @@ body.tm-paradise .opt{border-radius:0 12px 12px 0;border-left:3px solid var(--se
   <div class="arr-embers" id="arr-embers"></div>
   <div class="arr-haze"></div>
   <div class="arr-content">
-    <div class="arr-omen">Fate Has Chosen</div>
+    <div class="arr-omen">命運已選定</div>
     <div class="arr-title">煉獄</div>
-    <div class="arr-sub">PURGATORY · 命運降臨</div>
+    <div class="arr-sub">煉獄 · 命運降臨</div>
   </div>
 </div>
 
 <div class="stage" id="stage-end">
 
   <div class="end-hd">
-    <div class="end-badge">Game Over · 遊戲結束</div>
+    <div class="end-badge">遊戲結束</div>
     <div class="end-title">成績揭曉</div>
     <div class="end-meta" id="end-meta">—</div>
   </div>
@@ -1338,7 +1405,7 @@ body.tm-paradise .opt{border-radius:0 12px 12px 0;border-left:3px solid var(--se
   <div class="ob-spot" id="ob-spot"></div>
   <div class="ob-tip" id="ob-tip">
     <div class="ob-arrow" id="ob-arrow"></div>
-    <div class="ob-eyebrow" id="ob-eyebrow">STEP 1</div>
+    <div class="ob-eyebrow" id="ob-eyebrow">第 1 步</div>
     <div class="ob-title" id="ob-title">—</div>
     <div class="ob-desc" id="ob-desc">—</div>
     <div class="ob-dots" id="ob-dots"></div>
@@ -1522,12 +1589,25 @@ function submitHostLogin() {
   // 把碼存起來,投影端路由時附在 presenter.html 的 query 上(特權簽章用)。
   G._pendingPresenterCode = code;
   PartyBus.emit('staff_login', { code });
+  // 逾時保護:斷線或前後端不同步(server 不認得 staff_login 時會靜默
+  // 不回)都不該永遠卡在「驗證中…」— 8 秒沒回應就解鎖讓使用者重試。
+  clearTimeout(G._staffLoginTimer);
+  G._staffLoginTimer = setTimeout(() => {
+    if (!_claimingNow) return;
+    _claimingNow = false;
+    G._pendingPresenterCode = null;
+    const st = document.getElementById('hm-status');
+    const sb = document.getElementById('hm-submit');
+    if (st) { st.textContent = '連線逾時,請再試一次'; st.className = 'hm-status err'; }
+    if (sb) { sb.disabled = false; sb.textContent = '登入'; }
+  }, 8000);
 }
 
 /* server 依控制碼回覆路由(私訊,只有登入者收到)→ 導向對應介面 */
 PartyBus.on('__staff_route__', payload => {
   if (!_claimingNow) return;
   _claimingNow = false;
+  clearTimeout(G._staffLoginTimer);
   const typed = G._pendingPresenterCode;
   G._pendingPresenterCode = null;
   const room = encodeURIComponent(PGG_ROOM_CODE);
@@ -1559,6 +1639,7 @@ PartyBus.on('__error__', (err) => {
   const msg = err?.message || '登入失敗';
   if (['bad_code', 'already_claimed', 'bad_payload'].includes(code)) {
     _claimingNow = false;
+    clearTimeout(G._staffLoginTimer);
     G._pendingPresenterCode = null;
     const status = document.getElementById('hm-status');
     const submit = document.getElementById('hm-submit');
@@ -1613,6 +1694,30 @@ PartyBus.on('__room_state__', (snap) => {
     _leadersMap = {};
     snap.groups.forEach(g => { if (g?.name) _leadersMap[g.name] = g.leader || null; });
     if (typeof updateLeaderBadge === 'function') updateLeaderBadge();
+  }
+  // 現場集合:組名順序以 snapshot 為權威,重畫集合頁
+  if (Array.isArray(snap?.groups)) {
+    _groupsOrder = snap.groups.map(g => g?.name).filter(Boolean);
+  }
+  if (typeof renderLobby === 'function') renderLobby();
+  // 遊戲階段還原:phase 不是 lobby = 助理已按過「開始遊戲」。晚到或
+  // 重整的人不該停在集合畫面 — 補上等同 game_start 的旗標與主題色,
+  // 人若正停在集合頁就直接送進遊戲頁(等待畫面),細節由後續事件接手。
+  if (snap?.phase && snap.phase !== 'lobby' && !G._gameStarted) {
+    G._gameStarted = true;
+    if (snap.totalQ) G.totalQ = snap.totalQ;
+    const m = snap?.game?.mode;
+    if (m) {
+      G.mode = m;
+      document.body.classList.remove('tm-ordinary','tm-hell','tm-paradise','tm-custom');
+      document.body.classList.add('tm-' + m);
+    }
+    // 開賽即鎖組名(與 game_start 廣播的行為一致)
+    G.canRenameTeam = false;
+    if (typeof setTeamNameEditable === 'function') setTeamNameEditable(false);
+    if (G.name && document.getElementById('stage-lobby')?.classList.contains('active')) {
+      enterGameStage();
+    }
   }
 });
 
@@ -1684,11 +1789,19 @@ function doLogin() {
   if (G._gameStarted) {
     enterGameStage();
   } else {
-    // 還沒開始遊戲:就只是切到 game(等候主持人)
-    goStage('game');
-    // 首次登入就跳新手導覽(不必等主持人開賽 — 實測回報:開賽前登入
-    // 走這個分支,原本漏了觸發)。延遲讓 stage 切換動畫跑完再定位聚光燈。
-    setTimeout(() => showOnboarding(false), 400);
+    // 還沒開始遊戲:先看操作說明,看完停在「現場集合」(玩家池)等開賽,
+    // game_start 廣播到了才進遊戲頁。重整/開新分頁的自動重連不重看說明,
+    // 直接回集合頁。
+    renderLobby();
+    if (G._autoRejoined) {
+      goStage('lobby');
+    } else {
+      // 導覽的聚光燈要框遊戲頁的真實按鈕:先切到遊戲頁再開導覽,
+      // closeOnboarding 會在遊戲未開始時把人送到集合頁。
+      if (typeof resetWaitToPreGame === 'function') resetWaitToPreGame();
+      goStage('game');
+      setTimeout(() => showOnboarding(true), 400);
+    }
   }
 }
 
@@ -1707,6 +1820,11 @@ PartyBus.on('player_join', payload => {
     if (G.name) saveStoredParticipant(G.name, G.team);
   }
   rebuildMyRoster();
+  // 集合頁:動態 + 重畫(遊戲中此頁隱藏,白畫無妨)
+  if (typeof lobbyFeedAdd === 'function') {
+    lobbyFeedAdd(`<span class="hi">${lbEsc(payload.name)}</span> 加入了 ${lbEsc(payload.team)}`);
+    renderLobby();
+  }
 });
 
 /* 有人離開 → 從全房名單移除,刷新組員浮窗 */
@@ -1714,6 +1832,10 @@ PartyBus.on('player_leave', payload => {
   if (!payload?.name) return;
   _roster.delete(payload.name);
   rebuildMyRoster();
+  if (typeof lobbyFeedAdd === 'function') {
+    lobbyFeedAdd(`${lbEsc(payload.name)} 離開了`);
+    renderLobby();
+  }
 });
 
 /* server 重洗(助理改組數)→ 找自己 → 同步 G.team。
@@ -1738,7 +1860,121 @@ PartyBus.on('roster_reshuffled', payload => {
     }
   }
   rebuildMyRoster();
+  // 集合頁:組名順序以 server 重洗結果為準
+  if (typeof renderLobby === 'function') {
+    _groupsOrder = payload.groups.map(g => g?.name).filter(Boolean);
+    lobbyFeedAdd('分組重新調整了');
+    renderLobby();
+  }
 });
+
+/* ══ 現場集合(玩家池):遊戲開始前的等待大廳 ══
+   資料來源都是現成的廣播:__room_state__ 的 participants(權威名單)、
+   player_join / player_leave / roster_reshuffled / team_rename。
+   純前端組畫面,server 不用動。game_start 一到就切去遊戲頁。 */
+const LB_FEED_MAX = 8;
+const _lobbyFeed = [];        // 動態(html 字串),最新在前
+let _groupsOrder = [];        // 權威組名順序(snapshot / reshuffle 更新)
+
+/* 名字是使用者輸入,進 innerHTML 前一律轉義 */
+function lbEsc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]));
+}
+
+function lobbyFeedAdd(html) {
+  _lobbyFeed.unshift(html);
+  if (_lobbyFeed.length > LB_FEED_MAX) _lobbyFeed.length = LB_FEED_MAX;
+  const el = document.getElementById('lb-feed');
+  if (el) el.innerHTML = _lobbyFeed.map(h => `<div class="lb-feed-item">${h}</div>`).join('');
+}
+
+function renderLobby() {
+  const nameEl = document.getElementById('lb-my-name');
+  const teamEl = document.getElementById('lb-my-team');
+  if (nameEl) nameEl.textContent = G.name || '—';
+  if (teamEl) teamEl.textContent = G.team || '分組中…';
+  // 組卡:優先用 server 給的組名順序;還沒拿到 snapshot 前退回名單裡出現過的組
+  const names = _groupsOrder.length ? _groupsOrder : [...new Set([..._roster.values()])];
+  const byTeam = new Map(names.map(n => [n, []]));
+  for (const [pname, team] of _roster) {
+    if (!byTeam.has(team)) byTeam.set(team, []);
+    byTeam.get(team).push(pname);
+  }
+  const gEl = document.getElementById('lb-groups');
+  if (gEl) {
+    gEl.innerHTML = [...byTeam.entries()].map(([team, members]) => {
+      const mine = team === G.team;
+      const chips = members.length
+        ? members.map(m => `<span class="lb-chip${m === G.name ? ' me' : ''}">${lbEsc(m)}</span>`).join('')
+        : '<span class="lb-g-empty">等夥伴加入</span>';
+      return `<div class="lb-group${mine ? ' mine' : ''}">
+        <div class="lb-g-head"><span class="lb-g-name">${lbEsc(team)}</span>
+          <span class="lb-g-count">${members.length} 人</span>
+          ${mine ? '<span class="lb-g-tag">你在這組</span>' : ''}</div>
+        <div class="lb-g-members">${chips}</div></div>`;
+    }).join('');
+  }
+  const n = _roster.size;
+  const st = document.getElementById('lb-status-text');
+  if (st) st.textContent = n > 0
+    ? `${n} 位夥伴已就位 · 等工作人員宣布開始`
+    : '等待夥伴加入…';
+  // 改組名只在「開賽前 + 已分到組」時開放
+  const rb = document.getElementById('lb-rename-btn');
+  if (rb) rb.style.display = (G.canRenameTeam && G.team) ? '' : 'none';
+}
+
+/* 集合頁改組名:走與遊戲頁 ✎ 相同的 team_rename 廣播 */
+function lobbyStartRename() {
+  if (!G.canRenameTeam || !G.team) return;
+  const btn = document.getElementById('lb-rename-btn');
+  const input = document.getElementById('lb-rename-input');
+  if (!input) return;
+  if (btn) btn.style.display = 'none';
+  input.style.display = '';
+  input.value = G.team;
+  input.focus();
+  input.select();
+  input.onkeydown = e => {
+    if (e.key === 'Enter') { e.preventDefault(); lobbyCommitRename(); }
+    else if (e.key === 'Escape') { e.preventDefault(); lobbyCancelRename(); }
+  };
+  input.onblur = () => lobbyCommitRename();
+}
+function lobbyCancelRename() {
+  const input = document.getElementById('lb-rename-input');
+  if (input) { input.style.display = 'none'; input.onkeydown = null; input.onblur = null; }
+  renderLobby();   // 按鈕顯示狀態交給 renderLobby 統一判斷
+}
+function lobbyCommitRename() {
+  const input = document.getElementById('lb-rename-input');
+  const err = document.getElementById('lb-rename-err');
+  const newName = (input?.value || '').trim();
+  const oldName = G.team;
+  lobbyCancelRename();
+  if (!newName || newName === oldName) return;
+  if (newName.length > 8) {
+    if (err) {
+      err.textContent = '組名最長 8 個字';
+      setTimeout(() => { err.textContent = ''; }, 2000);
+    }
+    return;
+  }
+  if (window.PartyBus) {
+    PartyBus.emit('team_rename', { oldName, newName, by: G.name || '匿名' });
+  }
+}
+
+/* 重看操作說明:聚光燈要框遊戲頁的真實按鈕,先切到遊戲頁再開導覽;
+   closeOnboarding 在遊戲未開始時會自動把人送回集合頁。 */
+function lobbyShowHelp() {
+  goStage('game');
+  setTimeout(() => showOnboarding(true), 400);
+}
+window.lobbyStartRename = lobbyStartRename;
+window.lobbyShowHelp = lobbyShowHelp;
 
 /* ══ 階段切換 ══ */
 function goStage(id) {
@@ -2765,7 +3001,7 @@ const ONBOARD_STEPS = [
   { sel: '.gs-left', title: '你的名字與組別',
     desc: '這裡顯示<span class="hi">你的名字和組別</span>。點組名可以看同組有哪些人;開賽前按 <span class="hi">✎</span> 還能改組名(開賽後鎖定)。' },
   { sel: '#gs-invite-btn', title: '邀請隊友加入',
-    desc: '按 <span class="hi">QR</span> 會出現本場的 QR Code,還沒進來的同事用手機掃一下就能加入。' },
+    desc: '按 <span class="hi">邀請</span> 會出現本場的 QR Code,還沒進來的同事用手機掃一下就能加入。' },
   { sel: '#score-bar', title: '即時戰況',
     desc: '點「<span class="hi">戰況</span>」可以展開各組即時分數,隨時掌握排名。' },
   { sel: '#q-zone', title: '題目都在這裡',
@@ -2805,7 +3041,7 @@ function renderOnboardStep() {
   spot.style.height = rect.h + 'px';
 
   // 先填內容才能量卡片高度
-  document.getElementById('ob-eyebrow').textContent = `STEP ${_obStep + 1} / ${ONBOARD_STEPS.length}`;
+  document.getElementById('ob-eyebrow').textContent = `第 ${_obStep + 1} 步 · 共 ${ONBOARD_STEPS.length} 步`;
   document.getElementById('ob-title').textContent = s.title;
   document.getElementById('ob-desc').innerHTML = s.desc;
   document.getElementById('ob-dots').innerHTML = ONBOARD_STEPS.map((_, i) =>
@@ -2813,7 +3049,7 @@ function renderOnboardStep() {
   const next = document.getElementById('ob-next');
   const skip = document.getElementById('ob-skip');
   const isLast = _obStep === ONBOARD_STEPS.length - 1;
-  if (next) next.textContent = isLast ? '開始遊戲!' : '下一步';
+  if (next) next.textContent = isLast ? (G._gameStarted ? '開始遊戲!' : '我準備好了!') : '下一步';
   if (skip) skip.style.display = isLast ? 'none' : '';
 
   // 卡片位置:目標下方空間夠就放下面(箭頭朝上),不夠放上面(箭頭朝下)
@@ -2837,6 +3073,11 @@ function nextOnboarding() {
 function closeOnboarding() {
   document.getElementById('onboard')?.classList.remove('show');
   try { localStorage.setItem(OB_SEEN_KEY, '1'); } catch { /* ignore */ }
+  // 遊戲還沒開始 → 看完說明進「現場集合」等開賽;已開始就留在遊戲頁
+  if (!G._gameStarted && G.name) {
+    if (typeof renderLobby === 'function') renderLobby();
+    goStage('lobby');
+  }
 }
 /* 轉向/縮放時重新定位聚光燈 */
 window.addEventListener('resize', () => {
@@ -3348,6 +3589,17 @@ PartyBus.on('team_rename', payload => {
     if (gsTeam) gsTeam.textContent = payload.newName;
     if (tmName) tmName.textContent = payload.newName;
   }
+  // 本機名單同步新組名(否則組員浮窗/集合頁會把同組拆成新舊兩組)
+  for (const [n, t] of _roster) {
+    if (t === payload.oldName) _roster.set(n, payload.newName);
+  }
+  const gi = _groupsOrder.indexOf(payload.oldName);
+  if (gi >= 0) _groupsOrder[gi] = payload.newName;
+  rebuildMyRoster();
+  if (typeof renderLobby === 'function') {
+    lobbyFeedAdd(`「${lbEsc(payload.oldName)}」改名為「<span class="hi">${lbEsc(payload.newName)}</span>」`);
+    renderLobby();
+  }
 });
 
 /* 助理匯出結果 → 跳出「是否觀看結果」浮窗(按確定才切到 stage-end) */
@@ -3406,10 +3658,12 @@ PartyBus.on('game_restart', () => {
   // round 顯示重置
   const gsRound = document.getElementById('gs-round');
   if (gsRound) gsRound.textContent = G.totalQ > 0 ? `00 / ${String(G.totalQ).padStart(2,'0')}` : '00';
-  // 若已登入(G.name 有值) → 切到 stage-game 等待態
+  // 若已登入(G.name 有值) → 回「現場集合」(restart 後遊戲未開始,
+  // 和開場前是同一個等待狀態:看得到大家都還在)
   // 若還沒登入 → 留在 stage-login,並把 login-note 文字復原
   if (G.name) {
-    goStage('game');
+    if (typeof renderLobby === 'function') renderLobby();
+    goStage('lobby');
   } else {
     goStage('login');
     const note = document.querySelector('#stage-login .login-note');
@@ -4011,6 +4265,9 @@ PartyBus.on('resume_question', () => {
     // login-btn 預設 disabled,doLogin 自己會檢查 v.trim() 為空就 return,
     // 所以可以直接呼叫,不必先把 button 啟用。
   }
+  // 標記「自動重連」:doLogin 據此跳過操作說明,直接回集合頁/遊戲頁,
+  // 不讓重整的人每次都重看一輪導覽。
+  G._autoRejoined = true;
   // 給其他初始化(e.g. inline DOM render)一個 tick 跑完再 login。
   setTimeout(() => doLogin(), 0);
 })();

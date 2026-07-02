@@ -7,8 +7,8 @@ things a future maintainer (or future-you) needs to know to not panic.
 
 ## Known Dev Dependencies CVE
 
-**Status as of 2026-04-26 with `partykit@0.0.115`:**
-`npm audit` reports **4 vulnerabilities (3 moderate, 1 high)**, all originating
+**Status as of 2026-07-02 with `partykit@0.0.115`:**
+`npm audit` reports **5 vulnerabilities (3 moderate, 2 high)**, all originating
 in PartyKit's local-dev runtime. They do **not** ship to the production worker
 on Cloudflare.
 
@@ -18,6 +18,7 @@ on Cloudflare.
 |--------------|----------|--------------------------------------------|--------------------------------------------------|
 | `esbuild`    | moderate | `partykit → esbuild`                       | Bundles user code for `partykit dev`.            |
 | `undici`     | high     | `partykit → miniflare → undici`            | Powers Workers' HTTP fetch in the local sim.     |
+| `ws`         | high     | `partykit → miniflare → ws`                | WebSocket server for the local Workers sim.      |
 
 GHSA IDs at the time of writing (may shift as advisories get updated):
 - `GHSA-67mh-4wv8-2f99` (esbuild dev-server CORS)

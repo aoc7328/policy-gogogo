@@ -1523,8 +1523,9 @@ function updateWakeIndicator() {
 window.updateWakeIndicator = updateWakeIndicator;
 
 /* ── 題目分頁鎖定:鎖住後不能切到別的分頁(主持人手機防誤觸),隨時可解鎖。
-   狀態存 localStorage,手機重整/喚醒後仍停在鎖定的題目分頁。 ── */
-const QA_LOCK_KEY = 'pgg_qa_lock';
+   狀態存 localStorage,手機重整/喚醒後仍停在鎖定的題目分頁。
+   key 帶房號:鎖定是「這一場」的狀態,換房間(新活動)不繼承上一場的鎖定。 ── */
+const QA_LOCK_KEY = 'pgg_qa_lock_' + (typeof PGG_ROOM_CODE === 'string' ? PGG_ROOM_CODE : '');
 function applyQaLockUI() {
   const btn = document.getElementById('qav-lock-btn');
   const bar = document.getElementById('tab-bar');

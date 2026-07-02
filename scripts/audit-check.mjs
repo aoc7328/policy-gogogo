@@ -22,6 +22,7 @@ const ACCEPTED_PACKAGES = new Set([
   'undici',     // partykit → miniflare → undici (Workers HTTP sim)
   'partykit',   // transitive carrier of the above
   'miniflare',  // transitive carrier of undici
+  'ws',         // partykit → miniflare → ws (local-dev WebSocket server)
 ]);
 
 let raw;

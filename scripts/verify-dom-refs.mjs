@@ -36,11 +36,13 @@ const RUNTIME_CREATED_ALLOWLIST = new Set([
   // (a) runtime-created
   'buzz-cd-overlay',     // participant.html:1609 createElement
   'pgg-kicked-veil',     // participant.html __kicked__ listener createElement
+  'pgg-notice-veil',     // participant.html group_notice veil — createElement at runtime
   // (b) optional / demo leftover (callers null-guard)
   'btn-enter',           // presenter.html — defensive guards everywhere now
   'host-status',         // presenter.html — defensive guards everywhere now
   'reveal-btn',          // presenter.html — annotated "合併版可能不存在"
   'q-status',            // presenter.html — annotated "合併版可能不存在"
+  'snd-hint',            // presenter.html — 音效提示,呼叫端 null-guard,元素刻意不放
   'tm-name-input',       // participant.html — startEditTeamName guards
   'tm-name-err',         // participant.html — startEditTeamName guards
 ]);
