@@ -580,6 +580,13 @@ input{-webkit-appearance:none;border-radius:0}
 }
 .qw-rule{font-size:13px;color:var(--ink-3);line-height:1.65;max-width:280px;margin:0 auto}
 .qw-hint{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;color:var(--ink-3);text-transform:uppercase}
+/* 失格說明卡:本題已搶過,重新搶答不參與 */
+.qw-lockout{display:flex;flex-direction:column;align-items:center;gap:9px;padding:20px 24px;margin:2px auto 0;max-width:300px;background:var(--accent-s);border:1px solid var(--accent-l);border-radius:18px}
+.qwl-icon{font-size:44px;line-height:1}
+.qwl-title{font-family:"Noto Serif TC",serif;font-size:22px;font-weight:900;color:var(--ink-1);text-align:center;letter-spacing:.04em}
+.qwl-sub{font-size:13.5px;color:var(--ink-2);line-height:1.75;text-align:center}
+.qwl-sub b{color:var(--accent-b);font-weight:700}
+.qwl-wait{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.16em;color:var(--ink-3);margin-top:3px}
 .qw-countdown{
   font-family:var(--font-mono);font-weight:700;font-size:64px;
   color:var(--accent);letter-spacing:.04em;line-height:1;
@@ -819,6 +826,9 @@ body.tm-paradise .opt{border-radius:0 12px 12px 0;border-left:3px solid var(--se
 .circ-btn.flash{filter:brightness(1.6)}
 /* 鎖定 */
 .circ-btn.locked{opacity:.35;pointer-events:none;animation:none !important}
+/* 失格:本題已搶過,禁止再搶(灰階變暗,比一般 locked 更「死」,一看就知不可按) */
+.circ-btn.dq{opacity:.5;filter:grayscale(.9) brightness(.6);pointer-events:none;animation:none !important}
+.circ-btn.dq .bb-label{color:rgba(255,255,255,.65);font-size:16px;letter-spacing:.08em}
 
 /* ═══════════════════════════════════════════════
    C. 結算頁
@@ -1307,6 +1317,13 @@ body.tm-paradise .opt{border-radius:0 12px 12px 0;border-left:3px solid var(--se
         <div class="qcg-title" id="qcg-title">選題中</div>
         <div class="qcg-grid" id="qcg-grid"></div>
         <div class="qcg-hint">口頭告知你們要選的分類</div>
+      </div>
+      <!-- 失格說明:本題已由你們搶答過,重新搶答這輪不參與(醒目告知,避免以為當機) -->
+      <div class="qw-lockout" id="qw-lockout" style="display:none">
+        <div class="qwl-icon">🙅</div>
+        <div class="qwl-title">本題你們已搶答過</div>
+        <div class="qwl-sub">這一輪換<b>其他組</b>作答<br>你們先休息,看誰答得出來</div>
+        <div class="qwl-wait">等待其他組搶答結果</div>
       </div>
       <div class="qw-hint" id="qw-hint">主持人正在準備中</div>
     </div>
@@ -2129,20 +2146,55 @@ function handleBuzz() {
 function armBuzz() {
   const btn = document.getElementById('btn-buzz');
   if (!btn) return;
-  // 本題失格(答不出來被重新搶答)→ 不解鎖,顯示提示。server 也會擋下 buzz。
-  if (Array.isArray(G._buzzLockout) && G.team && G._buzzLockout.includes(G.team)) {
-    G.buzzed = true;   // 視為已搶,雙保險擋住 handleBuzz
-    btn.classList.remove('armed','dn','flash');
-    btn.classList.add('locked');
-    const st = document.getElementById('btn-status');
-    if (st) { st.textContent = '本題你們已搶過 · 不參與重新搶答'; st.className = 'btn-status active-err'; }
-    return;
-  }
+  // 本題失格(上一輪已搶、答錯或答不出來被重新搶答)→ 不解鎖,顯示醒目失格說明。
+  // 正常情況失格組在 start_rush 就已切到失格畫面,這裡是雙保險(lockout 名單
+  // 若晚到才在 GO 這一刻補上)。server 也會擋下 buzz。
+  if (iAmBuzzLockedOut()) { showBuzzLockout(); return; }
   G.buzzed = false;
   btn.classList.remove('locked','dn','flash');
+  _clearBuzzDq();                       // 換新輪不再失格 → 清失格樣式、標籤復原
   btn.classList.add('armed');
   document.getElementById('btn-status').textContent = '搶答開放中';
   document.getElementById('btn-status').className = 'btn-status active-ok';
+}
+
+/* 本機這一輪是否失格:本題已搶過(答錯/答不出),重新搶答時不能再搶 */
+function iAmBuzzLockedOut() {
+  return Array.isArray(G._buzzLockout) && !!G.team && G._buzzLockout.includes(G.team);
+}
+
+/* 顯示「本題已搶過,這輪不參與」的醒目失格畫面。
+   為什麼要這樣:第一次玩的同學若只看到按鈕變灰,會以為當機、頻頻詢問主持人。
+   這裡把 q-wait 其他區塊收掉、只留一張大字失格說明卡,並把搶答鈕改成明顯的
+   失格樣式(灰階變暗 + 標籤改「已答」),讓人一看就懂「這輪換別組」。
+   這一輪就當觀眾,等 rush_winner / reveal 事件把畫面切走。 */
+function showBuzzLockout() {
+  G.buzzed = true;   // 視為已搶,雙保險擋住 handleBuzz
+  const setShow = (id, show) => { const el = document.getElementById(id); if (el) el.style.display = show ? '' : 'none'; };
+  ['qw-glyph','qw-title','qw-mode','qw-rule','qw-countdown','qw-count-panel',
+   'qw-allhands-panel','qw-reveal','qw-result','qw-catgrid','qw-hint'].forEach(id => setShow(id, false));
+  setShow('qw-lockout', true);
+  const wait = document.getElementById('q-wait'); if (wait) wait.style.display = 'flex';
+  const qbody = document.getElementById('q-body'); if (qbody) qbody.style.display = 'none';
+  const btn = document.getElementById('btn-buzz');
+  if (btn) {
+    btn.classList.remove('armed','dn','flash');
+    btn.classList.add('locked','dq');
+    const lb = btn.querySelector('.bb-label'); if (lb) lb.textContent = '已答';
+  }
+  const st = document.getElementById('btn-status');
+  if (st) { st.textContent = '本題你們已搶答過 · 這輪不參與'; st.className = 'btn-status active-err'; }
+  if (typeof _clearBuzzCooldown === 'function') _clearBuzzCooldown();
+}
+window.showBuzzLockout = showBuzzLockout;
+
+/* 清失格按鈕樣式並復原標籤(換新題 / 不再失格 / 搶答結果出來時) */
+function _clearBuzzDq() {
+  const bb = document.getElementById('btn-buzz');
+  if (!bb) return;
+  bb.classList.remove('dq');
+  const lb = bb.querySelector('.bb-label');
+  if (lb) lb.textContent = '搶答';
 }
 
 function lockBuzz() {
@@ -2928,6 +2980,7 @@ function revealCurrentAnswer() {
 function resetForNextQuestion() {
   G.revealed = false;
   G.currentQ = null;
+  G._buzzLockout = [];   // 換新題 → 失格名單歸零(失格是「本題」的,不跨題)
   document.getElementById('q-body').style.display = 'none';
   document.getElementById('q-body').innerHTML = '';
   document.getElementById('q-wait').style.display = 'flex';
@@ -2955,6 +3008,7 @@ PartyBus.on('game_start', payload => {
   G.revealed = false;
   G.currentQ = null;
   G.buzzed = false;
+  G._buzzLockout = [];   // 新場:清掉上一場殘留的失格名單
   G.rushMode = payload.rushMode || 'speed';
   document.body.classList.remove('tm-ordinary','tm-hell','tm-paradise','tm-custom');
   document.body.classList.add('tm-' + G.mode);
@@ -3121,6 +3175,8 @@ function resetWaitToIdle() {
   setShow('qw-reveal', false);
   setShow('qw-result', false);
   setShow('qw-catgrid', false);
+  setShow('qw-lockout', false);       // 換新輪/新題:收掉失格說明卡
+  _clearBuzzDq();                     // 復原搶答鈕失格樣式與標籤
   setShow('qw-hint', true);
   document.getElementById('qw-hint').textContent = '下一輪搶答模式';
   // 顯示模式 chip + 規則(從 G.rushMode 讀,若還沒收到就用 'speed' 預設)
@@ -3197,6 +3253,10 @@ PartyBus.on('start_rush', payload => {
   G.currentQ = null;
   G.revealed = false;
   G.rushMode = payload?.rushMode || 'speed';
+  // 本題失格(上一輪已搶、答錯/答不出)→ 不跟著倒數,直接顯示醒目失格說明,
+  // 讓人一看就懂「這輪換別組」,不會盯著灰按鈕以為當機。這輪當觀眾,
+  // 等 rush_winner / reveal 事件切走。server 也會擋掉他們的 buzz。
+  if (iAmBuzzLockedOut()) { showBuzzLockout(); return; }
   document.getElementById('q-body').style.display = 'none';
   const wait = document.getElementById('q-wait');
   wait.style.display = 'flex';
@@ -3412,7 +3472,9 @@ PartyBus.on('rush_winner', payload => {
   setShow('qw-allhands-panel', false);
   setShow('qw-reveal', false);
   setShow('qw-catgrid', false);
+  setShow('qw-lockout', false);   // 搶答結果出來 → 收掉失格說明卡,失格組也看得到誰搶到
   setShow('qw-hint', false);
+  _clearBuzzDq();                 // 復原搶答鈕失格樣式(結果頁不再顯示大紅鈕失格態)
   // 結果頁
   const resultEl = document.getElementById('qw-result');
   if (!resultEl) return;
@@ -3637,6 +3699,7 @@ PartyBus.on('game_restart', () => {
   G.revealed = false;
   G.currentQ = null;
   G.buzzed = false;
+  G._buzzLockout = [];   // 重新開始:清失格名單
   G._gameStarted = false;
   // 重新開放組名編輯(因為遊戲還沒按開始)
   G.canRenameTeam = true;
