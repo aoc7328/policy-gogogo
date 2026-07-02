@@ -80,8 +80,8 @@ ws.addEventListener('message', (event) => {
       const p = frame.payload || {};
       if (p.role !== 'assistant') fail(`welcome.role expected 'assistant', got ${p.role}`);
       if (p.roomId !== ROOM) fail(`welcome.roomId expected '${ROOM}', got '${p.roomId}'`);
-      if (typeof p.controlCode !== 'string' || p.controlCode.length !== 6) {
-        fail(`welcome.controlCode should be 6-char string, got ${JSON.stringify(p.controlCode)}`);
+      if (typeof p.controlCode !== 'string' || p.controlCode.length !== 4) {
+        fail(`welcome.controlCode should be 4-char string, got ${JSON.stringify(p.controlCode)}`);
       }
       if (typeof p.serverTime !== 'number') {
         fail(`welcome.serverTime should be number, got ${typeof p.serverTime}`);

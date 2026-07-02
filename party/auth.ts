@@ -1,22 +1,28 @@
 /**
  * auth.ts — controlCode generation and verification.
  *
- * The controlCode is a 6-character alphanumeric token that the server
+ * The controlCode is a 4-character letters-only token that the server
  * generates when a room first materializes. It is sent privately to the
  * first assistant connection via __welcome__ and must accompany every
  * privileged command thereafter (see PRIVILEGED_COMMAND_TYPES).
  *
+ * Letters only (no digits): activity organizers found '0' vs 'O' hard to
+ * tell apart on the projector under time pressure; dropping digits removes
+ * the ambiguity entirely.
+ *
  * Threat model: low. This guards against "another assistant page in the
  * same browser session accidentally hijacking the room", not against a
- * determined adversary. 36^6 ≈ 2.2 billion is enough deterrence for a
+ * determined adversary. 26^4 ≈ 457k is enough deterrence for a
  * single-session insurance training game.
  */
 
-const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-const ALPHABET_LEN = ALPHABET.length;          // 36
-const REJECTION_CEILING = ALPHABET_LEN * 7;     // 252; bytes ≥ this are biased, drop
+const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const ALPHABET_LEN = ALPHABET.length;          // 26
+// Largest multiple of 26 that fits in a byte (26*9=234); bytes ≥ this are
+// biased toward the low letters, so we reject-sample them out.
+const REJECTION_CEILING = ALPHABET_LEN * 9;     // 234
 
-export function generateControlCode(length = 6): string {
+export function generateControlCode(length = 4): string {
   // Workers expose `crypto.getRandomValues` globally. Allocate 2× to
   // handle rejection sampling without a refill loop in the common case.
   const bytes = new Uint8Array(length * 2);
