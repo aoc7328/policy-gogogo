@@ -53,8 +53,16 @@ export interface GameConfig {
    * 答題倒數各題型預設秒數(進場前設、遊戲中鎖)。0 = 該題型不計時。
    * 純前端使用(助理依此決定每題的 set_timer 秒數);放進 config 是為了
    * 讓多助理/重連端共用同一份預設,避免不同助理各送不同秒數打架。
+   * server 不解析內容,整份 config 透傳/快照;欄位皆 optional,相容
+   * 改版前只帶 {calculation, essay, other} 的舊存檔。
    */
-  timerDefaults?: { calculation: number; essay: number; other: number };
+  timerDefaults?: {
+    word_game?: number;
+    multiple_choice?: number;
+    short_answer?: number;
+    calculation?: number;
+    essay?: number;
+  };
   /**
    * 一字千金 (word_game) per-game cap for non-custom modes.
    * null / undefined = unlimited (legacy behavior); 0 = never pick;

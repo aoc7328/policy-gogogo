@@ -915,10 +915,12 @@ input::placeholder{color:var(--ink-3)}
         </div>
         <div class="fld" style="margin-top:10px">
           <span class="flbl">答題倒數預設(秒;進入遊戲後鎖定,題目內可微調。0 = 該題型不計時)</span>
-          <div class="setup-row" style="grid-template-columns:1fr 1fr 1fr;margin-top:4px">
-            <div class="fld"><span class="flbl">計算題</span><input type="number" id="i-timer-calc" value="120" min="0" max="600"></div>
-            <div class="fld"><span class="flbl">申論題</span><input type="number" id="i-timer-essay" value="60" min="0" max="600"></div>
-            <div class="fld"><span class="flbl">簡答/選擇/一字千金</span><input type="number" id="i-timer-other" value="30" min="0" max="600"></div>
+          <div class="setup-row" style="grid-template-columns:repeat(auto-fit,minmax(86px,1fr));margin-top:4px">
+            <div class="fld"><span class="flbl">一字千金</span><input type="number" id="i-timer-word" value="10" min="0" max="600"></div>
+            <div class="fld"><span class="flbl">選擇題</span><input type="number" id="i-timer-mc" value="20" min="0" max="600"></div>
+            <div class="fld"><span class="flbl">簡答題</span><input type="number" id="i-timer-short" value="30" min="0" max="600"></div>
+            <div class="fld"><span class="flbl">計算題</span><input type="number" id="i-timer-calc" value="60" min="0" max="600"></div>
+            <div class="fld"><span class="flbl">申論題</span><input type="number" id="i-timer-essay" value="180" min="0" max="600"></div>
           </div>
         </div>
       </div>
@@ -1231,8 +1233,8 @@ const S={
   groupingMode:'random',
   // 組長表 { 組名: 組長名 },由 server group_leaders 廣播填入。
   leaders:{},
-  // 答題倒數:各題型預設秒數(進場前設、遊戲中鎖)。題目出現時依題型自動起算。
-  timerDefaults:{ calculation:120, essay:60, other:30 },
+  // 答題倒數:五種題型各自預設秒數(進場前設、遊戲中鎖)。題目出現時依題型自動起算。
+  timerDefaults:{ word_game:10, multiple_choice:20, short_answer:30, calculation:60, essay:180 },
   _curTimerDefault:0,   // 當前題目該題型的預設秒數(供「重新計時」用)
   _timerRemain:0,       // 當前倒數剩餘秒(供 +10/-10 計算)
   // 當前題目分類(F1~F9,助理九宮格選擇)
@@ -2494,34 +2496,37 @@ function setGroupingMode(el) {
    - 各題型預設秒數(進場前在設定頁設、遊戲中鎖)。題目出現時依題型自動起算。
    - 遊戲中可用「關閉 / −10 / +10 / 重新計時」微調。
    - server 是計時權威(記 deadline + 廣播),本機只送 set_timer 命令。 */
+/* 五種題型各自的答題倒數預設(秒)。0 = 該題型不計時。 */
+const TIMER_DEFAULTS = { word_game: 10, multiple_choice: 20, short_answer: 30, calculation: 60, essay: 180 };
+const TIMER_INPUT_IDS = {
+  word_game: 'i-timer-word', multiple_choice: 'i-timer-mc', short_answer: 'i-timer-short',
+  calculation: 'i-timer-calc', essay: 'i-timer-essay',
+};
 function readTimerDefaults() {
   const num = (id, d) => { const v = parseInt(document.getElementById(id)?.value, 10); return Number.isFinite(v) && v >= 0 ? v : d; };
-  S.timerDefaults = {
-    calculation: num('i-timer-calc', 120),
-    essay:       num('i-timer-essay', 60),
-    other:       num('i-timer-other', 30),
-  };
+  S.timerDefaults = {};
+  for (const [type, id] of Object.entries(TIMER_INPUT_IDS)) {
+    S.timerDefaults[type] = num(id, TIMER_DEFAULTS[type]);
+  }
 }
 function timerDefaultForType(type) {
-  const d = S.timerDefaults || {};
-  if (type === 'calculation') return d.calculation ?? 120;
-  if (type === 'essay')       return d.essay ?? 60;
-  return d.other ?? 30;   // short_answer / multiple_choice / word_game
+  const v = (S.timerDefaults || {})[type];
+  return Number.isFinite(v) ? v : (TIMER_DEFAULTS[type] ?? 30);
 }
 /* 從 game_start config / snapshot 套用倒數預設(多助理/重連端共用):
-   存進 S、反映到三個輸入、並鎖定(遊戲已開始)。 */
+   存進 S、反映到五個輸入、並鎖定(遊戲已開始)。缺欄位用預設補
+   (相容改版前只帶三欄位的舊 config)。 */
 function applyTimerDefaultsFromConfig(td) {
   if (td && typeof td === 'object') {
-    S.timerDefaults = {
-      calculation: Number.isFinite(td.calculation) ? td.calculation : 120,
-      essay:       Number.isFinite(td.essay) ? td.essay : 60,
-      other:       Number.isFinite(td.other) ? td.other : 30,
-    };
+    S.timerDefaults = {};
+    for (const type of Object.keys(TIMER_DEFAULTS)) {
+      S.timerDefaults[type] = Number.isFinite(td[type]) ? td[type] : TIMER_DEFAULTS[type];
+    }
   }
-  const set = (id, v) => { const el = document.getElementById(id); if (el) { el.value = String(v); el.disabled = true; } };
-  set('i-timer-calc',  S.timerDefaults.calculation);
-  set('i-timer-essay', S.timerDefaults.essay);
-  set('i-timer-other', S.timerDefaults.other);
+  for (const [type, id] of Object.entries(TIMER_INPUT_IDS)) {
+    const el = document.getElementById(id);
+    if (el) { el.value = String(S.timerDefaults[type]); el.disabled = true; }
+  }
 }
 /* 題目出現:依題型預設秒數起算(0=該題型不計時) */
 function startQuestionTimer() {
@@ -2885,7 +2890,7 @@ function startGame(){
   if (inN) inN.disabled = true;
   // 答題倒數預設:開賽快照 + 鎖定三個輸入(遊戲中不可改;題目內可微調)
   if (typeof readTimerDefaults === 'function') readTimerDefaults();
-  ['i-timer-calc','i-timer-essay','i-timer-other'].forEach(id => {
+  ['i-timer-word','i-timer-mc','i-timer-short','i-timer-calc','i-timer-essay'].forEach(id => {
     const el = document.getElementById(id); if (el) el.disabled = true;
   });
   // 進入 idle 狀態(等助理按開始搶答)
@@ -3469,7 +3474,7 @@ function _doEndImpl(){
   // 並重新啟用「分幾組」輸入框,讓工作人員能直接回設定頁改分組重來。
   const inN = document.getElementById('i-n');
   if (inN) inN.disabled = false;
-  ['i-timer-calc','i-timer-essay','i-timer-other'].forEach(id => {
+  ['i-timer-word','i-timer-mc','i-timer-short','i-timer-calc','i-timer-essay'].forEach(id => {
     const el = document.getElementById(id); if (el) el.disabled = false;
   });
   applyTabLock();
@@ -3502,7 +3507,7 @@ function _doRestartImpl(emit){
   const inN = document.getElementById('i-n');
   if (inN) inN.disabled = false;
   // 解鎖答題倒數預設輸入
-  ['i-timer-calc','i-timer-essay','i-timer-other'].forEach(id => {
+  ['i-timer-word','i-timer-mc','i-timer-short','i-timer-calc','i-timer-essay'].forEach(id => {
     const el = document.getElementById(id); if (el) el.disabled = false;
   });
   S.usedIds = new Set();
