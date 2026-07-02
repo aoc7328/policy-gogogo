@@ -1042,7 +1042,7 @@ body.tm-paradise .opt{border-radius:0 12px 12px 0;border-left:3px solid var(--se
 <body>
 
 <!-- ═══════ 主持人登入入口（永久存在；Demo bar 之外） ═══════ -->
-<button id="host-login-btn" class="host-login-btn" onclick="openHostModal()" aria-label="主持人登入" title="主持人登入">
+<button id="host-login-btn" class="host-login-btn" onclick="openHostModal()" aria-label="投影或助理登入" title="投影或助理登入">
   <svg class="hl-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
     <circle cx="12" cy="8" r="4"/>
     <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/>
@@ -1054,11 +1054,11 @@ body.tm-paradise .opt{border-radius:0 12px 12px 0;border-left:3px solid var(--se
   <div class="hm-backdrop" onclick="closeHostModal()"></div>
   <div class="hm-card">
     <div class="hm-header">
-      <div class="hm-title">主持人登入</div>
+      <div class="hm-title">投影或助理登入</div>
       <button class="hm-close" onclick="closeHostModal()" aria-label="關閉">×</button>
     </div>
     <div class="hm-body">
-      <div class="hm-hint">請輸入助理提供的 6 位控制碼</div>
+      <div class="hm-hint">請輸入投影端或助理端的 6 位控制碼<br>系統會依控制碼帶你進入對應介面</div>
       <input type="text" id="hm-input" class="hm-input" maxlength="6"
              placeholder="——————" autocomplete="off" autocapitalize="characters"
              oninput="this.value=this.value.toUpperCase()"
@@ -1518,24 +1518,36 @@ function submitHostLogin() {
   status.textContent = '';
   status.className = 'hm-status';
   _claimingNow = true;
-  // 把碼存起來,等 presenter_claimed 廣播時把它附在 navigate 的 query 上
+  // 統一登入:server 依碼回私訊 __staff_route__ 告知進投影端還是助理端。
+  // 把碼存起來,投影端路由時附在 presenter.html 的 query 上(特權簽章用)。
   G._pendingPresenterCode = code;
-  PartyBus.emit('claim_presenter', { code });
+  PartyBus.emit('staff_login', { code });
 }
+
+/* server 依控制碼回覆路由(私訊,只有登入者收到)→ 導向對應介面 */
+PartyBus.on('__staff_route__', payload => {
+  if (!_claimingNow) return;
+  _claimingNow = false;
+  const typed = G._pendingPresenterCode;
+  G._pendingPresenterCode = null;
+  const room = encodeURIComponent(PGG_ROOM_CODE);
+  const host = encodeURIComponent(PGG_PARTY_HOST);
+  if (payload?.dest === 'assistant') {
+    // 助理介面:連上後自己會拿 controlCode(__welcome__),URL 不必帶碼
+    window.location.href = `assistant.html?room=${room}&host=${host}`;
+  } else {
+    const cc = encodeURIComponent(payload?.controlCode || typed || '');
+    window.location.href = `presenter.html?room=${room}&host=${host}&controlCode=${cc}`;
+  }
+});
 
 /* server 廣播 → 所有 participant 都收到。本機如果是 _claimingNow 那就是
    自己 claim 成功了 → navigate 到 presenter.html;其他人就只是把按鈕
    變灰(setPresenterClaimedUI)。 */
+/* 有人登入成投影端 → 標記「已有主持機」(純資訊,不鎖按鈕:助理仍可隨時登入)。
+   實際導向由上方 __staff_route__ 私訊處理,不在這支廣播裡 navigate。 */
 PartyBus.on('presenter_claimed', () => {
   setPresenterClaimedUI();
-  if (_claimingNow && G._pendingPresenterCode) {
-    const code = G._pendingPresenterCode;
-    G._pendingPresenterCode = null;
-    _claimingNow = false;
-    // 同分頁 navigate 走,不開新分頁(投影機那臺電腦本來就要變主持人介面)
-    const url = `presenter.html?room=${encodeURIComponent(PGG_ROOM_CODE)}&host=${encodeURIComponent(PGG_PARTY_HOST)}&controlCode=${encodeURIComponent(code)}`;
-    window.location.href = url;
-  }
 });
 
 /* 本機送 claim 後若 server 回 __error__,_claimingNow 還沒清 → 在 modal

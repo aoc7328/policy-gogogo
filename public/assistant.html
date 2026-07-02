@@ -757,7 +757,7 @@ input::placeholder{color:var(--ink-3)}
     </div>
 
     <div class="room-block">
-      <div class="sec-label">主持人控制碼</div>
+      <div class="sec-label">投影端控制碼</div>
       <div class="code-row">
         <div class="code-fld">
           <span class="flbl">控制碼</span>
@@ -766,9 +766,22 @@ input::placeholder{color:var(--ink-3)}
             <button class="copy-btn" id="btn-copy-host" onclick="copyCode('host')">複製</button>
           </div>
         </div>
-        <button class="regen-btn" onclick="regenHost()">重新生成</button>
       </div>
-      <p class="hint">參賽者點選右上角「主持人登錄」並輸入此控制碼,介面即轉為主持人介面。重新生成不影響已在場的主持人。</p>
+      <p class="hint">投影機那台電腦:開參賽者網址 → 右下角「投影或助理登入」→ 輸入此碼,即轉為投影端(主持人)畫面。</p>
+    </div>
+
+    <div class="room-block">
+      <div class="sec-label">助理端控制碼</div>
+      <div class="code-row">
+        <div class="code-fld">
+          <span class="flbl">控制碼</span>
+          <div class="code-display">
+            <span class="code-value" id="asst-code">—</span>
+            <button class="copy-btn" id="btn-copy-asst" onclick="copyCode('asst')">複製</button>
+          </div>
+        </div>
+      </div>
+      <p class="hint">第二、三位助理:開參賽者網址 → 右下角「投影或助理登入」→ 輸入此碼,即轉為助理介面。投影人員只給投影碼,就進不了計分控制,避免誤操作。</p>
     </div>
 
     <div class="room-block">
@@ -1203,7 +1216,7 @@ try { localStorage.setItem('pgg_last_room', PGG_ROOM_CODE); } catch {}
 const S={
   mode:null,totalQ:20,spq:5,groups:[],currQ:0,
   pendingIdx:null,selectedIdx:null,
-  roomCode:null,hostCode:null,log:[],
+  roomCode:null,hostCode:null,asstCode:null,log:[],
   // 自由模式次選項(預設只勾簡單 + 選擇題)
   customTiers:['easy'],
   customTypes:['multiple_choice'],
@@ -1316,6 +1329,11 @@ PartyBus.on('__welcome__', payload => {
     S.hostCode = payload.controlCode;
     const el = document.getElementById('host-code');
     if (el) el.textContent = S.hostCode;
+  }
+  if (payload && typeof payload === 'object' && payload.assistantCode) {
+    S.asstCode = payload.assistantCode;
+    const el = document.getElementById('asst-code');
+    if (el) el.textContent = S.asstCode;
   }
   // 助理連上線後立刻把當前「分幾組」推給 server,作為這場 lobby 的權威值。
   // server 端 onPlayerJoin 有 lazy-init fallback(2 組)應付 testbed 同時連線
@@ -2257,14 +2275,18 @@ function initCodes(){
   // server 比對真碼 → 永遠跳「控制碼錯誤」。改成顯示「讀取中…」,等
   // welcome handler 從 server 拿到真碼才填上去。
   S.hostCode=null;
+  S.asstCode=null;
   document.getElementById('room-code').textContent=S.roomCode;
   document.getElementById('host-code').textContent='讀取中…';
+  const asstEl=document.getElementById('asst-code');
+  if (asstEl) asstEl.textContent='讀取中…';
 }
 
 function copyCode(which){
-  const text=which==='room'?S.roomCode:S.hostCode;
-  const btn=document.getElementById(which==='room'?'btn-copy-room':'btn-copy-host');
-  // hostCode 在 server welcome 抵達前是 null,不要去複製 'null' 字串
+  const text = which==='room' ? S.roomCode : which==='asst' ? S.asstCode : S.hostCode;
+  const btn = document.getElementById(
+    which==='room' ? 'btn-copy-room' : which==='asst' ? 'btn-copy-asst' : 'btn-copy-host');
+  // 碼在 server welcome 抵達前是 null,不要去複製 'null' 字串
   if (!text) return;
   navigator.clipboard.writeText(text).then(()=>{
     if(!btn)return;
@@ -2343,10 +2365,9 @@ function regenRoom(){
   window.location.search = '?' + qs.toString();
 }
 
-function regenHost(){
-  S.hostCode=genCode(6,true);
-  document.getElementById('host-code').textContent=S.hostCode;
-}
+/* 註:兩組控制碼由 server 於建房時產生並持久化,不提供 client 端重新生成
+   (舊 regenHost 只改本機顯示、不同步 server,會造成登入碼對不上)。
+   要換碼請用「重新生成房號」開新房 = 全新的一組碼。 */
 
 /* ===== 進退場紀錄 ===== */
 function addLog(name,action,type,group){

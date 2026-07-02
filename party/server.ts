@@ -80,7 +80,8 @@ export default class PolicyGogogoServer implements Party.Server {
   state: RoomState;
 
   constructor(readonly room: Party.Room) {
-    this.state = createInitialState(room.id, generateControlCode());
+    // 兩組獨立控制碼:controlCode = 投影端(+特權簽章);assistantCode = 助理端登入路由
+    this.state = createInitialState(room.id, generateControlCode(), generateControlCode());
   }
 
   // ────────────────────────────────────────────────────────────
@@ -178,6 +179,7 @@ export default class PolicyGogogoServer implements Party.Server {
         role,
         roomId: this.state.roomId,
         controlCode: role === 'assistant' ? this.state.controlCode : undefined,
+        assistantCode: role === 'assistant' ? this.state.assistantCode : undefined,
         serverTime: Date.now(),
       },
     });
@@ -288,6 +290,8 @@ export default class PolicyGogogoServer implements Party.Server {
         return this.onRedrawQuestion(sender);
       case 'claim_presenter':
         return this.onClaimPresenter(cmd.payload, sender);
+      case 'staff_login':
+        return this.onStaffLogin(cmd.payload, sender);
       case 'mode_preview':
         return this.broadcast({ type: 'mode_preview', payload: cmd.payload });
       case 'custom_tiers_changed':
@@ -666,6 +670,38 @@ export default class PolicyGogogoServer implements Party.Server {
       type: 'presenter_claimed',
       payload: { at: Date.now() },
     });
+  }
+
+  /**
+   * 統一工作人員登入:依輸入的碼路由到投影端或助理端。
+   * - 投影碼(controlCode)→ 私訊 dest=presenter + controlCode(presenter.html 特權簽章用),
+   *   並沿用 presenter_claimed 廣播(讓其他端知道已有主持機)。
+   * - 助理碼(assistantCode)→ 私訊 dest=assistant(助理介面連上後自己會拿 controlCode)。
+   * - 都不符 → bad_code。
+   */
+  private onStaffLogin(
+    payload: { code: string },
+    sender: Party.Connection<ConnState>
+  ): void {
+    const code = (payload?.code || '').trim().toUpperCase();
+    if (!code) {
+      this.sendError(sender, 'bad_payload', '請輸入控制碼');
+      return;
+    }
+    if (code === this.state.controlCode) {
+      this.state.presenterClaimed = true;
+      this.broadcast({ type: 'presenter_claimed', payload: { at: Date.now() } });
+      this.send(sender, {
+        type: '__staff_route__',
+        payload: { dest: 'presenter', controlCode: this.state.controlCode },
+      });
+      return;
+    }
+    if (code === this.state.assistantCode) {
+      this.send(sender, { type: '__staff_route__', payload: { dest: 'assistant' } });
+      return;
+    }
+    this.sendError(sender, 'bad_code', '控制碼錯誤,請向助理確認');
   }
 
   private onRedrawQuestion(sender: Party.Connection<ConnState>): void {

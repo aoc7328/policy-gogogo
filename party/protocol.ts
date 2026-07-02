@@ -294,6 +294,18 @@ export type ClaimPresenterCommand = {
   payload: { code: string };
 };
 
+/**
+ * 統一的工作人員登入(參賽者端「投影或助理登入」)。輸入的 code 決定路由:
+ *   code === controlCode   → 投影端(presenter.html)
+ *   code === assistantCode → 助理端(assistant.html)
+ * 伺服器以私訊 __staff_route__ 回覆目的地(見 StaffRouteEvent)。
+ * 非特權指令:code 本身就是憑證(同 claim_presenter 的設計)。
+ */
+export type StaffLoginCommand = {
+  type: 'staff_login';
+  payload: { code: string };
+};
+
 export type ClientCommand =
   | PingCommand
   | GameStartCommand
@@ -325,7 +337,8 @@ export type ClientCommand =
   | SetTimerCommand
   | RebuzzSameCommand
   | ResumeQuestionCommand
-  | ClaimPresenterCommand;
+  | ClaimPresenterCommand
+  | StaffLoginCommand;
 
 // ──────────────────────────────────────────────────────────────────────
 // ServerEvent variants (server → client)
@@ -340,7 +353,8 @@ export type WelcomeEvent = {
   payload: {
     role: ConnectionRole;
     roomId: string;
-    controlCode?: string;       // present only when sent to assistant
+    controlCode?: string;       // present only when sent to assistant (投影端控制碼)
+    assistantCode?: string;     // present only when sent to assistant (助理端控制碼,房間分頁顯示)
     serverTime: number;
   };
 };
@@ -418,6 +432,15 @@ export type KickedEvent = {
 export type PongEvent = {
   type: '__pong__';
   payload: { t: number };
+};
+
+/**
+ * 私訊回覆 staff_login:告訴發送端該導向哪個介面。
+ * dest='presenter' 時附 controlCode(presenter.html 特權指令簽章用)。
+ */
+export type StaffRouteEvent = {
+  type: '__staff_route__';
+  payload: { dest: 'presenter' | 'assistant'; controlCode?: string };
 };
 
 // Public broadcasts (match EVENTS.md verb-for-verb).
@@ -702,6 +725,7 @@ export type ServerEvent =
   | ErrorEvent
   | KickedEvent
   | PongEvent
+  | StaffRouteEvent
   | GameStartEvent
   | ModePreviewEvent
   | CustomTiersChangedEvent

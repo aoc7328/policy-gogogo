@@ -104,7 +104,8 @@ export interface ParticipantRef {
 
 export interface RoomState {
   roomId: string;
-  controlCode: string;
+  controlCode: string;      // 投影端控制碼:presenter 登入 + 特權指令簽章(沿用舊名)
+  assistantCode: string;    // 助理端控制碼:參賽者端輸入此碼 → 路由到助理介面
   createdAt: number;
 
   phase: Phase;
@@ -169,10 +170,15 @@ export interface RoomState {
 // Factory
 // ──────────────────────────────────────────────────────────────────────
 
-export function createInitialState(roomId: string, controlCode: string): RoomState {
+export function createInitialState(
+  roomId: string,
+  controlCode: string,
+  assistantCode: string
+): RoomState {
   return {
     roomId,
     controlCode,
+    assistantCode,
     createdAt: Date.now(),
     phase: 'lobby',
     game: null,
@@ -245,7 +251,7 @@ export function restartGame(state: RoomState): void {
   // (presenter 是房層設施,不會因為按了「重新開始」就解鎖 → 必須帶過來)。
   // groupingMode 也保留 — 重新開始通常還是同一場活動的同一種分組方式。
   const prevGroupingMode = state.groupingMode;
-  const fresh = createInitialState(state.roomId, state.controlCode);
+  const fresh = createInitialState(state.roomId, state.controlCode, state.assistantCode);
   Object.assign(state, fresh, {
     participants: state.participants,
     presenterClaimed: state.presenterClaimed,
@@ -637,6 +643,7 @@ export interface PersistedState {
   savedAt: number;
   roomId: string;
   controlCode: string;
+  assistantCode: string;
   createdAt: number;
   phase: Phase;
   game: GameConfig | null;
@@ -666,6 +673,7 @@ export function dehydrateState(state: RoomState): PersistedState {
     savedAt: Date.now(),
     roomId: state.roomId,
     controlCode: state.controlCode,
+    assistantCode: state.assistantCode,
     createdAt: state.createdAt,
     phase: state.phase,
     game: state.game,
@@ -696,6 +704,8 @@ export function dehydrateState(state: RoomState): PersistedState {
 export function hydrateState(state: RoomState, saved: PersistedState): void {
   state.roomId = saved.roomId;
   state.controlCode = saved.controlCode;
+  // 舊存檔(此欄位加入前)沒有 assistantCode → 保留 createInitialState 剛產的那組
+  if (saved.assistantCode) state.assistantCode = saved.assistantCode;
   state.createdAt = saved.createdAt;
   state.phase = saved.phase === 'rushing' ? 'idle' : saved.phase;
   state.game = saved.game;
