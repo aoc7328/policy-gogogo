@@ -583,6 +583,37 @@ input::placeholder{color:var(--ink-3)}
 .rev-btn.pass{background:var(--err);color:#fff}.rev-btn.pass:hover{filter:brightness(1.12)}
 @media(max-width:520px){.rev-acts.show{grid-template-columns:repeat(2,1fr)}}
 
+/* ── 題目與答案檢視(主持人判定用,手機優先排版) ─────────── */
+.qa-page{max-width:640px;margin:0 auto;padding:4px 0 40px}
+.qav-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px}
+.qav-eyebrow{font-family:var(--font-mono);font-size:10px;letter-spacing:.26em;color:var(--accent);text-transform:uppercase}
+.qav-round{font-family:var(--font-mono);font-size:12px;color:var(--ink-2)}
+.qav-empty{padding:70px 20px;text-align:center;font-size:17px;color:var(--ink-3);line-height:2;border:1px dashed var(--line-s)}
+.qav-empty span{font-size:12px;color:var(--ink-4)}
+.qav-meta{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.qav-chip{font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;color:var(--ink-2);border:1px solid var(--line-s);padding:3px 9px;text-transform:uppercase}
+.qav-chip.hi{color:var(--accent);border-color:var(--accent-l);background:var(--accent-s)}
+.qav-stem{font-family:var(--font-serif);font-size:19px;font-weight:700;line-height:1.75;color:var(--ink-1);margin-bottom:16px}
+.qav-sec{margin-bottom:14px}
+.qav-sec-lbl{font-family:var(--font-mono);font-size:10px;letter-spacing:.22em;color:var(--accent);text-transform:uppercase;margin-bottom:6px}
+.qav-opt{font-size:15px;line-height:1.7;color:var(--ink-2);padding:9px 12px;background:var(--bg-deep);border:1px solid var(--line);border-left-width:3px;margin-bottom:6px}
+.qav-opt.correct{border-left-color:var(--ok);background:rgba(110,196,122,.08);color:var(--ink-1);font-weight:500}
+.qav-opt .ol{font-family:var(--font-mono);font-weight:700;color:var(--accent);margin-right:8px}
+.qav-ansmain{font-size:18px;font-weight:700;line-height:1.7;color:var(--ok)}
+.qav-points{list-style:none;margin:0;padding:0}
+.qav-points li{position:relative;padding-left:18px;font-size:15px;line-height:1.75;color:var(--ink-1);margin-bottom:6px}
+.qav-points li::before{content:'·';position:absolute;left:3px;color:var(--accent);font-weight:700}
+.qav-model{font-size:14px;line-height:1.9;color:var(--ink-2)}
+.qav-model p{margin-bottom:10px}
+.qav-model p:last-child{margin-bottom:0}
+.qav-model strong{color:var(--accent);font-weight:700}
+.qav-given{font-size:14px;line-height:1.8;color:var(--ink-1);padding:10px 14px;background:var(--bg-deep);border-left:2px solid var(--accent-l)}
+.qav-steps{list-style:none;counter-reset:qavStep;margin:0;padding:0}
+.qav-steps li{counter-increment:qavStep;position:relative;padding-left:34px;font-family:var(--font-mono);font-size:14px;line-height:1.8;color:var(--ink-1);margin-bottom:6px}
+.qav-steps li::before{content:counter(qavStep,decimal-leading-zero);position:absolute;left:0;top:2px;font-size:11px;color:var(--accent)}
+.qav-word{font-family:var(--font-serif);font-size:56px;font-weight:900;color:var(--ink-1);text-align:center;margin:8px 0 14px}
+.qav-foot{margin-top:22px;padding-top:12px;border-top:1px solid var(--line);font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;line-height:1.8;color:var(--ink-3)}
+
 /* 長條圖排行 */
 .ranking{margin-top:12px;padding:18px 20px;background:var(--bg-surface);border:1px solid var(--line)}
 
@@ -704,6 +735,7 @@ input::placeholder{color:var(--ink-3)}
     <button class="tab-btn" id="tb-setup" onclick="sw('setup')">設定</button>
     <button class="tab-btn" id="tb-group" onclick="sw('group')">分組表</button>
     <button class="tab-btn disabled" id="tb-score" onclick="sw('score')">計分表</button>
+    <button class="tab-btn" id="tb-qa" onclick="sw('qa')">題目</button>
     <button class="tab-btn" id="tb-bank" onclick="sw('bank')">題庫</button>
   </div>
 
@@ -1065,6 +1097,26 @@ input::placeholder{color:var(--ink-3)}
   </div>
 
   <!-- ===== BANK (題庫) ===== -->
+  <!-- ═══════ 題目與答案(主持人判定用) ═══════
+       抽題當下就同步顯示題目+完整答案(參賽者要等公佈才看得到)。
+       手機優先排版;第二位助理可獨立開 assistant.html#qa 全程掛在這頁。 -->
+  <div class="page" id="pg-qa">
+    <div class="qa-page">
+      <div class="qav-head">
+        <span class="qav-eyebrow">Host View · 僅助理可見</span>
+        <span class="qav-round" id="qav-round">—</span>
+      </div>
+      <div id="qav-body">
+        <div class="qav-empty">等待抽題<br><span>抽到題目後,這裡會同步顯示題目與完整答案</span></div>
+      </div>
+      <div class="qav-foot">
+        參賽者要等「公佈答案」才看得到答案。判定流程:聽答題組口頭作答 →
+        對照本頁答案 → 答對回計分表給分(25% / 50% / 100%);答錯按「不計分」,
+        可再按「同一題重新搶答」讓其他組挑戰。
+      </div>
+    </div>
+  </div>
+
   <div class="page" id="pg-bank">
     <div class="bank-page">
 
@@ -1354,6 +1406,7 @@ function hydrateFromSnapshot(snap){
     S.currentDifficulty = null;
     S.currentFramework = null;
   }
+  if (typeof renderQaView === 'function') renderQaView();
   // 同步輸入框 + 計數器
   const iq = document.getElementById('i-q'); if (iq) iq.value = S.totalQ;
   const is = document.getElementById('i-s'); if (is) is.value = S.spq;
@@ -1416,6 +1469,12 @@ document.addEventListener('visibilitychange', () => {
 });
 _requestWakeLock();
 window.addEventListener('pointerdown', () => _requestWakeLock());
+
+/* ── #qa 深連結:第二位助理(主持人)開 assistant.html#qa 直接進
+   「題目」分頁,全程看題目與答案,不用手動切換。 ── */
+if (window.location.hash === '#qa') {
+  sw('qa');
+}
 PartyBus.on('ping', p => {
   console.log(`[PGG] PING from ${p.from} @ ${p.t}: ${p.msg}`);
 });
@@ -1576,6 +1635,9 @@ PartyBus.on('player_leave', payload => {
 
 /* server 廣播 start_rush(也包括 random 模式 reveal 結束後的 start_rush) */
 PartyBus.on('start_rush', payload => {
+  // 揭曉後重新搶答:別的助理觸發時,本機可能還亮著計分列 → 收掉
+  document.getElementById('rev-acts')?.classList.remove('show');
+  S.pendingIdx = null;
   S.rushModeActual = payload?.rushMode || S.rushMode;
   S.rushSession = {
     mode: S.rushModeActual,
@@ -1713,7 +1775,73 @@ PartyBus.on('question_pick', payload => {
   setStatus(isPurgatory
     ? `命運降臨 · 抽到煉獄題 · ${payload.id}`
     : `抽到 ${payload.id}`);
+  // 「題目」分頁同步更新(主持人判定用:抽題當下就看得到題目+答案)
+  renderQaView();
 });
+
+/* ════════════════════════════════════════════════════════════════════
+   題目與答案檢視(pg-qa):主持人判定用
+   - 抽題當下同步顯示題目 + 完整答案(參賽者要等公佈才看得到)
+   - 手機優先排版;第二位助理開 assistant.html#qa 全程掛在這頁
+   ════════════════════════════════════════════════════════════════════ */
+const QA_TYPE_LABELS = {
+  multiple_choice: '選擇題', short_answer: '簡答題', essay: '申論題',
+  calculation: '計算題', word_game: '一字千金',
+};
+function renderQaView() {
+  const body = document.getElementById('qav-body');
+  if (!body) return;
+  const roundEl = document.getElementById('qav-round');
+  if (roundEl) roundEl.textContent = S.currQ > 0 ? `第 ${S.currQ} / ${S.totalQ} 題` : '—';
+  const q = S.currentQuestion;
+  if (!q) {
+    body.innerHTML = '<div class="qav-empty">等待抽題<br><span>抽到題目後,這裡會同步顯示題目與完整答案</span></div>';
+    return;
+  }
+  const dSpec = BANK_SCHEMA.difficulties.find(d => d.id === S.currentDifficulty);
+  const fw = [...BANK_SCHEMA.frameworksA, ...BANK_SCHEMA.frameworksB]
+    .find(f => f.id === S.currentFramework || f.label === S.currentFramework || f.shortId === S.currentFramework);
+  let h = `<div class="qav-meta">
+    <span class="qav-chip hi">${q.id || ''}</span>
+    <span class="qav-chip">${dSpec?.label || S.currentDifficulty || ''}</span>
+    ${fw ? `<span class="qav-chip">${fw.shortId} ${fw.label}</span>` : ''}
+    <span class="qav-chip">${QA_TYPE_LABELS[q.type] || q.type || ''}</span>
+  </div>`;
+
+  if (q.type === 'word_game') {
+    h += `<div class="qav-stem">請選出正確讀音</div><div class="qav-word">${q.word || ''}</div>`;
+    const opts = Array.isArray(q.options) ? q.options : [];
+    h += `<div class="qav-sec"><div class="qav-sec-lbl">選項</div>${opts.map((p, i) =>
+      `<div class="qav-opt ${p === q.correct ? 'correct' : ''}"><span class="ol">${['A','B','C','D'][i]}</span>${p}</div>`).join('')}</div>`;
+    h += `<div class="qav-sec"><div class="qav-sec-lbl">正確答案</div><div class="qav-ansmain">${q.correct || ''}</div></div>`;
+    const meaning = q.meaning || q.context_phrase || '';
+    if (meaning) h += `<div class="qav-sec"><div class="qav-sec-lbl">字義</div><div class="qav-model"><p>${meaning}</p></div></div>`;
+  } else {
+    h += `<div class="qav-stem">${q.question || ''}</div>`;
+  }
+
+  if (q.type === 'multiple_choice') {
+    h += `<div class="qav-sec"><div class="qav-sec-lbl">選項(綠色為正解)</div>${Object.entries(q.options || {}).map(([L, t]) =>
+      `<div class="qav-opt ${L === q.correct ? 'correct' : ''}"><span class="ol">${L}</span>${t}</div>`).join('')}</div>`;
+    if (q.explanation) h += `<div class="qav-sec"><div class="qav-sec-lbl">解題要點</div><div class="qav-model"><p>${q.explanation}</p></div></div>`;
+  } else if (q.type === 'short_answer') {
+    h += `<div class="qav-sec"><div class="qav-sec-lbl">參考答案</div><div class="qav-ansmain">${(q.answer || '').replace(/\n/g, '<br>')}</div></div>`;
+  } else if (q.type === 'essay') {
+    const kp = (q.key_points || []).map(p => `<li>${p}</li>`).join('');
+    if (kp) h += `<div class="qav-sec"><div class="qav-sec-lbl">評分要點(答到幾成給幾分)</div><ul class="qav-points">${kp}</ul></div>`;
+    const ma = (q.model_answer || '').split('\n\n').map(p =>
+      `<p>${p.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')}</p>`).join('');
+    if (ma) h += `<div class="qav-sec"><div class="qav-sec-lbl">參考範文</div><div class="qav-model">${ma}</div></div>`;
+  } else if (q.type === 'calculation') {
+    const given = (q.given && typeof q.given === 'object') ? Object.entries(q.given) : [];
+    if (given.length) h += `<div class="qav-sec"><div class="qav-sec-lbl">題目條件</div><div class="qav-given">${given.map(([k, v]) => `<div><strong>${k}:</strong>${v}</div>`).join('')}</div></div>`;
+    const steps = (q.steps || []).map(s => `<li>${s}</li>`).join('');
+    if (steps) h += `<div class="qav-sec"><div class="qav-sec-lbl">解題步驟</div><ol class="qav-steps">${steps}</ol></div>`;
+    h += `<div class="qav-sec"><div class="qav-sec-lbl">最終答案</div><div class="qav-ansmain">${q.answer || ''}${q.unit ? ' ' + q.unit : ''}</div></div>`;
+  }
+  body.innerHTML = h;
+}
+window.renderQaView = renderQaView;
 
 /* ════════════════════════════════════════════════════════════════════
    多助理協作鏡射 listener
@@ -1766,6 +1894,7 @@ PartyBus.on('game_start', cfg => {
   S.usedIds = new Set();
   S.askedQuestions = [];
   S.currentQuestion = null; S.currentDifficulty = null; S.currentFramework = null;
+  if (typeof renderQaView === 'function') renderQaView();
   const prevByName = new Map((S.groups || []).map(g => [g.name, Array.isArray(g.members) ? g.members : []]));
   S.groups = (cfg.groups || []).map((g, i) => ({
     id: `GROUP ${String(i + 1).padStart(2, '0')}`,
@@ -1844,6 +1973,7 @@ PartyBus.on('next_question', () => {
   resetCategoryPicker(false);
   renderScores();
   setPhase('idle');
+  renderQaView();
   setStatus('已進入下一題 · 按「開始搶答」開始下輪');
 });
 
@@ -1858,6 +1988,7 @@ PartyBus.on('skip_question', () => {
   resetCategoryPicker(false);
   renderScores();
   setPhase('idle');
+  renderQaView();
   setStatus('已跳過 · 按「開始搶答」開始下輪');
 });
 
@@ -2761,6 +2892,7 @@ function doStartRush() {
       : `當前 · ${RUSH_MODE_LABELS[S.rushMode] || S.rushMode}`;
   }
   setStatus(`已送出開始搶答指令 · ${RUSH_MODE_LABELS[S.rushMode] || S.rushMode}`);
+  renderQaView();
   PartyBus.emit('start_rush', { rerush: false });
 }
 
@@ -2779,9 +2911,14 @@ function doReRush() {
 /* 同一題重新搶答:保留當前題目,重新開放搶答(答題者答不出來時用)。
    不換題、不重抽。server 跑一輪 rush,winner 出來後回到同一題作答。 */
 function doRebuzzSame() {
-  if (S.phase !== 'answering') return;
+  // revealed 也可觸發(計分後才會解鎖按鈕):不計分 → 同一題給其他組重搶
+  if (S.phase !== 'answering' && S.phase !== 'revealed') return;
   _clearLocalRushUITimers();
   _stopTimerSafe();
+  // 從 revealed 觸發時,把可能殘留的計分列收掉、鎖回下一題
+  document.getElementById('rev-acts')?.classList.remove('show');
+  const next = document.getElementById('btn-next');
+  if (next) next.disabled = true;
   S._rebuzzPending = true;     // onRushWinner 看這個 → 回同一題,不進九宮格
   S.selectedIdx = null;
   S.pendingIdx = null;
@@ -2885,7 +3022,11 @@ function afterScore(){
   // 計分結束才把「下一題」打開(setPhase('revealed') 把它鎖死,避免漏記分)。
   const next = document.getElementById('btn-next');
   if (next) next.disabled = false;
-  setStatus('揭曉完成 · 按「下一題」繼續');
+  // 「同一題重新搶答」也一起開:答題組答錯不計分後,可讓其他組再挑戰
+  // 同一題(答案已公開,申論/計算題仍可比誰講得完整,用部分給分裁量)。
+  const rebuzz = document.getElementById('btn-rebuzz');
+  if (rebuzz) rebuzz.disabled = false;
+  setStatus('揭曉完成 · 按「下一題」繼續,或「同一題重新搶答」讓其他組挑戰');
 }
 
 function doNext(){
@@ -2904,6 +3045,7 @@ function doNext(){
   S.currentFramework = null;
   resetCategoryPicker(false);
   renderScores();
+  renderQaView();
   // 廣播給主持人:回待命頁
   PartyBus.emit('next_question', {});
   setPhase('idle');
@@ -2925,6 +3067,7 @@ function doSkip(){
   S.currentFramework=null;
   resetCategoryPicker(false);
   renderScores();
+  renderQaView();
   PartyBus.emit('skip_question', {});
   setPhase('idle');
   setStatus('已跳過 · 按「開始搶答」開始下輪');
@@ -2949,12 +3092,14 @@ function doRedraw(){
 function sw(t){
   const targetTab=document.getElementById(`tb-${t}`);
   if(targetTab?.classList.contains('disabled'))return;
-  ['room','setup','group','score','bank'].forEach(x=>{
+  ['room','setup','group','score','qa','bank'].forEach(x=>{
     document.getElementById(`pg-${x}`)?.classList.remove('active');
     document.getElementById(`tb-${x}`)?.classList.remove('active');
   });
   document.getElementById(`pg-${t}`)?.classList.add('active');
   document.getElementById(`tb-${t}`)?.classList.add('active');
+  // 題目與答案檢視:切進來就用當前狀態重畫一次(可能錯過事件)
+  if (t === 'qa' && typeof renderQaView === 'function') renderQaView();
 }
 
 /* 依當前 phase 決定哪些分頁可用、哪些鎖定
@@ -2978,6 +3123,8 @@ function applyTabLock() {
   });
   // 分組表:永遠開放
   document.getElementById('tb-group')?.classList.remove('disabled');
+  // 題目(主持人判定用):永遠開放 — 第二位助理全程掛在這個分頁看題目與答案
+  document.getElementById('tb-qa')?.classList.remove('disabled');
   // 計分表:遊戲已開始(含已結束)時開放;純未開始才鎖
   const tbScore = document.getElementById('tb-score');
   if (tbScore) tbScore.classList.toggle('disabled', !inSession);
@@ -3296,6 +3443,7 @@ function _doRestartImpl(emit){
   if (typeof renderGroups === 'function') renderGroups();
   if (typeof renderScores === 'function') renderScores();
   if (typeof updateCategoryGrid === 'function') updateCategoryGrid();
+  if (typeof renderQaView === 'function') renderQaView();
   document.getElementById('m-round').textContent = '01';
   document.getElementById('m-q').textContent = `0 / ${S.totalQ}`;
   document.getElementById('curr-q').textContent = '0';

@@ -916,8 +916,11 @@ export default class PolicyGogogoServer implements Party.Server {
 
   /** 同一題重新搶答:保留題目,重新開放搶答。 */
   private onRebuzzSame(sender: Party.Connection<ConnState>): void {
-    if (this.state.phase !== 'answering') {
-      this.sendError(sender, 'wrong_phase', '只有在答題階段才能「同一題重新搶答」');
+    // revealed 也放行:公佈答案後發現答題組答錯 → 不計分 → 讓其他組
+    // 再挑戰同一題(答案已公開,但申論/計算題仍可比誰講得完整,由助理
+    // 用部分給分裁量)。user-reported:原本揭曉後只剩「下一題」,流程卡死。
+    if (this.state.phase !== 'answering' && this.state.phase !== 'revealed') {
+      this.sendError(sender, 'wrong_phase', '只有在答題或已公佈答案階段才能「同一題重新搶答」');
       return;
     }
     if (!this.state.currentQuestion) {

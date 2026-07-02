@@ -3967,6 +3967,10 @@ PartyBus.on('buzz_lockout', payload => {
 PartyBus.on('resume_question', () => {
   const c = G.currentBankQ;
   if (!c) return;
+  // 復原 G.currentQ:start_rush 把它清成 null,不復原的話重新搶答後
+  // 第二次公佈答案會被 revealCurrentAnswer 的 !G.currentQ guard 擋掉,
+  // 參賽者手機看不到答案(既有 bug,揭曉後重搶流程放大了影響)。
+  G.currentQ = c.q;
   G.revealed = false;
   G.buzzed = false;
   document.getElementById('q-wait').style.display = 'none';
