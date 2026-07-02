@@ -628,6 +628,18 @@ input::placeholder{color:var(--ink-3)}
 .qav-lock-btn{font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;color:var(--ink-2);background:var(--bg-deep);border:1px solid var(--line-s);padding:6px 12px;cursor:pointer;transition:all 160ms;white-space:nowrap}
 .qav-lock-btn:hover{border-color:var(--accent-l);color:var(--accent)}
 .qav-lock-btn.on{background:var(--accent);border-color:var(--accent);color:var(--bg-void);font-weight:700}
+/* 主持人控場列:誰搶到答題權 + 各組即時分數 */
+.qav-hostbar{margin-bottom:16px}
+.qav-hostbar:empty{display:none}
+.qav-host-winner{font-family:var(--font-serif);font-size:17px;font-weight:700;color:var(--ink-1);background:var(--accent-s);border:1px solid var(--accent-l);border-left:3px solid var(--accent);border-radius:8px;padding:9px 14px;margin-bottom:10px}
+.qav-host-winner b{color:var(--accent)}
+.qav-host-winner.idle{color:var(--ink-3);background:var(--bg-deep);border-color:var(--line);border-left-color:var(--line-s);font-family:var(--font-mono);font-size:12px;font-weight:400;letter-spacing:.06em}
+.qav-scores{display:flex;flex-wrap:wrap;gap:6px}
+.qav-score-chip{font-family:var(--font-mono);font-size:13px;color:var(--ink-2);background:var(--bg-deep);border:1px solid var(--line);border-radius:999px;padding:5px 12px;white-space:nowrap}
+.qav-score-chip b{color:var(--ink-1);font-weight:700;font-variant-numeric:tabular-nums;margin-left:4px}
+.qav-score-chip.lead b{color:var(--ok)}
+.qav-score-chip.win{color:var(--accent);border-color:var(--accent-l);background:var(--accent-s)}
+.qav-score-chip.win b{color:var(--accent)}
 /* 分頁鎖定:鎖住時其他分頁鈕不可點,只有「題目」與頁內解鎖鈕可用 */
 #tab-bar.qa-locked .tab-btn:not(#tb-qa){opacity:.3;pointer-events:none;filter:grayscale(.5)}
 
@@ -1139,6 +1151,8 @@ input::placeholder{color:var(--ink-3)}
         <span class="qav-timer" id="qav-timer" style="display:none"></span>
         <button class="qav-lock-btn" id="qav-lock-btn" onclick="toggleQaLock()" title="鎖定後不能切換分頁,避免誤觸;可隨時點此解鎖">🔓 鎖定分頁</button>
       </div>
+      <!-- 主持人控場列:誰搶到答題權 + 各組即時分數(給主持人判定當下掌握全場) -->
+      <div class="qav-hostbar" id="qav-hostbar"></div>
       <div id="qav-body">
         <div class="qav-empty">等待抽題<br><span>抽到題目後,這裡會同步顯示題目與完整答案</span></div>
       </div>
@@ -1782,6 +1796,7 @@ PartyBus.on('score_update', payload => {
     if (s.name) g.name = s.name;  // team rename 同步
   });
   if (typeof renderScores === 'function') renderScores();
+  if (typeof renderQaHostBar === 'function') renderQaHostBar();   // 題目分頁控場列同步分數
 });
 
 /* server 抽完題後推 question_pick {id, difficulty, framework}
@@ -1853,7 +1868,31 @@ const QA_TYPE_LABELS = {
   multiple_choice: '選擇題', short_answer: '簡答題', essay: '申論題',
   calculation: '計算題', word_game: '一字千金',
 };
+/* 主持人控場列:誰搶到答題權 + 各組即時分數(最高分標綠、搶到的組標色)。
+   獨立於 renderQaView — 分數變動(score_update)時只刷新這條,不重繪整個題目。 */
+function _qaEsc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function renderQaHostBar() {
+  const el = document.getElementById('qav-hostbar');
+  if (!el) return;
+  const groups = S.groups || [];
+  if (!groups.length) { el.innerHTML = ''; return; }
+  const winIdx = (S.selectedIdx != null && groups[S.selectedIdx]) ? S.selectedIdx : null;
+  const maxScore = Math.max(...groups.map(g => g.score || 0), 0);
+  const winnerHtml = winIdx != null
+    ? `<div class="qav-host-winner">🎯 目前 <b>${_qaEsc(groups[winIdx].name)}</b> 搶到答題權</div>`
+    : `<div class="qav-host-winner idle">尚無組別搶到答題權 · 等待搶答</div>`;
+  const chips = groups.map((g, i) => {
+    const cls = ['qav-score-chip',
+      i === winIdx ? 'win' : '',
+      (g.score || 0) === maxScore && maxScore > 0 ? 'lead' : ''].filter(Boolean).join(' ');
+    return `<span class="${cls}">${_qaEsc(g.name)}<b>${g.score || 0}</b></span>`;
+  }).join('');
+  el.innerHTML = winnerHtml + `<div class="qav-scores">${chips}</div>`;
+}
+window.renderQaHostBar = renderQaHostBar;
+
 function renderQaView() {
+  renderQaHostBar();   // 控場列(誰搶到 + 分數)無論有無題目都刷新
   const body = document.getElementById('qav-body');
   if (!body) return;
   const roundEl = document.getElementById('qav-round');
@@ -3034,6 +3073,7 @@ function _clearLocalRushUITimers() {
    觸發,payload 是 server 給的完整詳細資料(不再從本地 sess 推算)。 */
 function onRushWinner(idx, _serverPayload) {
   S.selectedIdx = idx;
+  if (typeof renderQaHostBar === 'function') renderQaHostBar();   // 題目分頁即時顯示「誰搶到」
   const g = S.groups[idx];
   // 同一題重新搶答的 winner:不進九宮格,winner 卡片後回到同一題作答。
   if (S._rebuzzPending) {
@@ -3326,6 +3366,7 @@ function adj(i,d){
   // Optimistic local update — UI 立即反應(<200ms 手感要求,避免等 server 來回)
   S.groups[i].score = Math.max(0, S.groups[i].score + d);
   renderScores();
+  if (typeof renderQaHostBar === 'function') renderQaHostBar();   // 題目分頁控場列即時同步
   flash(i, d > 0 ? 'gold' : 'red', d);
   // 送 score_adjust 命令給 server;server 會回 score_update 全組廣播
   PartyBus.emit('score_adjust', { teamIdx: i, delta: d });
