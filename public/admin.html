@@ -365,7 +365,7 @@ function renderSessionPicker(){
   const sel = document.getElementById('selSession');
   const opts = ['<option value="__all__">── 全部場次(彙總)──</option>'];
   SESSIONS.forEach(s=>{
-    const label = `${s.room} · ${s.day}(參與 ${s.participants||s.distinct_players} 人 / 問題 ${s.problem_players} 人)`;
+    const label = `${s.room} · ${s.day}`;
     opts.push(`<option value="${esc(s.room)}">${esc(label)}</option>`);
   });
   sel.innerHTML = opts.join('');
