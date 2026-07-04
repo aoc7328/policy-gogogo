@@ -1,0 +1,19 @@
+{
+  // 資管端 Pages Functions 專用 typecheck 設定。刻意跟根 tsconfig 分開:
+  // functions 跑在 Cloudflare Workers runtime(用 @cloudflare/workers-types
+  // 的全域型別:PagesFunction / D1Database / Request / Response …),不掛 DOM
+  // lib,以免跟 party/ + client/(DOM 環境)的全域宣告互撞。
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "isolatedModules": true,
+    "types": ["@cloudflare/workers-types"],
+    "lib": ["ES2022"]
+  },
+  "include": ["**/*.ts"]
+}

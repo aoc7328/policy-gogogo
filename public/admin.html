@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>資管端 · 保險 GoGoGo</title>
+<!-- 資管端(後臺管理):活動結束後回顧參賽者端遇到的問題。
+     純事後檢視,不即時更新。資料來源:D1 events 表(經 /api/admin/*)。
+     玩家識別碼 player_id = 參賽者端的 deviceId(pgg_device_id_v1),
+     跟 Clarity identify 用的是同一組,可直接複製去 Clarity 後台查錄影。 -->
+<style>
+  :root {
+    --bg:#eef1f7; --card:#ffffff; --ink:#1f2733; --ink-2:#5a6472; --ink-3:#8a94a3;
+    --line:#e2e7f0; --line-2:#eef1f6; --accent:#4f46e5; --accent-s:#eceafe;
+    --err:#e5484d; --joinfail:#f76b15; --disc:#e8a23d; --freeze:#8b5cf6;
+    --recon:#12a150; --join:#9aa4b2;
+    --shadow:0 1px 2px rgba(20,30,50,.05), 0 4px 16px rgba(20,30,50,.05);
+    --radius:14px;
+  }
+  * { box-sizing:border-box; }
+  html,body { margin:0; padding:0; }
+  body {
+    background:var(--bg); color:var(--ink);
+    font-family:"Noto Sans TC", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size:15px; line-height:1.55; -webkit-text-size-adjust:100%;
+  }
+  code, .mono { font-family:"JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; }
+  a { color:var(--accent); }
+
+  header.top {
+    background:linear-gradient(180deg,#20263a,#161b2b); color:#f4f6fb;
+    padding:20px 20px 18px;
+  }
+  header.top .wrap { max-width:1120px; margin:0 auto; }
+  header.top h1 { margin:0; font-size:20px; font-weight:700; letter-spacing:.5px; }
+  header.top .sub { margin-top:4px; color:#aeb6c8; font-size:13px; }
+  header.top .dim { color:#7d879b; }
+
+  main { max-width:1120px; margin:0 auto; padding:18px 16px 60px; }
+
+  .panel {
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    box-shadow:var(--shadow); padding:16px 18px; margin-bottom:16px;
+  }
+  .panel > h2 {
+    margin:0 0 14px; font-size:14px; font-weight:700; color:var(--ink-2);
+    letter-spacing:.5px; display:flex; align-items:center; gap:8px;
+  }
+  .panel > h2 .hint { font-weight:400; color:var(--ink-3); font-size:12px; }
+
+  /* ── 控制列 ── */
+  .controls { display:flex; flex-wrap:wrap; gap:12px 16px; align-items:flex-end; }
+  .field { display:flex; flex-direction:column; gap:5px; }
+  .field label { font-size:12px; color:var(--ink-3); font-weight:500; }
+  select, input[type=date], input[type=password], input[type=text] {
+    font:inherit; color:var(--ink); background:#fff; border:1px solid var(--line);
+    border-radius:9px; padding:9px 11px; min-height:40px; outline:none;
+  }
+  select:focus, input:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-s); }
+  select { min-width:230px; }
+  .btn {
+    font:inherit; font-weight:600; cursor:pointer; border:1px solid var(--accent);
+    background:var(--accent); color:#fff; border-radius:9px; padding:9px 15px; min-height:40px;
+  }
+  .btn.ghost { background:#fff; color:var(--accent); }
+  .btn.small { padding:5px 10px; min-height:0; font-size:12.5px; }
+  .btn:active { transform:translateY(1px); }
+  .spacer { flex:1 1 auto; }
+
+  /* ── 摘要卡 ── */
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; }
+  .stat {
+    border:1px solid var(--line); border-radius:12px; padding:13px 14px; background:#fff;
+    position:relative; overflow:hidden;
+  }
+  .stat .k { font-size:12px; color:var(--ink-3); font-weight:500; display:flex; align-items:center; gap:6px; }
+  .stat .v { font-size:26px; font-weight:700; margin-top:3px; line-height:1.2; }
+  .stat .v small { font-size:14px; font-weight:600; color:var(--ink-2); }
+  .stat .sub2 { font-size:11.5px; color:var(--ink-3); margin-top:2px; }
+  .stat.accent { border-color:#d7d3fb; background:linear-gradient(180deg,#f7f6ff,#fff); }
+  .dot { width:10px; height:10px; border-radius:50%; display:inline-block; flex:none; }
+  .dot.error{background:var(--err)} .dot.join_fail{background:var(--joinfail)}
+  .dot.disconnect{background:var(--disc)} .dot.freeze{background:var(--freeze)}
+  .dot.reconnect{background:var(--recon)} .dot.join{background:var(--join)}
+
+  /* ── 圖表(純 div bar) ── */
+  .chart-wrap { overflow-x:auto; }
+  .bars { display:flex; align-items:flex-end; gap:3px; min-height:150px; padding-top:6px; }
+  .bars.trend { gap:10px; }
+  .bar-col { display:flex; flex-direction:column; align-items:center; gap:6px; min-width:20px; }
+  .bar-col .stack {
+    width:100%; min-width:16px; display:flex; flex-direction:column-reverse;
+    border-radius:4px 4px 0 0; overflow:hidden; background:var(--line-2);
+  }
+  .bar-col.trend-col { min-width:44px; cursor:pointer; }
+  .bar-col.trend-col:hover .stack { outline:2px solid var(--accent-s); }
+  .seg { width:100%; }
+  .seg.error{background:var(--err)} .seg.join_fail{background:var(--joinfail)}
+  .seg.disconnect{background:var(--disc)} .seg.freeze{background:var(--freeze)}
+  .bar-col .xl { font-size:10.5px; color:var(--ink-3); white-space:nowrap; }
+  .bar-col .vl { font-size:11px; font-weight:600; color:var(--ink-2); }
+  .legend { display:flex; flex-wrap:wrap; gap:10px 16px; margin-top:12px; font-size:12.5px; color:var(--ink-2); }
+  .legend span { display:inline-flex; align-items:center; gap:6px; }
+
+  /* ── 事件明細 ── */
+  .filters { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; align-items:center; }
+  .chip {
+    font:inherit; font-size:12.5px; cursor:pointer; border:1px solid var(--line);
+    background:#fff; color:var(--ink-2); border-radius:999px; padding:5px 12px;
+  }
+  .chip.on { background:var(--ink); color:#fff; border-color:var(--ink); }
+  .ev-list { display:flex; flex-direction:column; gap:9px; }
+  .ev {
+    border:1px solid var(--line); border-left-width:4px; border-radius:10px; padding:11px 13px; background:#fff;
+  }
+  .ev.t-error{border-left-color:var(--err)} .ev.t-join_fail{border-left-color:var(--joinfail)}
+  .ev.t-disconnect{border-left-color:var(--disc)} .ev.t-freeze{border-left-color:var(--freeze)}
+  .ev.t-reconnect{border-left-color:var(--recon)} .ev.t-join{border-left-color:var(--join)}
+  .ev .r1 { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+  .badge {
+    font-size:12px; font-weight:600; padding:2px 9px; border-radius:999px; color:#fff; white-space:nowrap;
+  }
+  .badge.error{background:var(--err)} .badge.join_fail{background:var(--joinfail)}
+  .badge.disconnect{background:var(--disc)} .badge.freeze{background:var(--freeze)}
+  .badge.reconnect{background:var(--recon)} .badge.join{background:var(--join)}
+  .ev .time { font-size:13px; color:var(--ink-2); }
+  .ev .phase { font-size:12px; color:var(--ink-3); }
+  .ev .r2 { margin-top:8px; display:flex; flex-wrap:wrap; align-items:center; gap:8px; font-size:13px; }
+  .pid {
+    display:inline-flex; align-items:center; gap:6px; background:#f4f6fb; border:1px solid var(--line);
+    border-radius:8px; padding:3px 6px 3px 9px;
+  }
+  .pid code { font-size:12.5px; color:var(--ink); }
+  .pid .copy {
+    cursor:pointer; border:none; background:var(--accent); color:#fff; border-radius:6px;
+    font-size:11.5px; padding:3px 8px; font-weight:600;
+  }
+  .pid .copy.done { background:var(--recon); }
+  .who { color:var(--ink-2); }
+  .ev .r3 { margin-top:6px; font-size:12px; color:var(--ink-3); }
+  .ev .detail { margin-top:8px; }
+  .ev .detail summary { cursor:pointer; font-size:12.5px; color:var(--accent); }
+  .ev pre {
+    margin:7px 0 0; background:#0f1526; color:#d7def0; border-radius:8px; padding:10px 12px;
+    font-size:12px; overflow-x:auto; white-space:pre-wrap; word-break:break-word;
+  }
+  .pager { display:flex; align-items:center; justify-content:center; gap:14px; margin-top:14px; }
+  .pager .info { font-size:13px; color:var(--ink-3); }
+
+  .empty { text-align:center; color:var(--ink-3); padding:26px 10px; font-size:14px; }
+  .muted { color:var(--ink-3); }
+  .err-banner {
+    background:#fdecec; color:#b42318; border:1px solid #f6cbcb; border-radius:10px;
+    padding:10px 13px; font-size:13px; margin-bottom:16px; display:none;
+  }
+
+  /* ── 登入遮罩 ── */
+  #login {
+    position:fixed; inset:0; background:rgba(16,20,32,.72); backdrop-filter:blur(3px);
+    display:none; align-items:center; justify-content:center; padding:20px; z-index:50;
+  }
+  #login .box {
+    background:#fff; border-radius:16px; padding:24px 22px; width:min(360px,100%); box-shadow:var(--shadow);
+  }
+  #login h3 { margin:0 0 6px; font-size:17px; }
+  #login p { margin:0 0 16px; font-size:13px; color:var(--ink-3); }
+  #login .row { display:flex; gap:8px; margin-top:12px; }
+  #login input { flex:1; }
+  #login .msg { color:var(--err); font-size:12.5px; margin-top:8px; min-height:16px; }
+
+  @media (max-width:560px){
+    body{ font-size:14.5px; }
+    header.top h1{ font-size:18px; }
+    select{ min-width:0; width:100%; }
+    .field{ width:100%; }
+    .controls .btn{ width:100%; }
+    .stat .v{ font-size:23px; }
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <h1>資管端 · 保險 GoGoGo</h1>
+    <div class="sub">活動結束後回顧參賽者端遇到的問題 · <span class="dim">事後檢視,非即時更新</span></div>
+  </div>
+</header>
+
+<main>
+  <div class="err-banner" id="errBanner"></div>
+
+  <!-- 控制列 -->
+  <section class="panel">
+    <h2>選擇範圍 <span class="hint">挑一場活動,或用日期區間跨場檢視</span></h2>
+    <div class="controls">
+      <div class="field">
+        <label for="selSession">場次(房號 · 日期)</label>
+        <select id="selSession"></select>
+      </div>
+      <div class="field">
+        <label for="dFrom">或指定日期區間(起)</label>
+        <input type="date" id="dFrom">
+      </div>
+      <div class="field">
+        <label for="dTo">至</label>
+        <input type="date" id="dTo">
+      </div>
+      <button class="btn ghost" id="btnRange">套用區間</button>
+      <div class="spacer"></div>
+      <button class="btn" id="btnRefresh">重新整理</button>
+    </div>
+    <div class="muted" id="scopeLabel" style="margin-top:10px;font-size:12.5px;"></div>
+  </section>
+
+  <!-- 摘要 -->
+  <section class="panel">
+    <h2>整體狀況</h2>
+    <div class="cards" id="cards"><div class="empty">載入中…</div></div>
+  </section>
+
+  <!-- 時間分佈 -->
+  <section class="panel">
+    <h2>問題發生的時間分佈 <span class="hint">看問題是集中在開賽前幾分鐘,還是全程零星</span></h2>
+    <div class="chart-wrap"><div class="bars" id="timeline"></div></div>
+    <div class="legend" id="tlLegend"></div>
+  </section>
+
+  <!-- 跨場次趨勢 -->
+  <section class="panel">
+    <h2>跨場次趨勢 <span class="hint">比較每場「問題人數比例」的變化 — 點任一場可切換檢視</span></h2>
+    <div class="chart-wrap"><div class="bars trend" id="trend"></div></div>
+    <div class="muted" style="font-size:12px;margin-top:10px;">長條高度 = 問題人數 ÷ 參與人數;數字為「問題人數 / 參與人數」。</div>
+  </section>
+
+  <!-- 事件明細 -->
+  <section class="panel">
+    <h2>問題明細 <span class="hint">每筆都附玩家識別碼,複製後可去 Clarity 後台查對應錄影</span></h2>
+    <div class="filters" id="typeFilters"></div>
+    <div class="ev-list" id="events"><div class="empty">載入中…</div></div>
+    <div class="pager" id="pager" style="display:none;">
+      <button class="btn ghost small" id="btnPrev">← 上一頁</button>
+      <span class="info" id="pageInfo"></span>
+      <button class="btn ghost small" id="btnNext">下一頁 →</button>
+    </div>
+  </section>
+
+  <div class="muted" style="font-size:11.5px;text-align:center;margin-top:8px;">
+    玩家識別碼 = 參賽者端 deviceId(<code>pgg_device_id_v1</code>),與 Clarity identify 同一組。
+  </div>
+</main>
+
+<!-- 密碼閘門 -->
+<div id="login">
+  <div class="box">
+    <h3>資管端</h3>
+    <p>請輸入存取密碼。</p>
+    <input type="password" id="pwInput" placeholder="密碼" autocomplete="current-password">
+    <div class="row"><button class="btn" id="pwBtn" style="flex:1">進入</button></div>
+    <div class="msg" id="pwMsg"></div>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   資管端前端邏輯。全部走同源 /api/admin/*(Pages Functions → D1)。
+   ══════════════════════════════════════════════════════════════════ */
+const KEY_STORE = 'pgg_admin_key';
+const TYPE_LABEL = {
+  error:'程式錯誤', join_fail:'登入失敗', disconnect:'斷線',
+  freeze:'卡住/無回應', reconnect:'重連成功', join:'加入',
+};
+const PROBLEM_TYPES = ['error','join_fail','disconnect','freeze'];
+
+let SESSIONS = [];           // /api/admin/sessions 結果
+let SCOPE = null;            // { mode:'room', room } | { mode:'range', from, to } | { mode:'all' }
+let EV_TYPE = '';            // 事件明細型別過濾('' = 全部非 join)
+let EV_OFFSET = 0;
+const EV_LIMIT = 100;
+
+/* ── API 呼叫(帶密碼 header;401 → 跳登入) ── */
+function getKey(){ try { return sessionStorage.getItem(KEY_STORE) || ''; } catch { return ''; } }
+function setKey(k){ try { sessionStorage.setItem(KEY_STORE, k); } catch {} }
+async function api(path){
+  const res = await fetch(path, { headers:{ 'x-admin-key': getKey() }, cache:'no-store' });
+  if (res.status === 401){ showLogin(); throw new Error('unauthorized'); }
+  const data = await res.json().catch(()=>null);
+  if (!res.ok || !data || data.ok === false){
+    throw new Error((data && data.error) || ('http_'+res.status));
+  }
+  return data;
+}
+function qs(params){
+  const u = new URLSearchParams();
+  Object.entries(params).forEach(([k,v])=>{ if(v!==undefined && v!==null && v!=='') u.set(k,v); });
+  const s = u.toString(); return s ? '?'+s : '';
+}
+
+/* ── 工具 ── */
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function fmtTime(ms){
+  try {
+    return new Intl.DateTimeFormat('zh-TW',{ timeZone:'Asia/Taipei', month:'2-digit', day:'2-digit',
+      hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false }).format(new Date(ms));
+  } catch { return new Date(ms).toLocaleString(); }
+}
+function fmtHM(ms){
+  try {
+    return new Intl.DateTimeFormat('zh-TW',{ timeZone:'Asia/Taipei', hour:'2-digit', minute:'2-digit', hour12:false }).format(new Date(ms));
+  } catch { return ''; }
+}
+function pct(n,d){ return d>0 ? Math.round(n/d*1000)/10 : 0; }
+function showErr(msg){ const b=document.getElementById('errBanner'); b.textContent='讀取失敗:'+msg; b.style.display='block'; }
+function clearErr(){ document.getElementById('errBanner').style.display='none'; }
+
+/* ── 登入遮罩 ── */
+function showLogin(){
+  document.getElementById('login').style.display='flex';
+  setTimeout(()=>document.getElementById('pwInput').focus(), 50);
+}
+function hideLogin(){ document.getElementById('login').style.display='none'; }
+document.getElementById('pwBtn').onclick = async ()=>{
+  const v = document.getElementById('pwInput').value.trim();
+  if(!v){ return; }
+  setKey(v);
+  document.getElementById('pwMsg').textContent = '驗證中…';
+  try {
+    await api('/api/admin/sessions');           // 試打一次;成功才收起遮罩
+    document.getElementById('pwMsg').textContent = '';
+    hideLogin();
+    boot();
+  } catch(e){
+    document.getElementById('pwMsg').textContent = (e.message==='unauthorized') ? '密碼錯誤' : ('錯誤:'+e.message);
+  }
+};
+document.getElementById('pwInput').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('pwBtn').click(); });
+
+/* ── 場次選單 + scope ── */
+function renderSessionPicker(){
+  const sel = document.getElementById('selSession');
+  const opts = ['<option value="__all__">── 全部場次(彙總)──</option>'];
+  SESSIONS.forEach(s=>{
+    const label = `${s.room} · ${s.day}(參與 ${s.participants||s.distinct_players} 人 / 問題 ${s.problem_players} 人)`;
+    opts.push(`<option value="${esc(s.room)}">${esc(label)}</option>`);
+  });
+  sel.innerHTML = opts.join('');
+  sel.onchange = ()=>{
+    const v = sel.value;
+    if (v==='__all__') SCOPE = { mode:'all' };
+    else SCOPE = { mode:'room', room:v };
+    EV_OFFSET = 0;
+    loadScope();
+  };
+}
+function scopeQuery(){
+  if (!SCOPE) return {};
+  if (SCOPE.mode==='room') return { room:SCOPE.room };
+  if (SCOPE.mode==='range') return { from:SCOPE.from, to:SCOPE.to };
+  return {};
+}
+function scopeLabelText(){
+  if (!SCOPE || SCOPE.mode==='all') return '目前檢視:全部場次彙總';
+  if (SCOPE.mode==='room'){
+    const s = SESSIONS.find(x=>x.room===SCOPE.room);
+    return '目前檢視:場次 '+SCOPE.room + (s?(' · '+s.day):'');
+  }
+  const f = new Date(SCOPE.from), t = new Date(SCOPE.to);
+  return '目前檢視:區間 '+ new Intl.DateTimeFormat('zh-TW',{timeZone:'Asia/Taipei',dateStyle:'medium'}).format(f)
+       + ' ～ ' + new Intl.DateTimeFormat('zh-TW',{timeZone:'Asia/Taipei',dateStyle:'medium'}).format(t);
+}
+
+/* 日期區間(Taipei 固定 +08:00,無 DST) */
+document.getElementById('btnRange').onclick = ()=>{
+  const f = document.getElementById('dFrom').value, t = document.getElementById('dTo').value;
+  if(!f || !t){ alert('請選擇起訖日期'); return; }
+  const from = Date.parse(f+'T00:00:00+08:00');
+  const to   = Date.parse(t+'T23:59:59.999+08:00');
+  if(isNaN(from)||isNaN(to)||from>to){ alert('日期區間無效'); return; }
+  SCOPE = { mode:'range', from, to };
+  document.getElementById('selSession').value = '__all__';
+  EV_OFFSET = 0;
+  loadScope();
+};
+document.getElementById('btnRefresh').onclick = ()=>boot();
+
+/* ── 摘要卡 ── */
+function renderCards(sum){
+  const ratio = pct(sum.problem_players, sum.participants || sum.distinct_players);
+  const totalP = sum.participants || sum.distinct_players || 0;
+  const cards = [
+    `<div class="stat accent"><div class="k">總參與人數</div><div class="v">${totalP}</div>
+       <div class="sub2">不重複玩家(以「加入」計)</div></div>`,
+    `<div class="stat"><div class="k">發生問題人數</div><div class="v">${sum.problem_players} <small>/ ${totalP}</small></div>
+       <div class="sub2">佔 ${ratio}%</div></div>`,
+    `<div class="stat"><div class="k">問題事件總數</div><div class="v">${sum.problem_events}</div>
+       <div class="sub2">重連 ${sum.reconnects} 次(復原)</div></div>`,
+    `<div class="stat"><div class="k"><span class="dot error"></span>程式錯誤</div><div class="v">${sum.errors}</div></div>`,
+    `<div class="stat"><div class="k"><span class="dot join_fail"></span>登入失敗</div><div class="v">${sum.join_fails}</div></div>`,
+    `<div class="stat"><div class="k"><span class="dot disconnect"></span>斷線</div><div class="v">${sum.disconnects}</div></div>`,
+    `<div class="stat"><div class="k"><span class="dot freeze"></span>卡住/無回應</div><div class="v">${sum.freezes}</div></div>`,
+  ];
+  document.getElementById('cards').innerHTML = cards.join('');
+}
+
+/* ── 時間分佈圖 ── */
+function renderTimeline(buckets, sum){
+  const el = document.getElementById('timeline');
+  const list = (buckets && buckets.list) || [];
+  const legend = document.getElementById('tlLegend');
+  legend.innerHTML = PROBLEM_TYPES.map(t=>`<span><span class="dot ${t}"></span>${TYPE_LABEL[t]}</span>`).join('');
+  if (!list.length){ el.innerHTML = '<div class="empty">此範圍沒有問題事件 🎉</div>'; return; }
+  const max = Math.max(1, ...list.map(b=>b.total));
+  const H = 140;
+  const bucketMin = Math.round((buckets.bucketMs||60000)/60000);
+  el.innerHTML = list.map(b=>{
+    const segs = PROBLEM_TYPES.filter(t=>b[t]>0).map(t=>{
+      const h = Math.round(b[t]/max*H);
+      return `<div class="seg ${t}" style="height:${h}px" title="${TYPE_LABEL[t]} ${b[t]}"></div>`;
+    }).join('');
+    const stackH = Math.round(b.total/max*H);
+    return `<div class="bar-col" title="${fmtTime(b.start)} 起 ${bucketMin} 分鐘內 ${b.total} 件">
+      <div class="vl" style="visibility:${b.total?'visible':'hidden'}">${b.total||''}</div>
+      <div class="stack" style="height:${Math.max(stackH,b.total?4:0)}px">${segs}</div>
+      <div class="xl">${fmtHM(b.start)}</div>
+    </div>`;
+  }).join('');
+}
+
+/* ── 跨場次趨勢圖 ── */
+function renderTrend(){
+  const el = document.getElementById('trend');
+  if (!SESSIONS.length){ el.innerHTML = '<div class="empty">尚無場次</div>'; return; }
+  // 依時間由舊到新排(趨勢左→右)
+  const arr = [...SESSIONS].sort((a,b)=>a.first_ts-b.first_ts);
+  const H = 130;
+  el.innerHTML = arr.map(s=>{
+    const total = s.participants || s.distinct_players || 0;
+    const rate = pct(s.problem_players, total);           // 0~100
+    const h = Math.max(4, Math.round(rate/100*H));
+    return `<div class="bar-col trend-col" data-room="${esc(s.room)}" title="${s.room} · ${s.day}\n問題 ${s.problem_players} / 參與 ${total} 人(${rate}%)">
+      <div class="vl">${s.problem_players}/${total}</div>
+      <div class="stack" style="height:${h}px"><div class="seg disconnect" style="height:${h}px;background:var(--accent)"></div></div>
+      <div class="xl">${esc(s.day.slice(5))}<br>${esc(s.room)}</div>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('.trend-col').forEach(c=>{
+    c.onclick = ()=>{
+      const room = c.getAttribute('data-room');
+      SCOPE = { mode:'room', room };
+      document.getElementById('selSession').value = room;
+      EV_OFFSET = 0;
+      loadScope();
+      window.scrollTo({ top:0, behavior:'smooth' });
+    };
+  });
+}
+
+/* ── 事件明細 ── */
+function renderTypeFilters(){
+  const wrap = document.getElementById('typeFilters');
+  const chips = [
+    { v:'', label:'全部問題' },
+    { v:'error', label:'程式錯誤' },
+    { v:'join_fail', label:'登入失敗' },
+    { v:'disconnect', label:'斷線' },
+    { v:'freeze', label:'卡住' },
+    { v:'reconnect', label:'重連' },
+    { v:'all', label:'含加入(全部)' },
+  ];
+  wrap.innerHTML = chips.map(c=>`<button class="chip ${c.v===EV_TYPE?'on':''}" data-v="${c.v}">${c.label}</button>`).join('');
+  wrap.querySelectorAll('.chip').forEach(ch=>{
+    ch.onclick = ()=>{ EV_TYPE = ch.getAttribute('data-v'); EV_OFFSET = 0; loadEvents(); };
+  });
+}
+function copyBtn(pid){
+  return `<span class="pid"><code>${esc(pid)}</code><button class="copy" data-pid="${esc(pid)}">複製</button></span>`;
+}
+function renderEvents(data){
+  const el = document.getElementById('events');
+  const list = data.events || [];
+  if (!list.length){ el.innerHTML = '<div class="empty">此範圍沒有符合的紀錄</div>'; document.getElementById('pager').style.display='none'; return; }
+  el.innerHTML = list.map(e=>{
+    const who = [e.name, e.team].filter(Boolean).map(esc).join(' · ');
+    const dev = [e.os, e.screen].filter(Boolean).map(esc).join(' · ');
+    let detailHtml = '';
+    if (e.detail){
+      let pretty = e.detail;
+      try { pretty = JSON.stringify(JSON.parse(e.detail), null, 2); } catch {}
+      detailHtml = `<details class="detail"><summary>詳情</summary><pre>${esc(pretty)}</pre></details>`;
+    }
+    return `<div class="ev t-${esc(e.type)}">
+      <div class="r1">
+        <span class="badge ${esc(e.type)}">${TYPE_LABEL[e.type]||esc(e.type)}</span>
+        <span class="time">${fmtTime(e.ts)}</span>
+        ${e.phase?`<span class="phase">階段:${esc(e.phase)}</span>`:''}
+      </div>
+      <div class="r2">
+        ${copyBtn(e.player_id)}
+        ${who?`<span class="who">${who}</span>`:'<span class="who muted">(無名字)</span>'}
+      </div>
+      <div class="r3">房號 ${esc(e.room)} · ${dev||'裝置未知'}${e.ua?` · <span title="${esc(e.ua)}">${esc(e.ua.slice(0,42))}${e.ua.length>42?'…':''}</span>`:''}</div>
+      ${detailHtml}
+    </div>`;
+  }).join('');
+  el.querySelectorAll('.copy').forEach(btn=>{
+    btn.onclick = async ()=>{
+      const pid = btn.getAttribute('data-pid');
+      try { await navigator.clipboard.writeText(pid); }
+      catch { const ta=document.createElement('textarea'); ta.value=pid; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy');}catch{} ta.remove(); }
+      btn.textContent='已複製'; btn.classList.add('done');
+      setTimeout(()=>{ btn.textContent='複製'; btn.classList.remove('done'); }, 1400);
+    };
+  });
+  // 分頁
+  const pager = document.getElementById('pager');
+  const total = data.total||0;
+  if (total > EV_LIMIT){
+    pager.style.display='flex';
+    const from = EV_OFFSET+1, to = Math.min(EV_OFFSET+list.length, total);
+    document.getElementById('pageInfo').textContent = `${from}–${to} / 共 ${total} 筆`;
+    document.getElementById('btnPrev').disabled = EV_OFFSET<=0;
+    document.getElementById('btnNext').disabled = EV_OFFSET+EV_LIMIT>=total;
+  } else {
+    pager.style.display='none';
+  }
+}
+document.getElementById('btnPrev').onclick = ()=>{ EV_OFFSET=Math.max(0,EV_OFFSET-EV_LIMIT); loadEvents(); };
+document.getElementById('btnNext').onclick = ()=>{ EV_OFFSET+=EV_LIMIT; loadEvents(); };
+
+async function loadEvents(){
+  try {
+    const q = qs(Object.assign({}, scopeQuery(), { type:EV_TYPE||undefined, limit:EV_LIMIT, offset:EV_OFFSET }));
+    const data = await api('/api/admin/events'+q);
+    renderTypeFilters();
+    renderEvents(data);
+  } catch(e){ if(e.message!=='unauthorized') showErr(e.message); }
+}
+
+async function loadScope(){
+  document.getElementById('scopeLabel').textContent = scopeLabelText();
+  clearErr();
+  try {
+    const data = await api('/api/admin/summary'+qs(scopeQuery()));
+    renderCards(data.summary);
+    renderTimeline(data.buckets, data.summary);
+  } catch(e){ if(e.message!=='unauthorized') showErr(e.message); }
+  loadEvents();
+}
+
+/* ── 啟動 ── */
+async function boot(){
+  clearErr();
+  try {
+    const data = await api('/api/admin/sessions');
+    SESSIONS = data.sessions || [];
+    renderSessionPicker();
+    renderTrend();
+    if (!SCOPE){
+      SCOPE = SESSIONS.length ? { mode:'room', room:SESSIONS[0].room } : { mode:'all' };
+    }
+    // 同步下拉選單顯示
+    const sel = document.getElementById('selSession');
+    sel.value = (SCOPE.mode==='room') ? SCOPE.room : '__all__';
+    renderTypeFilters();
+    loadScope();
+  } catch(e){
+    if (e.message==='unauthorized') return;   // 已跳登入
+    showErr(e.message);
+  }
+}
+boot();
+</script>
+</body>
+</html>

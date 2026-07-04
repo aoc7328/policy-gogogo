@@ -2840,6 +2840,129 @@ PartyBus.onStatus(status => {
   }
 });
 
+/* ══ 事件記錄 + Clarity 身分標記(資管端 /admin 用)══════════════════
+   把參賽者端遇到的問題寫進 D1(經 /api/log),事後在 /admin 回顧。走一般
+   HTTP(fetch keepalive / sendBeacon),跟遊戲的 WebSocket 分開 —— 連線
+   失敗 / 斷線那一刻 WS 已經掛了,這條路仍記得到。
+   玩家識別碼 player_id = PGG_DEVICE_ID(pgg_device_id_v1),與下方 Clarity
+   identify 用的是「同一組」,所以 /admin 看到的問題紀錄可直接把識別碼複製
+   去 Clarity 後台查對應錄影。 */
+(function pggEventLog(){
+  var LOG_URL = '/api/log';
+  var ua = navigator.userAgent || '';
+  var os = /iPhone|iPad|iPod/i.test(ua) ? 'iOS' : /Android/i.test(ua) ? 'Android' : 'Other';
+  var screenStr = (screen.width||0)+'x'+(screen.height||0)+'@'+(window.devicePixelRatio||1);
+
+  /* 發生當下大致在哪個階段(靠可見 stage / 搶答鈕狀態推斷;與 Clarity
+     trackTabAway 的 phaseLabel 同邏輯)。 */
+  function phase(){
+    try {
+      var active = document.querySelector('.stage.active');
+      var id = active ? active.id : '';
+      if (id === 'stage-login') return 'login';
+      if (id === 'stage-lobby') return 'lobby';
+      if (id === 'stage-end') return 'ended';
+      if (id === 'stage-purg-arrival') return 'purgatory';
+      if (id === 'stage-game'){
+        var btn = document.getElementById('btn-buzz');
+        if (btn && btn.classList.contains('armed')) return 'rushing';
+        var qb = document.getElementById('q-body');
+        if (qb && qb.style.display !== 'none') return 'answering';
+        return 'waiting';
+      }
+      return id || 'unknown';
+    } catch(e){ return 'unknown'; }
+  }
+
+  function post(type, detail){
+    try {
+      if (!PGG_ROOM_CODE || !PGG_DEVICE_ID) return;   // 沒房號/識別碼不記(server 也會擋)
+      var body = {
+        type: type, room: PGG_ROOM_CODE, player_id: PGG_DEVICE_ID,
+        name: G.name || null, team: G.team || null, phase: phase(),
+        os: os, ua: ua.slice(0,300), screen: screenStr,
+        client_ts: Date.now(), detail: detail || null
+      };
+      var json = JSON.stringify(body);
+      if (window.fetch){
+        // keepalive:即使頁面正在關閉/切走也會送出。
+        fetch(LOG_URL, { method:'POST', headers:{'content-type':'application/json'}, body:json, keepalive:true, cache:'no-store' })
+          .catch(function(){ beacon(json); });
+      } else { beacon(json); }
+    } catch(e){ /* 記錄失敗絕不能影響遊戲本身 */ }
+  }
+  function beacon(json){
+    try { if (navigator.sendBeacon) navigator.sendBeacon(LOG_URL, new Blob([json], {type:'application/json'})); } catch(e){}
+  }
+  window.PGG = window.PGG || {};
+  window.PGG.logEvent = post;   // 需要時可從別處手動記一筆
+
+  /* 1) 未捕捉錯誤 / promise rejection(同訊息 8 秒內只記一次,避免爆量) */
+  var recentErr = {};
+  function logError(msg, extra){
+    var key = String(msg||'').slice(0,120), now = Date.now();
+    if (recentErr[key] && now - recentErr[key] < 8000) return;
+    recentErr[key] = now;
+    var d = { message: String(msg||'').slice(0,500) };
+    if (extra) for (var k in extra) d[k] = extra[k];
+    post('error', d);
+  }
+  window.addEventListener('error', function(e){
+    if (e && e.message) logError(e.message, { source:'onerror', file:String(e.filename||'').slice(0,120), line:e.lineno||0 });
+  });
+  window.addEventListener('unhandledrejection', function(e){
+    var m = 'unhandledrejection';
+    try { var r = e.reason; m = (r && r.message) ? r.message : String(r); } catch(x){}
+    logError(m, { source:'unhandledrejection' });
+  });
+
+  /* 2) 連線失敗 / 斷線 / 重連 / 成功加入 */
+  var everConnected = false, disconnectedAt = 0, joinLogged = false;
+  var joinFailTimer = setTimeout(function(){
+    if (!everConnected) post('join_fail', { reason:'ws_never_connected', waited_ms:15000 });
+  }, 15000);
+  PartyBus.onStatus(function(status){
+    if (status === 'connected'){
+      if (joinFailTimer){ clearTimeout(joinFailTimer); joinFailTimer = null; }
+      if (disconnectedAt){ post('reconnect', { downtime_ms: Date.now()-disconnectedAt }); disconnectedAt = 0; clarityIdentify(); }
+      everConnected = true;
+    } else if (status === 'disconnected'){
+      if (everConnected && !disconnectedAt){ disconnectedAt = Date.now(); post('disconnect', null); }
+    }
+  });
+  /* 成功加入房間(自己那筆 player_join 被 server 確認)→ 記 join(當分母),
+     並在此時(識別碼已對應到實際玩家)才做 Clarity identify。 */
+  PartyBus.on('player_join', function(p){
+    if (!p || !p.name) return;
+    if (p.name === G.name){
+      if (!joinLogged){ joinLogged = true; post('join', null); }
+      clarityIdentify();
+    }
+  });
+
+  /* 3) 卡住 / 無回應(主執行緒 watchdog)。背景分頁計時器會被系統節流,
+        回前景時先把基準重置,避免把「背景時間」誤判成卡頓。 */
+  var lastTick = Date.now();
+  document.addEventListener('visibilitychange', function(){ if (document.visibilityState==='visible') lastTick = Date.now(); });
+  setInterval(function(){
+    var now = Date.now(), gap = now - lastTick;
+    lastTick = now;
+    if (gap > 6000 && document.visibilityState === 'visible') post('freeze', { stall_ms: gap });
+  }, 2000);
+
+  /* Clarity 身分標記:custom-id = PGG_DEVICE_ID(與事件記錄 player_id 同一組),
+     friendly-name 帶名字·組別方便 Clarity 後台辨識。呼叫的是 <head> 的 queue
+     stub,一定安全(真正 clarity script 還沒載完就先排隊)。 */
+  function clarityIdentify(){
+    try {
+      if (typeof window.clarity === 'function' && PGG_DEVICE_ID){
+        var friendly = [G.name, G.team].filter(Boolean).join('·') || undefined;
+        window.clarity('identify', PGG_DEVICE_ID, null, null, friendly);
+      }
+    } catch(e){}
+  }
+})();
+
 /* 診斷工具 */
 window.PGG = window.PGG || {};
 window.PGG.ping = function(msg) {

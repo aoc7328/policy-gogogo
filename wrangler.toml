@@ -1,0 +1,36 @@
+# wrangler.toml — Cloudflare Pages 設定(僅供「前端 Pages + /api Functions」用)
+#
+# 為什麼會有這個檔:
+#   /admin 資管端的事件記錄要寫進 Cloudflare D1(SQLite),而 Pages Functions
+#   (functions/ 目錄)要存取 D1 必須在這裡宣告 binding。這是唯一一個會動到
+#   前端 Cloudflare Pages 部署設定的檔案。
+#
+# ⚠ 重要:一旦專案裡有 wrangler.toml,Cloudflare Pages 會「以此檔為準」,
+#   dashboard 上同名的設定(build 輸出目錄、bindings、vars)就會被這個檔覆蓋。
+#   下面兩個值刻意對齊目前線上設定,不要亂改:
+#     - name                    = Pages 專案名(= policy-gogogo.pages.dev 的子網域)
+#     - pages_build_output_dir  = 靜態檔輸出目錄(目前就是 public/,_redirects 也在裡面)
+#
+# 注意:這個檔跟 PartyKit(遊戲即時後端)完全無關 —— PartyKit 跑在
+#   aoc7328.partykit.dev 自己的平台上,partykit.json 才是它的設定。改這個檔
+#   不會、也碰不到即時遊戲邏輯。
+
+name = "policy-gogogo"
+pages_build_output_dir = "public"
+compatibility_date = "2024-09-23"
+
+# ── D1 事件資料庫(資管端記錄長期存放處)──────────────────────────
+# binding = "DB" → 在 functions/ 裡用 context.env.DB 存取。
+# 資料庫本體叫 policy-gogogo-events,建立於 aoc7328 的 Cloudflare 帳號。
+[[d1_databases]]
+binding = "DB"
+database_name = "policy-gogogo-events"
+database_id = "8dbad43e-3132-4535-8b64-49c5465e991b"
+# preview 部署(PR)也指向同一個 DB,避免 preview build 因缺 binding 失敗。
+preview_database_id = "8dbad43e-3132-4535-8b64-49c5465e991b"
+
+# ── 資管端密碼 ────────────────────────────────────────────────────
+# /admin 報表頁的簡易密碼閘門。要改密碼,改這一行的值後 push 即可生效。
+# (低敏感度:內容只有 deviceId + 瀏覽器資訊,無個資/金流,故用明碼 var。)
+[vars]
+ADMIN_KEY = "pgg-admin-2026"
