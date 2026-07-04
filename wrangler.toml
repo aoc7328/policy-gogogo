@@ -33,4 +33,4 @@ preview_database_id = "8dbad43e-3132-4535-8b64-49c5465e991b"
 # /admin 報表頁的簡易密碼閘門。要改密碼,改這一行的值後 push 即可生效。
 # (低敏感度:內容只有 deviceId + 瀏覽器資訊,無個資/金流,故用明碼 var。)
 [vars]
-ADMIN_KEY = "pgg-admin-2026"
+ADMIN_KEY = "194k0139"
