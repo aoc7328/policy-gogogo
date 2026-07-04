@@ -3,8 +3,11 @@
 /gamer   /participant.html  200
 /ass     /assistant.html    200
 
-# 資管端(後臺報表)。/api/* 由 functions/ 處理,不在這裡 rewrite。
-/admin   /admin.html        200
+# 資管端(後臺報表)不需要在這裡 rewrite:因為 public/admin.html 這個「實體
+# 檔」存在,Cloudflare Pages 的 clean-URL 會自動把 /admin 對應到 admin.html
+# (並把 /admin.html 308 導到 /admin)。若在這裡再加 /admin -> /admin.html,
+# 反而會跟 clean-URL 打架變成 /admin -> /admin 無限迴圈(踩過的坑)。
+# /api/* 則由 functions/ 動態處理,本來就不經過 _redirects。
 
 # 參賽者加入短連結(帶房號)→ 遊戲者頁(/gamer?room=房號)。
 # 兩種寫法都通:/r/房號(QR 用、最短)與 /gamer/房號(語意化、好記)。
