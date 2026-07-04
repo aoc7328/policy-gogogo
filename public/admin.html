@@ -123,6 +123,8 @@
   .ev .msg { margin-top:7px; font-size:13.5px; color:var(--ink); background:#f7f9fc;
     border:1px solid var(--line-2); border-radius:8px; padding:7px 10px; word-break:break-word; line-height:1.5; }
   .ev.t-error .msg { color:#8a1f22; background:#fdecec; border-color:#f6cbcb; }
+  .ev .msgraw { margin-top:4px; font-size:11.5px; color:var(--ink-3); word-break:break-word; }
+  .ev .msgraw code { font-size:11px; color:var(--ink-3); }
   .filters { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; align-items:center; }
   .chip {
     font:inherit; font-size:12.5px; cursor:pointer; border:1px solid var(--line);
@@ -270,8 +272,10 @@
     </div>
   </section>
 
-  <div class="muted" style="font-size:11.5px;text-align:center;margin-top:8px;">
-    玩家識別碼 = 參賽者端 deviceId(<code>pgg_device_id_v1</code>),與 Clarity identify 同一組。
+  <div class="muted" style="font-size:11.5px;text-align:center;margin-top:8px;line-height:1.8;">
+    玩家識別碼 = 參賽者端 deviceId(<code>pgg_device_id_v1</code>),與 Clarity identify 同一組。<br>
+    去 Clarity 找人:進 Clarity → 篩選器(Filters)→ 新增「Custom user id」→ 貼上這裡複製的識別碼 → 套用。<br>
+    (Clarity 會把識別碼雜湊後比對,所以你不會在 Clarity 畫面上看到一模一樣的字串;錄影清單裡它會顯示「名字·組別」方便你認人。)
   </div>
 </main>
 
@@ -520,16 +524,43 @@ function wireCopy(container){
     };
   });
 }
+/* 把瀏覽器丟出的(英文)錯誤訊息,歸類成一句看得懂的中文說明。
+   錯誤訊息是開放式的,無法逐字翻譯 —— 這裡用關鍵字比對常見類型,對不到
+   的就給通用說明;英文原文仍會保留在下方「原文」小字與「原始資料」裡。 */
+function errorFriendly(msg){
+  const m = String(msg || '');
+  const L = m.toLowerCase();
+  if (/networkerror|failed to fetch|load failed|err_internet|err_network|net::|network request failed/i.test(m))
+    return '網路連線問題(向伺服器要資料時失敗,通常是網路不穩或臨時斷線)';
+  if (/timeout|timed out/i.test(L)) return '連線逾時(等太久沒有回應)';
+  if (/websocket/i.test(L)) return '即時連線通道發生錯誤(WebSocket)';
+  if (/chunk|importing a module script failed|dynamically imported module|failed to load|module script/i.test(L))
+    return '程式檔案載入失敗(可能網路中斷,或剛好遇到系統更新)';
+  if (/cannot read propert|is not a function|not an object|of undefined|of null|is not defined|is undefined/i.test(L))
+    return '程式內部錯誤(嘗試讀取不存在的資料或功能)';
+  if (/out of memory|maximum call stack|stack overflow/i.test(L))
+    return '裝置資源不足(記憶體不夠,或程式陷入迴圈)';
+  if (/quota|exceeded the quota|storage/i.test(L)) return '瀏覽器儲存空間不足或被限制';
+  if (/securityerror|the operation is insecure|permission|denied|blocked/i.test(L))
+    return '瀏覽器安全或權限限制(可能是隱私模式,或擋掉了某些功能)';
+  if (/^script error\.?$/i.test(m.trim())) return '外部腳本錯誤(細節被瀏覽器基於安全隱藏)';
+  if (/aborterror|aborted/i.test(L)) return '操作被中止';
+  if (/syntaxerror|typeerror|referenceerror|rangeerror/i.test(m)) return '程式執行發生例外';
+  return '程式發生未預期的錯誤';
+}
 /* 把 detail(JSON)轉成一句白話「具體發生什麼」 */
 function detailSentence(e){
   let d = {};
   try { d = e.detail ? JSON.parse(e.detail) : {}; } catch { return e.detail || ''; }
   switch(e.type){
-    case 'error':      return d.message ? String(d.message) : '程式錯誤(無訊息)';
+    case 'error':      return d.message ? errorFriendly(d.message) : '程式發生未預期的錯誤(無訊息)';
     case 'disconnect': return '與伺服器連線中斷';
     case 'reconnect':  return (d.downtime_ms!=null) ? `斷線後成功重連,中斷約 ${Math.round(d.downtime_ms/1000)} 秒` : '成功重連';
     case 'freeze':     return (d.stall_ms!=null) ? `畫面卡住/無回應約 ${Math.round(d.stall_ms/1000)} 秒` : '畫面卡住/無回應';
-    case 'join_fail':  return '無法加入房間' + (d.reason?`(${d.reason})`:'') + (d.waited_ms?`,已等待 ${Math.round(d.waited_ms/1000)} 秒`:'');
+    case 'join_fail': {
+      const reason = d.reason === 'ws_never_connected' ? '一直連不上伺服器' : (d.reason || '');
+      return '無法加入房間' + (reason?`(${reason})`:'') + (d.waited_ms?`,已等待 ${Math.round(d.waited_ms/1000)} 秒`:'');
+    }
     case 'join':       return '成功加入房間';
     default:           return e.detail || '';
   }
@@ -569,6 +600,13 @@ function renderEvents(data){
     const dev = [e.os, e.screen].filter(Boolean).map(esc).join(' · ');
     const msg = detailSentence(e);
     const msgHtml = msg ? `<div class="msg">${esc(msg)}</div>` : '';
+    // error 事件:中文說明底下再附一行英文原文(工程 debug 用,看不懂可略過)
+    let rawMsgHtml = '';
+    if (e.type === 'error'){
+      let rawMsg = '';
+      try { rawMsg = (JSON.parse(e.detail||'{}').message) || ''; } catch {}
+      if (rawMsg) rawMsgHtml = `<div class="msgraw">原文:<code>${esc(rawMsg)}</code></div>`;
+    }
     let rawHtml = '';
     if (e.detail){
       let pretty = e.detail;
@@ -581,7 +619,7 @@ function renderEvents(data){
         <span class="time">${fmtTime(e.ts)}</span>
         ${e.phase?`<span class="phase">階段:${esc(e.phase)}</span>`:''}
       </div>
-      ${msgHtml}
+      ${msgHtml}${rawMsgHtml}
       <div class="r2">
         ${copyBtn(e.player_id)}
         ${who?`<span class="who">${who}</span>`:'<span class="who muted">(無名字)</span>'}
