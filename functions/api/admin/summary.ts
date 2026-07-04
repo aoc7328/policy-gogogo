@@ -10,7 +10,7 @@
  * 時間分佈」(分桶,用來看問題是集中在開賽前幾分鐘還是全程零星)。
  */
 import type { Env } from '../../_shared';
-import { json, isAuthed } from '../../_shared';
+import { json, isAuthed, numParam } from '../../_shared';
 
 interface CountRow {
   first_ts: number | null;
@@ -32,16 +32,33 @@ interface TimelineRow {
   type: string;
 }
 
+/** 「誰發生問題」— 每個有問題的玩家一列。 */
+interface PlayerRow {
+  player_id: string;
+  name: string | null;
+  team: string | null;
+  os: string | null;
+  screen: string | null;
+  ua: string | null;
+  errors: number;
+  disconnects: number;
+  join_fails: number;
+  freezes: number;
+  reconnects: number;
+  problems: number;
+  last_ts: number;
+}
+
 /** 依 query 決定 WHERE 子句 + 綁定參數。 */
 function buildFilter(url: URL): { where: string; binds: (string | number)[]; meta: Record<string, unknown> } {
   const room = url.searchParams.get('room');
-  const from = Number(url.searchParams.get('from'));
-  const to = Number(url.searchParams.get('to'));
+  const from = numParam(url.searchParams.get('from'));   // Number(null)=0 陷阱:用 numParam
+  const to = numParam(url.searchParams.get('to'));
 
   if (room) {
     return { where: 'WHERE room = ?', binds: [room], meta: { mode: 'room', room } };
   }
-  if (Number.isFinite(from) && Number.isFinite(to)) {
+  if (from != null && to != null) {
     return {
       where: 'WHERE ts BETWEEN ? AND ?',
       binds: [Math.floor(from), Math.floor(to)],
@@ -80,14 +97,33 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     ORDER BY ts ASC
   `;
 
+  const playersSql = `
+    SELECT
+      player_id,
+      MAX(name) AS name, MAX(team) AS team, MAX(os) AS os, MAX(screen) AS screen, MAX(ua) AS ua,
+      SUM(CASE WHEN type = 'error'      THEN 1 ELSE 0 END) AS errors,
+      SUM(CASE WHEN type = 'disconnect' THEN 1 ELSE 0 END) AS disconnects,
+      SUM(CASE WHEN type = 'join_fail'  THEN 1 ELSE 0 END) AS join_fails,
+      SUM(CASE WHEN type = 'freeze'     THEN 1 ELSE 0 END) AS freezes,
+      SUM(CASE WHEN type = 'reconnect'  THEN 1 ELSE 0 END) AS reconnects,
+      SUM(CASE WHEN type IN ('error','join_fail','disconnect','freeze') THEN 1 ELSE 0 END) AS problems,
+      MAX(ts) AS last_ts
+    FROM events ${where}
+    GROUP BY player_id
+    HAVING problems > 0
+    ORDER BY problems DESC, last_ts DESC
+    LIMIT 300
+  `;
+
   try {
     const count = await env.DB.prepare(countSql).bind(...binds).first<CountRow>();
     const timeline = await env.DB.prepare(timelineSql).bind(...binds).all<TimelineRow>();
+    const players = await env.DB.prepare(playersSql).bind(...binds).all<PlayerRow>();
 
     const summary = normalizeCount(count);
     const buckets = bucketize(timeline.results ?? [], summary.first_ts, summary.last_ts);
 
-    return json({ ok: true, meta, summary, buckets });
+    return json({ ok: true, meta, summary, buckets, players: players.results ?? [] });
   } catch {
     return json({ ok: false, error: 'db_error' }, 500);
   }

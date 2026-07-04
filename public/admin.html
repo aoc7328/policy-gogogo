@@ -102,7 +102,27 @@
   .legend { display:flex; flex-wrap:wrap; gap:10px 16px; margin-top:12px; font-size:12.5px; color:var(--ink-2); }
   .legend span { display:inline-flex; align-items:center; gap:6px; }
 
+  .stat.click { cursor:pointer; }
+  .stat.click:hover { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-s); }
+
+  /* ── 問題玩家 ── */
+  .players { display:grid; grid-template-columns:repeat(auto-fill,minmax(290px,1fr)); gap:10px; }
+  .pcard { border:1px solid var(--line); border-radius:11px; padding:11px 13px; background:#fff; }
+  .pcard .ptop { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .pcard .pname { font-weight:700; font-size:14.5px; }
+  .pcard .pteam { font-size:12px; color:var(--ink-3); }
+  .pcard .pprob { margin-left:auto; font-size:12px; font-weight:700; color:var(--err); white-space:nowrap; }
+  .pcard .pcounts { display:flex; flex-wrap:wrap; gap:6px; margin:9px 0; }
+  .pcount { font-size:11.5px; font-weight:600; padding:2px 8px; border-radius:999px; color:#fff; }
+  .pcount.error{background:var(--err)} .pcount.join_fail{background:var(--joinfail)}
+  .pcount.disconnect{background:var(--disc)} .pcount.freeze{background:var(--freeze)}
+  .pcount.reconnect{background:var(--recon)}
+  .pcard .pmeta { font-size:11.5px; color:var(--ink-3); margin-top:6px; }
+
   /* ── 事件明細 ── */
+  .ev .msg { margin-top:7px; font-size:13.5px; color:var(--ink); background:#f7f9fc;
+    border:1px solid var(--line-2); border-radius:8px; padding:7px 10px; word-break:break-word; line-height:1.5; }
+  .ev.t-error .msg { color:#8a1f22; background:#fdecec; border-color:#f6cbcb; }
   .filters { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; align-items:center; }
   .chip {
     font:inherit; font-size:12.5px; cursor:pointer; border:1px solid var(--line);
@@ -216,6 +236,12 @@
   <section class="panel">
     <h2>整體狀況</h2>
     <div class="cards" id="cards"><div class="empty">載入中…</div></div>
+  </section>
+
+  <!-- 問題玩家(誰) -->
+  <section class="panel">
+    <h2>問題玩家 <span class="hint">誰遇到問題、各遇到幾次 — 識別碼可複製去 Clarity 查錄影</span></h2>
+    <div class="players" id="players"><div class="empty">載入中…</div></div>
   </section>
 
   <!-- 時間分佈 -->
@@ -393,12 +419,20 @@ function renderCards(sum){
        <div class="sub2">佔 ${ratio}%</div></div>`,
     `<div class="stat"><div class="k">問題事件總數</div><div class="v">${sum.problem_events}</div>
        <div class="sub2">重連 ${sum.reconnects} 次(復原)</div></div>`,
-    `<div class="stat"><div class="k"><span class="dot error"></span>程式錯誤</div><div class="v">${sum.errors}</div></div>`,
-    `<div class="stat"><div class="k"><span class="dot join_fail"></span>登入失敗</div><div class="v">${sum.join_fails}</div></div>`,
-    `<div class="stat"><div class="k"><span class="dot disconnect"></span>斷線</div><div class="v">${sum.disconnects}</div></div>`,
-    `<div class="stat"><div class="k"><span class="dot freeze"></span>卡住/無回應</div><div class="v">${sum.freezes}</div></div>`,
+    `<div class="stat click" data-filter="error"><div class="k"><span class="dot error"></span>程式錯誤</div><div class="v">${sum.errors}</div><div class="sub2">點擊看明細</div></div>`,
+    `<div class="stat click" data-filter="join_fail"><div class="k"><span class="dot join_fail"></span>登入失敗</div><div class="v">${sum.join_fails}</div><div class="sub2">點擊看明細</div></div>`,
+    `<div class="stat click" data-filter="disconnect"><div class="k"><span class="dot disconnect"></span>斷線</div><div class="v">${sum.disconnects}</div><div class="sub2">點擊看明細</div></div>`,
+    `<div class="stat click" data-filter="freeze"><div class="k"><span class="dot freeze"></span>卡住/無回應</div><div class="v">${sum.freezes}</div><div class="sub2">點擊看明細</div></div>`,
   ];
   document.getElementById('cards').innerHTML = cards.join('');
+  // 型別卡可點 → 篩選「問題明細」並捲過去
+  document.querySelectorAll('#cards .stat.click').forEach(c=>{
+    c.onclick = ()=>{
+      EV_TYPE = c.getAttribute('data-filter'); EV_OFFSET = 0;
+      loadEvents();
+      document.getElementById('events').scrollIntoView({ behavior:'smooth', block:'start' });
+    };
+  });
 }
 
 /* ── 時間分佈圖 ── */
@@ -474,34 +508,9 @@ function renderTypeFilters(){
 function copyBtn(pid){
   return `<span class="pid"><code>${esc(pid)}</code><button class="copy" data-pid="${esc(pid)}">複製</button></span>`;
 }
-function renderEvents(data){
-  const el = document.getElementById('events');
-  const list = data.events || [];
-  if (!list.length){ el.innerHTML = '<div class="empty">此範圍沒有符合的紀錄</div>'; document.getElementById('pager').style.display='none'; return; }
-  el.innerHTML = list.map(e=>{
-    const who = [e.name, e.team].filter(Boolean).map(esc).join(' · ');
-    const dev = [e.os, e.screen].filter(Boolean).map(esc).join(' · ');
-    let detailHtml = '';
-    if (e.detail){
-      let pretty = e.detail;
-      try { pretty = JSON.stringify(JSON.parse(e.detail), null, 2); } catch {}
-      detailHtml = `<details class="detail"><summary>詳情</summary><pre>${esc(pretty)}</pre></details>`;
-    }
-    return `<div class="ev t-${esc(e.type)}">
-      <div class="r1">
-        <span class="badge ${esc(e.type)}">${TYPE_LABEL[e.type]||esc(e.type)}</span>
-        <span class="time">${fmtTime(e.ts)}</span>
-        ${e.phase?`<span class="phase">階段:${esc(e.phase)}</span>`:''}
-      </div>
-      <div class="r2">
-        ${copyBtn(e.player_id)}
-        ${who?`<span class="who">${who}</span>`:'<span class="who muted">(無名字)</span>'}
-      </div>
-      <div class="r3">房號 ${esc(e.room)} · ${dev||'裝置未知'}${e.ua?` · <span title="${esc(e.ua)}">${esc(e.ua.slice(0,42))}${e.ua.length>42?'…':''}</span>`:''}</div>
-      ${detailHtml}
-    </div>`;
-  }).join('');
-  el.querySelectorAll('.copy').forEach(btn=>{
+/* 複製鈕統一綁定(問題玩家 + 問題明細兩區共用) */
+function wireCopy(container){
+  container.querySelectorAll('.copy').forEach(btn=>{
     btn.onclick = async ()=>{
       const pid = btn.getAttribute('data-pid');
       try { await navigator.clipboard.writeText(pid); }
@@ -510,6 +519,78 @@ function renderEvents(data){
       setTimeout(()=>{ btn.textContent='複製'; btn.classList.remove('done'); }, 1400);
     };
   });
+}
+/* 把 detail(JSON)轉成一句白話「具體發生什麼」 */
+function detailSentence(e){
+  let d = {};
+  try { d = e.detail ? JSON.parse(e.detail) : {}; } catch { return e.detail || ''; }
+  switch(e.type){
+    case 'error':      return d.message ? String(d.message) : '程式錯誤(無訊息)';
+    case 'disconnect': return '與伺服器連線中斷';
+    case 'reconnect':  return (d.downtime_ms!=null) ? `斷線後成功重連,中斷約 ${Math.round(d.downtime_ms/1000)} 秒` : '成功重連';
+    case 'freeze':     return (d.stall_ms!=null) ? `畫面卡住/無回應約 ${Math.round(d.stall_ms/1000)} 秒` : '畫面卡住/無回應';
+    case 'join_fail':  return '無法加入房間' + (d.reason?`(${d.reason})`:'') + (d.waited_ms?`,已等待 ${Math.round(d.waited_ms/1000)} 秒`:'');
+    case 'join':       return '成功加入房間';
+    default:           return e.detail || '';
+  }
+}
+/* 問題玩家(誰):每個有問題的玩家一張卡,含各型別次數 + 可複製識別碼 */
+function renderPlayers(list){
+  const el = document.getElementById('players');
+  list = list || [];
+  if (!list.length){ el.innerHTML = '<div class="empty">此範圍沒有玩家遇到問題 🎉</div>'; return; }
+  el.innerHTML = list.map(p=>{
+    const counts = [];
+    if (p.errors)      counts.push(`<span class="pcount error">程式錯誤 ×${p.errors}</span>`);
+    if (p.join_fails)  counts.push(`<span class="pcount join_fail">登入失敗 ×${p.join_fails}</span>`);
+    if (p.disconnects) counts.push(`<span class="pcount disconnect">斷線 ×${p.disconnects}</span>`);
+    if (p.freezes)     counts.push(`<span class="pcount freeze">卡住 ×${p.freezes}</span>`);
+    if (p.reconnects)  counts.push(`<span class="pcount reconnect">重連 ×${p.reconnects}</span>`);
+    const dev = [p.os, p.screen].filter(Boolean).map(esc).join(' · ');
+    return `<div class="pcard">
+      <div class="ptop">
+        <span class="pname">${esc(p.name||'(無名字)')}</span>
+        ${p.team?`<span class="pteam">${esc(p.team)}</span>`:''}
+        <span class="pprob">${p.problems} 次問題</span>
+      </div>
+      <div class="pcounts">${counts.join('')}</div>
+      ${copyBtn(p.player_id)}
+      <div class="pmeta">${dev||'裝置未知'} · 最後一次 ${fmtTime(p.last_ts)}</div>
+    </div>`;
+  }).join('');
+  wireCopy(el);
+}
+function renderEvents(data){
+  const el = document.getElementById('events');
+  const list = data.events || [];
+  if (!list.length){ el.innerHTML = '<div class="empty">此範圍沒有符合的紀錄</div>'; document.getElementById('pager').style.display='none'; return; }
+  el.innerHTML = list.map(e=>{
+    const who = [e.name, e.team].filter(Boolean).map(esc).join(' · ');
+    const dev = [e.os, e.screen].filter(Boolean).map(esc).join(' · ');
+    const msg = detailSentence(e);
+    const msgHtml = msg ? `<div class="msg">${esc(msg)}</div>` : '';
+    let rawHtml = '';
+    if (e.detail){
+      let pretty = e.detail;
+      try { pretty = JSON.stringify(JSON.parse(e.detail), null, 2); } catch {}
+      rawHtml = `<details class="detail"><summary>原始資料</summary><pre>${esc(pretty)}</pre></details>`;
+    }
+    return `<div class="ev t-${esc(e.type)}">
+      <div class="r1">
+        <span class="badge ${esc(e.type)}">${TYPE_LABEL[e.type]||esc(e.type)}</span>
+        <span class="time">${fmtTime(e.ts)}</span>
+        ${e.phase?`<span class="phase">階段:${esc(e.phase)}</span>`:''}
+      </div>
+      ${msgHtml}
+      <div class="r2">
+        ${copyBtn(e.player_id)}
+        ${who?`<span class="who">${who}</span>`:'<span class="who muted">(無名字)</span>'}
+      </div>
+      <div class="r3">房號 ${esc(e.room)} · ${dev||'裝置未知'}${e.ua?` · <span title="${esc(e.ua)}">${esc(e.ua.slice(0,42))}${e.ua.length>42?'…':''}</span>`:''}</div>
+      ${rawHtml}
+    </div>`;
+  }).join('');
+  wireCopy(el);
   // 分頁
   const pager = document.getElementById('pager');
   const total = data.total||0;
@@ -541,6 +622,7 @@ async function loadScope(){
   try {
     const data = await api('/api/admin/summary'+qs(scopeQuery()));
     renderCards(data.summary);
+    renderPlayers(data.players);
     renderTimeline(data.buckets, data.summary);
   } catch(e){ if(e.message!=='unauthorized') showErr(e.message); }
   loadEvents();

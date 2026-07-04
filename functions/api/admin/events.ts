@@ -12,7 +12,7 @@
  *   ?limit=<n>&offset=<n>   分頁(limit 預設 200,上限 1000)
  */
 import type { Env } from '../../_shared';
-import { json, isAuthed, ALL_TYPES } from '../../_shared';
+import { json, isAuthed, numParam, ALL_TYPES } from '../../_shared';
 
 const TYPE_SET = new Set<string>(ALL_TYPES);
 
@@ -46,9 +46,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     binds.push(room);
   }
 
-  const from = Number(url.searchParams.get('from'));
-  const to = Number(url.searchParams.get('to'));
-  if (Number.isFinite(from) && Number.isFinite(to)) {
+  const from = numParam(url.searchParams.get('from'));
+  const to = numParam(url.searchParams.get('to'));
+  if (from != null && to != null) {
     clauses.push('ts BETWEEN ? AND ?');
     binds.push(Math.floor(from), Math.floor(to));
   }
@@ -96,6 +96,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 };
 
 function clampInt(raw: string | null, dflt: number, min: number, max: number): number {
+  // 注意:Number(null)/Number('') === 0(不是 NaN),不能直接拿來判斷有無 →
+  // 先判空回預設,否則沒帶 limit 會被算成 0 → clamp 成 1(只回 1 筆)。
+  if (raw == null || raw.trim() === '') return dflt;
   const n = Number(raw);
   if (!Number.isFinite(n)) return dflt;
   return Math.min(max, Math.max(min, Math.floor(n)));

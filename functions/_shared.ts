@@ -50,6 +50,18 @@ export function cap(v: unknown, n: number): string | null {
 }
 
 /**
+ * 把「可有可無的數字 query 參數」安全解析成 number | null。
+ * ⚠ 不要用 `Number(raw)` 當有無判斷:Number(null) 與 Number('') 都是 0(不是
+ * NaN),會讓「沒帶 from/to」被誤判成「from=0,to=0」→ WHERE ts BETWEEN 0 AND 0
+ * → 什麼都撈不到(問題明細空白 bug 的元凶)。這裡先判空,再判是否有限數。
+ */
+export function numParam(raw: string | null): number | null {
+  if (raw == null || raw.trim() === '') return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
  * 資管端密碼驗證。密碼來自 env.ADMIN_KEY(wrangler.toml [vars])。
  * - 未設密碼 → 一律放行(user 說密碼保護可做可不做)。
  * - 有設 → 需帶對的 key,可用 header `x-admin-key` 或 query `?key=`。
