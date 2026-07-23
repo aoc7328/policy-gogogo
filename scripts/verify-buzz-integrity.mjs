@@ -66,7 +66,7 @@ ass.send({
     mode: 'ordinary', customTiers: ['easy'], customTypes: ['multiple_choice'],
     totalQ: 5, spq: 5, groups: [{ name: teamOfA }, { name: teamOfB }],
     rushMode: 'speed', wordGameCap: null, groupingMode: 'random',
-    timerDefaults: { word_game: 10, multiple_choice: 20, short_answer: 30, calculation: 60, essay: 120 },
+    timerDefaults: { word_game: 10, multiple_choice: 20, short_answer: 30, calculation: 60, essay: 180 },
   },
 });
 await wait(500);
@@ -108,7 +108,7 @@ ass.send({
     mode: 'ordinary', customTiers: ['easy'], customTypes: ['multiple_choice'],
     totalQ: 5, spq: 5, groups: [{ name: nowTeamOfA }, { name: nowTeamOfB }],
     rushMode: 'count', wordGameCap: null, groupingMode: 'random',
-    timerDefaults: { word_game: 10, multiple_choice: 20, short_answer: 30, calculation: 60, essay: 120 },
+    timerDefaults: { word_game: 10, multiple_choice: 20, short_answer: 30, calculation: 60, essay: 180 },
   },
 });
 await wait(600);

@@ -83,7 +83,7 @@ ass.send({
     totalQ: 5, spq: 5,
     groups: [{ name: '第一組' }, { name: '第二組' }],   // ← 這就是事故的來源
     rushMode: 'speed', wordGameCap: null, groupingMode: 'random',
-    timerDefaults: { word_game: 10, multiple_choice: 20, short_answer: 30, calculation: 60, essay: 120 },
+    timerDefaults: { word_game: 10, multiple_choice: 20, short_answer: 30, calculation: 60, essay: 180 },
   },
 });
 await wait(600);

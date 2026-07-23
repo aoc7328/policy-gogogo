@@ -1031,7 +1031,7 @@ input::placeholder{color:var(--ink-3)}
             <div class="fld"><span class="flbl">簡答題</span><input type="number" id="i-timer-short" value="30" min="0" max="600"></div>
             <div class="fld"><span class="flbl">計算題</span><input type="number" id="i-timer-calc" value="60" min="0" max="600"></div>
             <!-- 申論題預設 120 秒:實測 180 秒對現場(55 歲以上、口頭作答)太久會冷場 -->
-            <div class="fld"><span class="flbl">申論題</span><input type="number" id="i-timer-essay" value="120" min="0" max="600"></div>
+            <div class="fld"><span class="flbl">申論題</span><input type="number" id="i-timer-essay" value="180" min="0" max="600"></div>
           </div>
         </div>
       </div>
@@ -1368,7 +1368,7 @@ const S={
   // 組長表 { 組名: 組長名 },由 server group_leaders 廣播填入。
   leaders:{},
   // 答題倒數:五種題型各自預設秒數(進場前設、遊戲中鎖)。題目出現時依題型自動起算。
-  timerDefaults:{ word_game:10, multiple_choice:20, short_answer:30, calculation:60, essay:120 },
+  timerDefaults:{ word_game:10, multiple_choice:20, short_answer:30, calculation:60, essay:180 },
   _curTimerDefault:0,   // 當前題目該題型的預設秒數(供「重新計時」用)
   _timerRemain:0,       // 當前倒數剩餘秒(供 +10/-10 計算)
   // 當前題目分類(F1~F9,助理九宮格選擇)
@@ -2947,7 +2947,7 @@ function setGroupingMode(el) {
    - 遊戲中可用「關閉 / −10 / +10 / 重新計時」微調。
    - server 是計時權威(記 deadline + 廣播),本機只送 set_timer 命令。 */
 /* 五種題型各自的答題倒數預設(秒)。0 = 該題型不計時。 */
-const TIMER_DEFAULTS = { word_game: 10, multiple_choice: 20, short_answer: 30, calculation: 60, essay: 120 };
+const TIMER_DEFAULTS = { word_game: 10, multiple_choice: 20, short_answer: 30, calculation: 60, essay: 180 };
 const TIMER_INPUT_IDS = {
   word_game: 'i-timer-word', multiple_choice: 'i-timer-mc', short_answer: 'i-timer-short',
   calculation: 'i-timer-calc', essay: 'i-timer-essay',
@@ -3310,7 +3310,8 @@ function doManualRegroup(){
     eyebrow: 'Regroup · 重新分組',
     title: `確定要全員隨機重新分成 ${n} 組?`,
     sub: '所有玩家的分組會整批重新洗牌,24 小時裝置固定分組也會重設。只有必要時才做這個動作。'
-       + '注意:組名會留在原本的組別位置上,不會跟著人移動 —— 重洗後請提醒大家確認自己的組名。',
+       + '大家取的組名也會一併清空回「第一組、第二組…」——因為組名是綁在組別位置上、不會跟著人走,'
+       + '留著舊名字反而會讓大家對不上自己的組。重洗完請再請各組組長重新取名。',
     okText: '重新分組',
     okClass: 'danger',
     onOk: () => PartyBus.emit('team_count_changed', { count: n, reshuffle: true }),

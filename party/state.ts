@@ -445,14 +445,21 @@ const DEFAULT_TEAM_NAMES = [
  * default names. Members are cleared — caller is expected to follow
  * with reshuffleParticipants(), or let subsequent player_join calls
  * repopulate via pickTeamForParticipant.
+ *
+ * resetNames=true:組名一併回到「第一組/第二組…」。
+ * 全員重洗時一定要帶這個(2026-07-23 實測回饋):組名是綁在「組別位置」
+ * 上的,不會跟著人走 —— 王秀琴把自己那組取名「勇腳團」,重洗後她被分到
+ * 「不老松」,「勇腳團」變成別人那組,現場會非常錯亂。與其讓名字錯位,
+ * 不如清乾淨請大家重取。
  */
-export function setupTeams(state: RoomState, count: number): void {
+export function setupTeams(state: RoomState, count: number, resetNames = false): void {
   const newGroups: TeamState[] = [];
   for (let i = 0; i < count; i++) {
     const existing = state.groups[i];
+    const fallback = DEFAULT_TEAM_NAMES[i] ?? `第${i + 1}組`;
     newGroups.push({
       idx: i,
-      name: existing?.name ?? DEFAULT_TEAM_NAMES[i] ?? `第${i + 1}組`,
+      name: resetNames ? fallback : (existing?.name ?? fallback),
       score: existing?.score ?? 0,
       members: [],
       leader: null,

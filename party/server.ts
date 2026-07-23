@@ -1234,9 +1234,21 @@ export class PolicyGogogoServer extends Server {
     }
     // 改組數隱含「隨機平均」模式(prefix 模式不吃組數)
     this.state.groupingMode = 'random';
-    setupTeams(this.state, n);
+    // 走到這裡就一定是「真的要全員重洗」(上面的 guard 已經把同步訊息擋掉)。
+    // 組名一併歸零成「第一組/第二組…」:組名綁在組別位置、不跟著人走,
+    // 重洗後留著舊名字只會讓大家對不上自己的組(Vincent 2026-07-23 決定)。
+    setupTeams(this.state, n, true);
     reshuffleParticipants(this.state);
     this.broadcastRoster();
+    // 組名可能剛被重設 → 補一發 score_update,讓以組名為鍵渲染的畫面跟上
+    this.broadcastEvent({
+      type: 'score_update',
+      payload: {
+        scores: this.state.groups.map((g) => ({ idx: g.idx, name: g.name, score: g.score })),
+        changedIdx: -1,
+        delta: 0,
+      },
+    });
     // 重洗後組長多半已不在原組 → 重抽並廣播
     this.syncLeaders(true);
   }
