@@ -23,13 +23,15 @@
 //
 // 用法: node verify-p1-1.mjs [host]   (預設 127.0.0.1:1998)
 const HOST = process.argv[2] || '127.0.0.1:1998';
+// 本機用 ws://,正式站(workers.dev)一定要 wss://
+const WS = /^(127\.|localhost|\[::1\])/.test(HOST) ? 'ws' : 'wss';
 const ROOM = 'p11-' + Math.floor(Math.random() * 1e6);
 const fails = [];
 const log = (...a) => console.log(...a);
 
 function conn(query) {
   return new Promise((resolve, reject) => {
-    const ws = new WebSocket(`ws://${HOST}/parties/main/${ROOM}?${new URLSearchParams(query)}`);
+    const ws = new WebSocket(`${WS}://${HOST}/parties/main/${ROOM}?${new URLSearchParams(query)}`);
     const frames = [];
     ws.addEventListener('message', (e) => { try { frames.push(JSON.parse(e.data)); } catch {} });
     ws.addEventListener('error', reject);
