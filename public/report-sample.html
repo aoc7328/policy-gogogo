@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>賽後報告(樣板) · 保險知識星攻略</title>
+<!-- ══════════════════════════════════════════════════════════════════
+     report-sample.html —「賽後快照報告」版面樣板(給 Vincent 過目用)。
+
+     ⚠ 這一份是**靜態樣板**,資料是寫死的假資料(刻意比照 2026-07-23
+       那場的情境:30 人 / 5 組 / 兩場 / 有一組全場沒搶到)。
+       真版會由 /api/admin/report?id=... 取 D1 的實際紀錄後套同一版面。
+
+     視覺語言沿用 admin.html(淺色後台風),與遊戲三端的深色介面區隔 ——
+     這是「事後閱讀」的文件,不是現場操作介面。
+     ══════════════════════════════════════════════════════════════════ -->
+<style>
+  :root {
+    --bg:#eef1f7; --card:#ffffff; --ink:#1f2733; --ink-2:#5a6472; --ink-3:#8a94a3;
+    --line:#e2e7f0; --line-2:#eef1f6; --accent:#4f46e5; --accent-s:#eceafe;
+    --gold:#b8860b; --gold-s:#fdf6e3;
+    --warn:#e8a23d; --warn-s:#fdf4e6; --err:#e5484d; --err-s:#fdeaea;
+    --ok:#12a150; --ok-s:#e7f7ee;
+    --shadow:0 1px 2px rgba(20,30,50,.05), 0 4px 16px rgba(20,30,50,.05);
+    --radius:14px;
+  }
+  * { box-sizing:border-box; }
+  html,body { margin:0; padding:0; }
+  body {
+    background:var(--bg); color:var(--ink);
+    font-family:"Noto Sans TC", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    font-size:15px; line-height:1.55; -webkit-text-size-adjust:100%;
+  }
+  .mono { font-family:"JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; }
+
+  header.top { background:linear-gradient(180deg,#20263a,#161b2b); color:#f4f6fb; padding:22px 20px 20px; }
+  header.top .wrap { max-width:1060px; margin:0 auto; }
+  header.top h1 { margin:0; font-size:21px; font-weight:700; letter-spacing:.5px; }
+  header.top .sub { margin-top:6px; color:#aeb6c8; font-size:13px; }
+  header.top .meta { margin-top:12px; display:flex; flex-wrap:wrap; gap:8px; }
+  header.top .chip {
+    background:rgba(255,255,255,.09); border:1px solid rgba(255,255,255,.14);
+    padding:4px 11px; border-radius:999px; font-size:12px; color:#dfe4ef;
+  }
+
+  main { max-width:1060px; margin:0 auto; padding:18px 16px 70px; }
+
+  .banner {
+    background:var(--warn-s); border:1px solid #f0d9a8; border-radius:var(--radius);
+    padding:12px 15px; margin-bottom:16px; font-size:13px; color:#7a5a12;
+  }
+  .banner b { color:#5d440c; }
+
+  .panel {
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    box-shadow:var(--shadow); padding:16px 18px; margin-bottom:16px;
+  }
+  .panel > h2 {
+    margin:0 0 4px; font-size:14px; font-weight:700; color:var(--ink-2);
+    letter-spacing:.5px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+  }
+  .panel > .h2sub { margin:0 0 14px; font-size:12px; color:var(--ink-3); }
+
+  /* ── 數字磚 ── */
+  .tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; }
+  .tile { background:#fafbfe; border:1px solid var(--line-2); border-radius:11px; padding:12px 14px; }
+  .tile .k { font-size:11px; color:var(--ink-3); letter-spacing:.4px; }
+  .tile .v { font-size:23px; font-weight:700; margin-top:3px; line-height:1.2; }
+  .tile .v small { font-size:12px; font-weight:500; color:var(--ink-3); margin-left:3px; }
+
+  /* ── 表格 ── */
+  .tw { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  table { border-collapse:collapse; width:100%; font-size:14px; min-width:520px; }
+  th, td { text-align:left; padding:9px 11px; border-bottom:1px solid var(--line-2); vertical-align:top; }
+  th { font-size:12px; color:var(--ink-3); font-weight:600; white-space:nowrap; background:#fafbfe; }
+  td.num, th.num { text-align:right; white-space:nowrap; }
+  tbody tr:last-child td { border-bottom:none; }
+  tr.zero td { background:var(--err-s); }
+
+  .rank { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px;
+    border-radius:6px; background:#eef0f6; color:var(--ink-2); font-size:12px; font-weight:700; }
+  .rank.r1 { background:var(--gold-s); color:var(--gold); }
+
+  .tag { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600;
+    border:1px solid var(--line); color:var(--ink-2); background:#fafbfe; white-space:nowrap; }
+  .tag.lead { background:var(--gold-s); border-color:#eddca6; color:var(--gold); }
+  .tag.mvp  { background:var(--accent-s); border-color:#d5d0fb; color:var(--accent); }
+  .tag.zero { background:var(--err-s); border-color:#f5c9c9; color:var(--err); }
+  .tag.ok   { background:var(--ok-s); border-color:#bfe6cf; color:var(--ok); }
+  .tag.mode { background:#f2f4f9; }
+
+  .members { display:flex; flex-wrap:wrap; gap:5px; margin-top:2px; }
+  .member { font-size:12.5px; padding:2px 8px; border-radius:999px; background:#f3f5fa;
+    border:1px solid var(--line-2); color:var(--ink-2); }
+  .member.lead { background:var(--gold-s); border-color:#eddca6; color:var(--gold); font-weight:600; }
+
+  /* ── 長條 ── */
+  .bar { height:7px; background:#eef0f6; border-radius:99px; overflow:hidden; min-width:80px; }
+  .bar > i { display:block; height:100%; background:var(--accent); border-radius:99px; }
+  .bar.zero > i { background:var(--err); }
+
+  /* ── 逐題明細 ── */
+  details.q { border:1px solid var(--line); border-radius:11px; margin-bottom:9px; background:#fff; }
+  details.q > summary {
+    list-style:none; cursor:pointer; padding:11px 14px; display:flex; gap:10px;
+    align-items:center; flex-wrap:wrap;
+  }
+  details.q > summary::-webkit-details-marker { display:none; }
+  details.q > summary::after { content:'▾'; margin-left:auto; color:var(--ink-3); font-size:13px; }
+  details.q[open] > summary::after { content:'▴'; }
+  details.q[open] > summary { border-bottom:1px solid var(--line-2); }
+  .qno { font-weight:700; color:var(--ink-2); font-size:13px; min-width:38px; }
+  .qtitle { flex:1 1 220px; font-size:13.5px; color:var(--ink); }
+  .qbody { padding:13px 15px 15px; font-size:14px; }
+  .qbody .row { margin-bottom:11px; }
+  .qbody .row:last-child { margin-bottom:0; }
+  .qbody .lbl { font-size:11px; color:var(--ink-3); letter-spacing:.4px; margin-bottom:3px; }
+  .qbody .ans { background:var(--ok-s); border:1px solid #bfe6cf; border-radius:9px;
+    padding:9px 12px; color:#0e6b38; }
+  .qbody .qtext { background:#fafbfe; border:1px solid var(--line-2); border-radius:9px; padding:9px 12px; }
+
+  .foot { text-align:center; color:var(--ink-3); font-size:12px; margin-top:24px; line-height:1.9; }
+
+  @media (max-width:560px) {
+    header.top h1 { font-size:18px; }
+    .tile .v { font-size:20px; }
+    .qtitle { flex-basis:100%; }
+  }
+  @media print {
+    body { background:#fff; }
+    .banner, .foot { display:none; }
+    .panel { box-shadow:none; break-inside:avoid; }
+    details.q { break-inside:avoid; }
+    details.q > summary::after { display:none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <h1>賽後報告 · 保險知識星攻略</h1>
+    <div class="sub">2026-07-23（四）· 房號 7346 · 共 2 場</div>
+    <div class="meta">
+      <span class="chip">參與 30 人</span>
+      <span class="chip">5 組</span>
+      <span class="chip">第一場 地獄模式 · 8 題</span>
+      <span class="chip">第二場 普通模式 · 10 題</span>
+      <span class="chip mono">報告產生於 2026-07-23 18:24</span>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <div class="banner">
+    ⚠ <b>這是版面樣板</b>，裡面的數字與名單都是<b>假資料</b>（比照 7/23 那場的情境編的），用來讓你確認版面與欄位。
+    正式版會自動帶入真實紀錄。
+  </div>
+
+  <!-- ══════ 1. 總覽 ══════ -->
+  <section class="panel">
+    <h2>總覽</h2>
+    <div class="h2sub">整個活動的規模與結果</div>
+    <div class="tiles">
+      <div class="tile"><div class="k">參與人數</div><div class="v">30 <small>人</small></div></div>
+      <div class="tile"><div class="k">分組數</div><div class="v">5 <small>組</small></div></div>
+      <div class="tile"><div class="k">總場次</div><div class="v">2 <small>場</small></div></div>
+      <div class="tile"><div class="k">實際出題</div><div class="v">18 <small>題</small></div></div>
+      <div class="tile"><div class="k">活動時長</div><div class="v">1:52 <small>時分</small></div></div>
+      <div class="tile"><div class="k">中途加入</div><div class="v">5 <small>人</small></div></div>
+    </div>
+  </section>
+
+  <!-- ══════ 2. 分組名單 ══════ -->
+  <section class="panel">
+    <h2>分組名單與成績 <span class="tag lead">★ 組長</span></h2>
+    <div class="h2sub">兩場合計。★ 為組長；「搶到次數」是這一組在 18 輪搶答中拿下的輪數</div>
+    <div class="tw">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:40px">名次</th>
+            <th>組別 / 成員</th>
+            <th class="num">人數</th>
+            <th class="num">總分</th>
+            <th class="num">搶到次數</th>
+            <th style="width:130px">搶答佔比</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="rank r1">1</span></td>
+            <td>
+              <b>第二組</b> <span class="tag mvp">MVP 柏宏 · 5 次</span>
+              <div class="members">
+                <span class="member lead">★ 宇珊</span><span class="member">柏宏</span><span class="member">梓瑜</span>
+                <span class="member">董董</span><span class="member">陳圓希</span><span class="member">小靜</span>
+              </div>
+            </td>
+            <td class="num">6</td>
+            <td class="num"><b>1,450</b></td>
+            <td class="num">7</td>
+            <td><div class="bar"><i style="width:100%"></i></div></td>
+          </tr>
+          <tr>
+            <td><span class="rank">2</span></td>
+            <td>
+              <b>第一組</b> <span class="tag mvp">MVP 朱青玉 · 3 次</span>
+              <div class="members">
+                <span class="member lead">★ 李小祥</span><span class="member">朱青玉</span><span class="member">河河閤</span>
+                <span class="member">懿純</span><span class="member">北斗金城武</span><span class="member">麗冠</span>
+              </div>
+            </td>
+            <td class="num">6</td>
+            <td class="num"><b>1,100</b></td>
+            <td class="num">5</td>
+            <td><div class="bar"><i style="width:71%"></i></div></td>
+          </tr>
+          <tr>
+            <td><span class="rank">3</span></td>
+            <td>
+              <b>第三組</b> <span class="tag mvp">MVP 胡憶章 · 2 次</span>
+              <div class="members">
+                <span class="member lead">★ 宛陵</span><span class="member">胡憶章</span><span class="member">陳佳慧</span>
+                <span class="member">廖笠筑</span><span class="member">楊雨雯</span><span class="member">小玉</span>
+              </div>
+            </td>
+            <td class="num">6</td>
+            <td class="num"><b>800</b></td>
+            <td class="num">4</td>
+            <td><div class="bar"><i style="width:57%"></i></div></td>
+          </tr>
+          <tr>
+            <td><span class="rank">4</span></td>
+            <td>
+              <b>第五組</b> <span class="tag mvp">MVP 阿德 · 2 次</span>
+              <div class="members">
+                <span class="member lead">★ 淑芬</span><span class="member">阿德</span><span class="member">秀琴</span>
+                <span class="member">建志</span><span class="member">美玲</span><span class="member">俊宏</span>
+              </div>
+            </td>
+            <td class="num">6</td>
+            <td class="num"><b>500</b></td>
+            <td class="num">2</td>
+            <td><div class="bar"><i style="width:29%"></i></div></td>
+          </tr>
+          <tr class="zero">
+            <td><span class="rank">5</span></td>
+            <td>
+              <b>第四組</b> <span class="tag zero">全場未搶到</span>
+              <div class="members">
+                <span class="member lead">★ 王媽媽</span><span class="member">陳伯</span><span class="member">林阿姨</span>
+                <span class="member">張桑</span><span class="member">阿珠</span><span class="member">老吳</span>
+              </div>
+            </td>
+            <td class="num">6</td>
+            <td class="num"><b>0</b></td>
+            <td class="num">0</td>
+            <td><div class="bar zero"><i style="width:2%"></i></div></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ══════ 3. 搶答分布 ══════ -->
+  <section class="panel">
+    <h2>搶答分布 <span class="tag">用來檢查公平性</span></h2>
+    <div class="h2sub">同一組是不是一直贏？換模式有沒有幫助？這一區就是回答這個問題的</div>
+
+    <div class="tw" style="margin-bottom:16px">
+      <table>
+        <thead>
+          <tr>
+            <th>搶答模式</th>
+            <th class="num">輪數</th>
+            <th>各組拿下輪數</th>
+            <th>集中度</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="tag mode">搶快</span></td>
+            <td class="num">7</td>
+            <td>第二組 <b>5</b> · 第一組 2 · 其他 0</td>
+            <td><span class="tag zero">高度集中</span></td>
+          </tr>
+          <tr>
+            <td><span class="tag mode">狂點奪魁</span></td>
+            <td class="num">4</td>
+            <td>第一組 2 · 第二組 1 · 第三組 1</td>
+            <td><span class="tag">偏集中</span></td>
+          </tr>
+          <tr>
+            <td><span class="tag mode">閃電一按</span></td>
+            <td class="num">4</td>
+            <td>第三組 2 · 第五組 1 · 第二組 1</td>
+            <td><span class="tag ok">分散</span></td>
+          </tr>
+          <tr>
+            <td><span class="tag mode">全組到位</span></td>
+            <td class="num">3</td>
+            <td>第五組 1 · 第三組 1 · 第一組 1</td>
+            <td><span class="tag ok">分散</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 style="margin-top:6px">個人搶答排行</h2>
+    <div class="h2sub">前 5 名（全場 18 輪）</div>
+    <div class="tw">
+      <table>
+        <thead>
+          <tr><th style="width:40px">#</th><th>姓名</th><th>組別</th><th class="num">搶到次數</th><th class="num">最快反應</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="rank r1">1</span></td><td><b>柏宏</b></td><td>第二組</td><td class="num">5</td><td class="num mono">0.412 秒</td></tr>
+          <tr><td><span class="rank">2</span></td><td>朱青玉</td><td>第一組</td><td class="num">3</td><td class="num mono">0.501 秒</td></tr>
+          <tr><td><span class="rank">3</span></td><td>胡憶章</td><td>第三組</td><td class="num">2</td><td class="num mono">0.633 秒</td></tr>
+          <tr><td><span class="rank">4</span></td><td>阿德</td><td>第五組</td><td class="num">2</td><td class="num mono">0.688 秒</td></tr>
+          <tr><td><span class="rank">5</span></td><td>宇珊</td><td>第二組</td><td class="num">2</td><td class="num mono">0.704 秒</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ══════ 4. 逐題明細 ══════ -->
+  <section class="panel">
+    <h2>逐題明細 <span class="tag">點開看題目與答案</span></h2>
+    <div class="h2sub">第一場 地獄模式 · 8 題（此樣板只列前 3 題示意）</div>
+
+    <details class="q" open>
+      <summary>
+        <span class="qno mono">Q1</span>
+        <span class="qtitle">保險契約中，向保險公司申請投保並負責繳交保險費的人稱為？</span>
+        <span class="tag mode">搶快</span>
+        <span class="tag">第二組 · 柏宏</span>
+        <span class="tag ok">+100%</span>
+      </summary>
+      <div class="qbody">
+        <div class="row">
+          <div class="lbl">題目 · 簡答題 · 保險基礎與法規 · 難度 簡單</div>
+          <div class="qtext">保險契約中，向保險公司申請投保並負責繳交保險費的人稱為？</div>
+        </div>
+        <div class="row">
+          <div class="lbl">標準答案</div>
+          <div class="ans">要保人</div>
+        </div>
+        <div class="row">
+          <div class="lbl">搶答結果</div>
+          <div>第二組「柏宏」以 <b class="mono">0.412 秒</b> 搶下 · 判定 <b>答對（100%）</b> · 得 <b>100 分</b></div>
+        </div>
+      </div>
+    </details>
+
+    <details class="q">
+      <summary>
+        <span class="qno mono">Q2</span>
+        <span class="qtitle">依我國《保險法》規定，人壽保險契約的猶豫期最少為幾天？</span>
+        <span class="tag mode">狂點奪魁</span>
+        <span class="tag">第一組 · 朱青玉</span>
+        <span class="tag">+50%</span>
+      </summary>
+      <div class="qbody">
+        <div class="row">
+          <div class="lbl">題目 · 簡答題 · 契約條款與效力 · 難度 簡單</div>
+          <div class="qtext">依我國《保險法》規定，人壽保險契約的猶豫期最少為幾天？</div>
+        </div>
+        <div class="row">
+          <div class="lbl">標準答案</div>
+          <div class="ans">10 日（自收到保單翌日起算）</div>
+        </div>
+        <div class="row">
+          <div class="lbl">搶答結果</div>
+          <div>第一組人均 <b class="mono">12.4 次</b>（62 次 ÷ 5 人）勝出 · 代表答題「朱青玉」· 判定 <b>部分答對（50%）</b> · 得 <b>50 分</b></div>
+        </div>
+      </div>
+    </details>
+
+    <details class="q">
+      <summary>
+        <span class="qno mono">Q3</span>
+        <span class="qtitle">意外傷害險中「意外」的三要素為何？</span>
+        <span class="tag mode">全組到位</span>
+        <span class="tag">第五組</span>
+        <span class="tag zero">不計分</span>
+      </summary>
+      <div class="qbody">
+        <div class="row">
+          <div class="lbl">題目 · 簡答題 · 險種規劃與商品 · 難度 簡單</div>
+          <div class="qtext">意外傷害險中「意外」的三要素為何？</div>
+        </div>
+        <div class="row">
+          <div class="lbl">標準答案</div>
+          <div class="ans">外來的、突發的、非由疾病所致</div>
+        </div>
+        <div class="row">
+          <div class="lbl">搶答結果</div>
+          <div>第五組 <b>6 / 6 人</b> 在 0.5 秒內同步按下 · 判定 <b>答不出來（不計分）</b> · 隨後由第三組重新搶答</div>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <!-- ══════ 5. 連線品質 ══════ -->
+  <section class="panel">
+    <h2>連線品質 <span class="tag">沿用現有的 /admin 事件記錄</span></h2>
+    <div class="h2sub">誰的手機一直斷線 → 可能影響他搶答表現，也可能是分組跳動的原因</div>
+    <div class="tiles" style="margin-bottom:14px">
+      <div class="tile"><div class="k">總斷線次數</div><div class="v">39</div></div>
+      <div class="tile"><div class="k">受影響人數</div><div class="v">17 <small>/ 30</small></div></div>
+      <div class="tile"><div class="k">頁面卡住</div><div class="v">2 <small>次</small></div></div>
+      <div class="tile"><div class="k">加入失敗</div><div class="v">1 <small>人</small></div></div>
+    </div>
+    <div class="tw">
+      <table>
+        <thead><tr><th>姓名</th><th>組別</th><th class="num">斷線</th><th class="num">重連</th><th>裝置</th></tr></thead>
+        <tbody>
+          <tr><td>宇珊</td><td>第二組</td><td class="num">6</td><td class="num">6</td><td class="mono">iOS</td></tr>
+          <tr><td>朱青玉</td><td>第一組</td><td class="num">4</td><td class="num">4</td><td class="mono">Android</td></tr>
+          <tr><td>王媽媽</td><td>第四組</td><td class="num">3</td><td class="num">2</td><td class="mono">Android</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="foot">
+    保險知識星攻略 · 賽後報告（樣板）<br>
+    正式版保留最近 5 份完整報告；精簡摘要永久保留
+  </div>
+
+</main>
+</body>
+</html>
