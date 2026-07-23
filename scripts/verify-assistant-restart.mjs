@@ -180,7 +180,112 @@ check('14. 按鈕文字不帶前置符號',
   btnTexts.length === 3 && btnTexts.every(t => !/^[⚠？?★]/.test(t)),
   `文字=${JSON.stringify(btnTexts)}`);
 
-console.log('\n=== 助理端:開下一場 + 分組表版面 ===');
+// ══════════════════════════════════════════════════════════════════════
+// 自訂房號 + 房號鎖
+// 規格:房間完全還沒被用過時可以改房號;投影端已就緒 / 有人加入過 /
+// 已開賽,任一成立就鎖死。狀態不明(還沒收到快照、斷線)也一律鎖住。
+// ══════════════════════════════════════════════════════════════════════
+const roomInput = () => doc.getElementById('room-input');
+const applyBtn = () => doc.getElementById('btn-apply-room');
+const regenBtn = () => doc.getElementById('btn-regen-room');
+const lockHint = () => doc.getElementById('room-lock-hint');
+const resetLock = () => win.eval(`
+  _roomSnapSeen=false; _roomEverJoined=false; _roomPresenter=false; _roomStarted=false;
+`);
+
+// (a) 還沒收到快照 → 必須是鎖住的(fail-safe)
+resetLock(); win.eval('updateRoomLock();');
+check('15. 還沒收到 server 快照時,房號是鎖住的(fail-safe)',
+  roomInput()?.disabled === true && applyBtn()?.disabled === true && regenBtn()?.disabled === true,
+  `input=${roomInput()?.disabled} apply=${applyBtn()?.disabled} regen=${regenBtn()?.disabled}`);
+
+// (b) 收到快照且房間是空的 → 解鎖
+resetLock();
+win.eval(`syncRoomLockFromSnapshot({ phase:'lobby', presenterClaimed:false, groups:[{name:'第一組',members:[]}], participants:[] });`);
+check('16. 空房間 → 可以改房號',
+  roomInput()?.disabled === false && applyBtn()?.disabled === false,
+  `input=${roomInput()?.disabled} hint=「${lockHint()?.textContent?.trim().slice(0, 24)}」`);
+
+// (c) 有人加入過 → 鎖(用 groups[].members,不是線上人數)
+resetLock();
+win.eval(`syncRoomLockFromSnapshot({ phase:'lobby', presenterClaimed:false, groups:[{name:'第一組',members:['胖奇']}], participants:[] });`);
+check('17. 有組員(即使當下沒人在線)→ 鎖住',
+  roomInput()?.disabled === true && /加入/.test(lockHint()?.textContent || ''),
+  `disabled=${roomInput()?.disabled} hint=「${lockHint()?.textContent?.trim()}」`);
+
+// (d) 斷線後人數歸零,也不能放開 —— 這是本設計最重要的一條
+win.eval(`syncRoomLockFromSnapshot({ phase:'lobby', presenterClaimed:false, groups:[{name:'第一組',members:[]}], participants:[] });`);
+check('18. 有人加入過之後,即使名單暫時空了也不會解鎖(黏著)',
+  roomInput()?.disabled === true,
+  `disabled=${roomInput()?.disabled} hint=「${lockHint()?.textContent?.trim()}」`);
+
+// (e) 投影端認領 → 鎖
+resetLock();
+win.eval(`syncRoomLockFromSnapshot({ phase:'lobby', presenterClaimed:false, groups:[], participants:[] });`);
+const unlockedBeforePresenter = roomInput()?.disabled === false;
+win.eval(`PartyBus.__fire('presenter_claimed', { at: 1 });`);
+check('19. 投影端一認領就鎖住(助理端有接這個廣播)',
+  unlockedBeforePresenter && roomInput()?.disabled === true
+    && /投影端/.test(lockHint()?.textContent || ''),
+  `認領前 unlocked=${unlockedBeforePresenter} 認領後 disabled=${roomInput()?.disabled}`);
+
+// (f) player_join 廣播 → 立刻鎖
+resetLock();
+win.eval(`syncRoomLockFromSnapshot({ phase:'lobby', presenterClaimed:false, groups:[], participants:[] });`);
+const unlockedBeforeJoin = roomInput()?.disabled === false;
+win.eval(`PartyBus.__fire('player_join', { name:'胖奇', team:'第一組' });`);
+check('20. 有人加入的廣播一到就鎖住',
+  unlockedBeforeJoin && roomInput()?.disabled === true,
+  `加入前 unlocked=${unlockedBeforeJoin} 加入後 disabled=${roomInput()?.disabled}`);
+
+// (g) 已開賽 → 鎖
+resetLock();
+win.eval(`syncRoomLockFromSnapshot({ phase:'answering', presenterClaimed:false, groups:[], participants:[] });`);
+check('21. 已開賽 → 鎖住',
+  roomInput()?.disabled === true && /已開始/.test(lockHint()?.textContent || ''),
+  `hint=「${lockHint()?.textContent?.trim()}」`);
+
+// (h) 斷線 → 回到鎖住
+resetLock();
+win.eval(`syncRoomLockFromSnapshot({ phase:'lobby', presenterClaimed:false, groups:[], participants:[] });`);
+const unlockedBeforeDrop = roomInput()?.disabled === false;
+win.eval(`updateConnectionStatus('disconnected');`);
+check('22. 斷線時鎖回去(看不到房間狀態就不放行)',
+  unlockedBeforeDrop && roomInput()?.disabled === true,
+  `斷線前 unlocked=${unlockedBeforeDrop} 斷線後 disabled=${roomInput()?.disabled}`);
+
+// (i) 房號格式檢核 —— 不合法不得換頁
+resetLock();
+win.eval(`
+  syncRoomLockFromSnapshot({ phase:'lobby', presenterClaimed:false, groups:[], participants:[] });
+  window.__navigated = null;
+  window.gotoRoom = function(c){ window.__navigated = c; };   // 攔住真的重新載入
+`);
+const bad = ['', '12', '123456789', '12a4', '１２３４'];
+let badBlocked = true;
+for (const v of bad) {
+  win.eval(`document.getElementById('room-input').value = ${JSON.stringify(v)}; applyCustomRoom();`);
+  if (win.eval('window.__navigated') !== null) { badBlocked = false; break; }
+}
+check('23. 不合法房號(空/太短/太長/含字母/全形)一律擋下',
+  badBlocked, `被放行的值=${win.eval('String(window.__navigated)')}`);
+
+win.eval(`document.getElementById('room-input').value='0730'; applyCustomRoom();`);
+check('24. 合法房號會帶著新房號重新載入',
+  win.eval('window.__navigated') === '0730',
+  `__navigated=${win.eval('String(window.__navigated)')}`);
+
+// (j) 鎖住時就算硬呼叫也不能換房(按鈕熄燈之外的第二道保險)
+win.eval(`
+  window.__navigated = null;
+  _roomEverJoined = true; updateRoomLock();
+  document.getElementById('room-input').value='0731'; applyCustomRoom();
+`);
+check('25. 鎖住時直接呼叫 applyCustomRoom() 也換不了房',
+  win.eval('window.__navigated') === null,
+  `__navigated=${win.eval('String(window.__navigated)')}`);
+
+console.log('\n=== 助理端:開下一場 + 分組表版面 + 房號鎖 ===');
 passes.forEach((p) => console.log(`  ✓ ${p}`));
 failures.forEach((f) => console.log(`  ✗ ${f}`));
 console.log(`\n${passes.length} passed, ${failures.length} failed`);

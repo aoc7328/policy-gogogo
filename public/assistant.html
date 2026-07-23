@@ -125,6 +125,17 @@ input::placeholder{color:var(--ink-3)}
 .regen-btn{background:transparent;border:1px solid var(--line-s);color:var(--ink-2);font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;padding:13px 16px;text-transform:uppercase;transition:all 180ms;white-space:nowrap}
 .regen-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-s)}
 .regen-btn.warn:hover{border-color:rgba(216,52,74,.5);color:var(--err);background:var(--err-s)}
+.regen-btn:disabled{opacity:.35;cursor:not-allowed;border-color:var(--line-s);color:var(--ink-3);background:transparent}
+/* 自訂房號輸入列(只在房間還沒被用過時可操作) */
+.room-edit{display:flex;gap:8px;align-items:center;margin-top:10px}
+.room-edit input{
+  flex:1;min-width:0;background:var(--bg-deep);border:1px solid var(--line-s);
+  color:var(--ink-1);font-family:var(--font-mono);font-size:13px;letter-spacing:.14em;
+  padding:9px 11px;outline:none;transition:border-color 160ms;
+}
+.room-edit input:focus{border-color:var(--accent)}
+.room-edit input:disabled{opacity:.4;cursor:not-allowed}
+.room-edit .cust-chip{padding:9px 14px;flex-shrink:0}
 .hint{font-family:var(--font-mono);font-size:11px;color:var(--ink-3);letter-spacing:.04em;margin-top:12px;line-height:1.6}
 .hint.warn{color:#90303A}
 
@@ -804,9 +815,17 @@ input::placeholder{color:var(--ink-3)}
             <button class="copy-btn" id="btn-copy-room" onclick="copyCode('room')">複製</button>
           </div>
         </div>
-        <button class="regen-btn warn" onclick="regenRoom()">重新生成 ⚠</button>
+        <button class="regen-btn warn" id="btn-regen-room" onclick="regenRoom()">重新生成</button>
       </div>
-      <p class="hint warn">⚠ 重新生成房號會踢掉所有已加入的玩家</p>
+      <!-- 自訂房號:只有在「房間完全還沒被用過」時可以改。
+           判斷與熄燈邏輯見 updateRoomLock() —— 預設鎖住,確認房間是空的才解鎖。 -->
+      <div class="room-edit">
+        <input type="text" id="room-input" inputmode="numeric" maxlength="8"
+          placeholder="自訂房號(3-8 位數字)" aria-label="自訂房號"
+          onkeydown="if(event.key==='Enter')applyCustomRoom()">
+        <button class="cust-chip" id="btn-apply-room" onclick="applyCustomRoom()">套用</button>
+      </div>
+      <p class="hint" id="room-lock-hint">連線中 · 確認房間狀態後才能修改房號</p>
     </div>
 
     <div class="room-block">
@@ -1423,6 +1442,8 @@ PartyBus.on('__welcome__', payload => {
    舊題庫(metadata 沒有 frameworks 欄位)→ server 用 fallback 保險預設值,
    本端收到的也就是保險預設,跟 hardcoded 一致,沒有視覺差異。 */
 PartyBus.on('__room_state__', snap => {
+  // 房號鎖:server 是權威,每份快照都重算一次(含重連後)
+  if (typeof syncRoomLockFromSnapshot === 'function') syncRoomLockFromSnapshot(snap);
   const fa = snap?.frameworks?.A;
   const fb = snap?.frameworks?.B;
   if (Array.isArray(fa) && fa.length > 0) {
@@ -1576,6 +1597,10 @@ function updateConnectionStatus(status) {
     }
   } else if (status === 'disconnected') {
     setStatus('⚠ 與伺服器斷線 · 嘗試重新連線中');
+    // 房號鎖 fail-safe:斷線時看不到房間真實狀態 → 一律鎖住,
+    // 等重連後的快照回來再重新判斷。
+    _roomSnapSeen = false;
+    if (typeof updateRoomLock === 'function') updateRoomLock();
   }
 }
 PartyBus.onStatus(updateConnectionStatus);
@@ -1740,6 +1765,9 @@ PartyBus.on('player_renamed', payload => {
 /* 參賽者登入完成 → 助理把該玩家加進對應組的 members + 進退場紀錄 */
 PartyBus.on('player_join', payload => {
   if (!payload?.name || !payload?.team) return;
+  // 房號鎖:有人進來過就再也不能換房號(黏著,不因之後斷線而放開)
+  _roomEverJoined = true;
+  if (typeof updateRoomLock === 'function') updateRoomLock();
   // 確保 S.groups 已根據設定頁同步,讓即使尚未按開始遊戲也能正確分組
   if (!S.groups || S.groups.length === 0) {
     if (typeof syncGroupsFromInputs === 'function') syncGroupsFromInputs();
@@ -2553,14 +2581,98 @@ function showPresenterQR() {
 }
 window.showPresenterQR = showPresenterQR;
 
+/* ═══════════════════════════════════════════════════════════════
+   房號鎖:什麼時候還能改房號
+   ───────────────────────────────────────────────────────────────
+   規格(與 Vincent 談定):房間還完全沒被用過時可以自訂房號;只要投影端
+   已就緒、或有任何人加入過、或已開賽,就一律鎖死。
+
+   兩個關鍵取捨:
+   1. 用「組員名單」而不是「線上人數」判斷有沒有人。participants 是連線層
+      的,有人手機鎖屏斷線人數就會掉回 0 —— 那一刻若放行換房號,他重連時
+      就回到一個沒人管的空房間。groups[].members 是名字為準的權威名單,
+      暫時斷線的人也還算組員,不會有這個破口。而且 _everJoined 是黏著的,
+      進來過就不再放開。
+   2. 預設鎖住(fail-safe)。頁面剛載入到收到第一份快照之間有一次網路來回,
+      那時候並不知道房間有沒有人;斷線時同理。狀態不明就維持鎖定,寧可讓
+      使用者多等一秒,也不要在看不見的情況下讓他換走一個有人的房間。
+   ═══════════════════════════════════════════════════════════════ */
+let _roomSnapSeen = false;     // 收到第一份 __room_state__ 才敢解鎖
+let _roomEverJoined = false;   // 有人進來過(黏著,不因斷線而放開)
+let _roomPresenter = false;    // 投影端已認領
+let _roomStarted = false;      // 已開賽
+
+/** 回傳鎖定原因;null = 現在可以改房號。 */
+function roomLockReason(){
+  if (!_roomSnapSeen) return '連線中 · 確認房間狀態後才能修改房號';
+  if (_roomStarted)   return '遊戲已開始 · 無法更換房號';
+  if (_roomPresenter) return '投影端已就緒 · 無法更換房號';
+  if (_roomEverJoined) return '已有參賽者加入 · 無法更換房號';
+  return null;
+}
+
+function updateRoomLock(){
+  const reason = roomLockReason();
+  const locked = !!reason;
+  const inp = document.getElementById('room-input');
+  const apply = document.getElementById('btn-apply-room');
+  const regen = document.getElementById('btn-regen-room');
+  const hint = document.getElementById('room-lock-hint');
+  if (inp) inp.disabled = locked;
+  if (apply) apply.disabled = locked;
+  if (regen) regen.disabled = locked;   // 重新生成同樣危險,吃同一把鎖
+  if (hint) {
+    hint.textContent = locked
+      ? reason
+      : '房間還沒有人進來,現在可以改房號。改好再請大家掃 QR — 一旦有人加入或投影端就緒就會自動鎖住。';
+    hint.className = locked ? 'hint warn' : 'hint';
+  }
+}
+window.updateRoomLock = updateRoomLock;
+
+/** 從 server 快照重算房間佔用狀態(server 是權威)。 */
+function syncRoomLockFromSnapshot(snap){
+  if (!snap) return;
+  _roomSnapSeen = true;
+  if (snap.phase && snap.phase !== 'lobby') _roomStarted = true;
+  if (snap.presenterClaimed) _roomPresenter = true;
+  const hasMembers = Array.isArray(snap.groups)
+    && snap.groups.some(g => Array.isArray(g?.members) && g.members.length > 0);
+  const hasParticipants = Array.isArray(snap.participants) && snap.participants.length > 0;
+  if (hasMembers || hasParticipants) _roomEverJoined = true;
+  updateRoomLock();
+}
+
+/* 投影端認領 → 立刻鎖。助理端過去完全沒有接這個廣播,這裡補上。 */
+PartyBus.on('presenter_claimed', () => {
+  _roomPresenter = true;
+  updateRoomLock();
+});
+
+/** 自訂房號。房號 = Durable Object 名稱,所以只收數字:
+ *  避免大小寫造成 /parties/main/Abc 與 /parties/main/abc 變成兩個房間,
+ *  也與自動產生的 4 位數字、report 頁的數字輸入框一致。 */
+function applyCustomRoom(){
+  if (roomLockReason()) return;              // 鎖住時按鈕本來就是暗的,雙保險
+  const raw = String(document.getElementById('room-input')?.value || '').trim();
+  if (!/^\d{3,8}$/.test(raw)) { setStatus('房號請用 3-8 位數字'); return; }
+  if (raw === PGG_ROOM_CODE) { setStatus('已經是這個房號了'); return; }
+  gotoRoom(raw);
+}
+window.applyCustomRoom = applyCustomRoom;
+
 function regenRoom(){
-  if(!confirm('重新生成房號會踢掉所有已加入的玩家,確定?'))return;
-  // 換房 = 換 partykit DurableObject = full reload。把新 room 寫進 URL 重載,
-  // 重新走整套 PartyBus.init(用新 PGG_ROOM_CODE),server 端會新建一個 DO,
-  // 短網址 / QR 也跟著更新。
-  const newCode = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+  if (roomLockReason()) return;
+  gotoRoom(String(Math.floor(Math.random() * 10000)).padStart(4, '0'));
+}
+
+/* 換房 = 換 Durable Object = 整頁重載。把新 room 寫進 URL 重新載入,
+   PartyBus / QR / 短網址 / localStorage key 全部跟著新的 PGG_ROOM_CODE
+   重新推導 —— 不逐一改接,才不會漏掉某個還指著舊房號的地方。
+   控制碼由 server 依房號發,所以新房間自動就是新的一組。 */
+function gotoRoom(code){
   const qs = new URLSearchParams(window.location.search);
-  qs.set('room', newCode);
+  qs.set('room', code);
   window.location.search = '?' + qs.toString();
 }
 
@@ -4547,6 +4659,9 @@ if (Object.values(BANK).some(b => b && b.questions)) {
   BANK_AUTO_LOAD_READY = true;
 }
 chk();
+// 房號鎖:載入當下就先鎖住(還沒收到快照,不知道房間有沒有人)。
+// 收到第一份 __room_state__ 後 syncRoomLockFromSnapshot 才會決定要不要放開。
+updateRoomLock();
 updateCategoryGrid();
 // 套一次初始 phase(稽核發現):舊版載入時從未呼叫 setPhase,九宮格因此
 // 少了 .phase-locked —— 遊戲都還沒開始就點得下去,點完本機會進入「已選定」
