@@ -242,11 +242,14 @@ input::placeholder{color:var(--ink-3)}
 /* ===== GROUPS ===== */
 .group-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .gc{background:var(--bg-surface);border:1px solid var(--line);padding:18px 20px}
-.gc-hd{display:flex;justify-content:space-between;align-items:baseline;padding-bottom:10px;border-bottom:1px solid var(--line);margin-bottom:12px}
+/* 組卡標頭改成兩行:第一行只放 GROUP 01 + 組名,三顆操作鈕退到第二行。
+   原本擠在同一行,組名長一點就被壓扁、按鈕也貼著組名,很難看也容易誤按。 */
+.gc-hd{display:flex;flex-direction:column;gap:8px;padding-bottom:10px;border-bottom:1px solid var(--line);margin-bottom:12px}
+.gc-hd-top{display:flex;align-items:baseline}
 .gc-id{font-family:var(--font-mono);font-size:10px;letter-spacing:.2em;color:var(--ink-3);text-transform:uppercase}
 .gc-name{font-family:var(--font-serif);font-weight:700;font-size:18px;flex:1;margin-left:10px}
 .gc-note{font-size:13px;color:var(--ink-3);line-height:1.6}
-.gc-notify{display:flex;gap:6px;flex-shrink:0}
+.gc-notify{display:flex;gap:6px;flex-wrap:wrap}
 .gc-nbtn{background:transparent;border:1px solid var(--line-s);color:var(--ink-2);font-family:var(--font-sans);font-size:11px;padding:4px 9px;cursor:pointer;letter-spacing:.04em;transition:all 160ms;white-space:nowrap}
 .gc-nbtn:hover:not(:disabled){border-color:var(--accent);color:var(--accent);background:var(--accent-s)}
 .gc-nbtn:disabled{opacity:.35;cursor:not-allowed}
@@ -3042,19 +3045,36 @@ function chk(){
   const groupOk = S.groupingMode === 'prefix'
     ? (Array.isArray(S.groups) && S.groups.length >= 1)
     : n >= 2;
-  // S.gameStarted 也是條件之一(稽核發現):賽後 phase=ended 時設定分頁會
-  // 解鎖,舊版這裡沒看 gameStarted → 開始鈕重新亮起,誤按會把剛打完那場的
-  // 分數整個洗掉。要開新的一場請先按「重新開始」(它會把 gameStarted 清掉)。
+  // 什麼時候該鎖開始鈕:只有「一場正在進行中」才鎖。
+  //
+  // 舊版是 `|| !!S.gameStarted`,而 S.gameStarted 在一場「結束」之後仍然是
+  // true(只有按「重新開始」才清)。結果 _doEndImpl 明明解鎖了設定分頁、
+  // 狀態列還寫著「可切到『設定』改分組重新開始」,使用者照做卻發現按鈕是灰的
+  // —— UI 承諾了它做不到的事。實戰連續兩次卡在這裡。
+  //
+  // 現在:phase==='ended' 視為可以開新的一場,startGame() 會自己先跑一次
+  // 重置(server 也要求 phase 回 lobby 才收 game_start)。原本要防的「誤按
+  // 洗掉剛打完那場的分數」不受影響 —— 那一場在 _doEndImpl 就已經
+  // recSave(true) 收檔並斷開 REC.key,報告動不到。
+  const inProgress = !!S.gameStarted && S.phase !== 'ended';
   const btn = document.getElementById('start-btn');
   btn.disabled=
-    !(BANK_AUTO_LOAD_READY && S.mode && q>0 && s>0 && groupOk && customOk) || !!S.gameStarted;
-  btn.title = S.gameStarted ? '本場已開始或已結束 · 要開新的一場請先按「重新開始」' : '';
+    !(BANK_AUTO_LOAD_READY && S.mode && q>0 && s>0 && groupOk && customOk) || inProgress;
+  btn.textContent = (S.phase === 'ended') ? '確定、開始新的一場 →' : '確定、開始遊戲 →';
+  btn.title = inProgress ? '本場進行中 · 要重開請先按「重新開始」' : '';
   // 同一句話也顯示在畫面上(tooltip 在觸控裝置上看不到)
   const hint = document.getElementById('start-hint');
-  if (hint) hint.style.display = S.gameStarted ? '' : 'none';
+  if (hint) hint.style.display = inProgress ? '' : 'none';
 }
 
 function startGame(){
+  // 上一場已結束 → 先跑一次完整重置再開新場。兩個理由:
+  // 1. server 的 onGameStart 只在 phase==='lobby' 收件,ended 會被擋掉;
+  //    game_restart 才會把 server 帶回 lobby。
+  // 2. 本機的 usedIds / 分數 / 九宮格鎖定等也要一起清乾淨。
+  // 兩個命令走同一條 WebSocket,server 依序處理,先 restart 後 start。
+  // (那一場的賽後報告已在 _doEndImpl 收檔並斷開 key,這裡動不到它。)
+  if (S.phase === 'ended') _doRestartImpl(true);
   const n=parseInt(document.getElementById('i-n').value);
   S.totalQ=parseInt(document.getElementById('i-q').value);
   S.spq=parseInt(document.getElementById('i-s').value);
@@ -3499,7 +3519,7 @@ function renderGroups(){
         <div style="display:flex;flex-wrap:wrap;gap:6px">
           ${members.map(m => {
             const isLead = m === leader;
-            const star = isLead ? `<span style="color:var(--accent);margin-right:3px">★</span>` : '';
+            const star = isLead ? `<span style="margin-right:3px">👑</span>` : '';
             const bd = isLead ? 'var(--accent)' : 'var(--line)';
             return `<span style="font-size:13px;color:var(--ink-1);background:var(--bg-deep);border:1px solid ${bd};padding:4px 10px">${star}${m}${isLead?'<span style="font-size:10px;color:var(--accent);margin-left:4px">組長</span>':''}</span>`;
           }).join('')}
@@ -3509,12 +3529,14 @@ function renderGroups(){
     return `
     <div class="gc">
       <div class="gc-hd">
-        <span class="gc-id">${g.id}</span>
-        <span class="gc-name">${g.name}</span>
+        <div class="gc-hd-top">
+          <span class="gc-id">${g.id}</span>
+          <span class="gc-name">${g.name}</span>
+        </div>
         <span class="gc-notify">
-          <button class="gc-nbtn warn" title="通知這組改名(會跳改名鈕、30 秒倒數、逾時踢出)" onclick="notifyGroup('${safe}','rename')">⚠ 通知改名</button>
-          <button class="gc-nbtn" title="軟性提醒這組確認名稱(有改名鈕、不踢人)" onclick="notifyGroup('${safe}','confirm')">？確認分組</button>
-          <button class="gc-nbtn" ${members.length === 0 ? 'disabled title="這組還沒有人,無法抽組長"' : 'title="重抽這組組長(組長中離不回來、或要換人領獎時用)"'} onclick="redrawLeader('${safe}')">★ 重抽組長</button>
+          <button class="gc-nbtn warn" title="通知這組改名(會跳改名鈕、30 秒倒數、逾時踢出)" onclick="notifyGroup('${safe}','rename')">通知改名</button>
+          <button class="gc-nbtn" title="軟性提醒這組確認名稱(有改名鈕、不踢人)" onclick="notifyGroup('${safe}','confirm')">確認分組</button>
+          <button class="gc-nbtn" ${members.length === 0 ? 'disabled title="這組還沒有人,無法抽組長"' : 'title="重抽這組組長(組長中離不回來、或要換人領獎時用)"'} onclick="redrawLeader('${safe}')">重抽組長</button>
         </span>
       </div>
       ${body}
@@ -3982,8 +4004,13 @@ function _doEndImpl(){
     const el = document.getElementById(id); if (el) el.disabled = false;
   });
   applyTabLock();
-  // 賽後報告:本場正式收檔(finished=true),之後可在 /report 用房號查到
+  // 賽後報告:本場正式收檔(finished=true),之後可在 /report 用房號查到。
+  // 收完就把 REC.key 斷開 —— /api/game 是以 game_key upsert,且
+  // `finished = excluded.finished`。舊版收檔後沒斷開,接著按「重新開始」
+  // 時 _doRestartImpl 會用同一個 key 再存一次 finished=false,把剛剛收好的
+  // 那一場覆寫成「未完成」。下一場開賽時 recStart() 會配新的 key。
   if (typeof recSave === 'function') recSave(true);
+  REC.key = null;
   // 自動匯出結果(廣播給參賽者 → 跳出「是否觀看結果」浮窗)
   if (typeof doExport === 'function') doExport();
   setStatus('本場遊戲結束 · 結果已推送 · 可切到「設定」改分組重新開始');
@@ -4030,7 +4057,7 @@ function _doRestartImpl(emit){
   S.catLocked = false;
   S.purgArmed = false;
   // 組長不清:24 小時內固定同一人(server 端也不再每場重抽)。
-  // 要換人 → 分組頁的「★ 重抽組長」;組長離開 → server 自動接任。
+  // 要換人 → 分組頁的「重抽組長」;組長離開 → server 自動接任。
   // 若當前在煉獄題畫面,清掉本機煉獄樣式(server 也會 broadcast purgatory_end
   // 給其他端,但本機不等 echo,直接同步清掉)
   if (typeof endPurgatory === 'function') endPurgatory();
