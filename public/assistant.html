@@ -1017,10 +1017,10 @@ input::placeholder{color:var(--ink-3)}
         <div class="fld" style="margin-top:10px">
           <span class="flbl">一字千金出現上限(自由模式用題型勾選控制、不吃此設定)</span>
           <div class="cust-chips" id="wg-cap-chips" style="margin-top:4px">
-            <button class="cust-chip active" data-wgcap=""  onclick="setWordGameCap(this)">不限</button>
+            <button class="cust-chip"        data-wgcap=""  onclick="setWordGameCap(this)">不限</button>
             <button class="cust-chip"        data-wgcap="1" onclick="setWordGameCap(this)">最多 1 題</button>
             <button class="cust-chip"        data-wgcap="2" onclick="setWordGameCap(this)">最多 2 題</button>
-            <button class="cust-chip"        data-wgcap="0" onclick="setWordGameCap(this)">關閉</button>
+            <button class="cust-chip active" data-wgcap="0" onclick="setWordGameCap(this)">關閉</button>
           </div>
         </div>
         <div class="fld" style="margin-top:10px">
@@ -1362,7 +1362,9 @@ const S={
   customTypes:['multiple_choice'],
   // 一字千金出現上限:null=不限(legacy)、0=關閉、N=每場最多 N 題。
   // 只對普通/地獄/極樂生效;自由模式用題型勾選控制,server 端會忽略。
-  wordGameCap:null,
+  // 預設「關閉」(Vincent 2026-07-23 指定,不分難度)。要開的話助理端
+  // 「設定 → 一字千金出現上限」隨時可以改成不限 / 最多 1 題 / 最多 2 題。
+  wordGameCap:0,
   // 分組方式:'random' 隨機平均(預設)、'prefix' 依名稱前綴。
   groupingMode:'random',
   // 組長表 { 組名: 組長名 },由 server group_leaders 廣播填入。
@@ -3130,7 +3132,11 @@ function updateCustomPool() {
    這裡只存「助理這台裝置的設定偏好」——分組名單、分數、phase 都不存,
    那些是 server 的權威資料,由 __room_state__ 快照還原。
    localStorage 在隱私模式會丟例外,讀寫一律包 try/catch。 */
-const SETUP_PREF_KEY = 'pgg_assistant_setup_v1';
+// v2(2026-07-23):一字千金預設從「不限」改成「關閉」。這份設定會存在助理
+// 那台裝置的 localStorage 裡,若沿用 v1,平板上存著的舊值(不限)會在載入時
+// 把新預設蓋回去 —— 改了等於沒改。換 key 讓新預設實際生效一次;代價是
+// 助理端的模式/題數/秒數等偏好會回到預設一次,重設一次即可。
+const SETUP_PREF_KEY = 'pgg_assistant_setup_v2';
 const SETUP_PREF_INPUTS = [
   'i-q','i-s','i-n',
   'i-timer-word','i-timer-mc','i-timer-short','i-timer-calc','i-timer-essay',
