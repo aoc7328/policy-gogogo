@@ -195,8 +195,84 @@ check('11. 下一題題號跟著 server 走(04 / 20)',
   doc.getElementById('gs-round')?.textContent.trim() === '04 / 20',
   `實際=「${doc.getElementById('gs-round')?.textContent.trim()}」`);
 
+// ══════════════════════════════════════════════════════════════════════
+// 新手導覽開關(實戰回報:助理端設成關閉,參賽者登入還是被導覽)
+// 原因:doLogin 對「第一次登入」的人是呼叫 showOnboarding(true) —— force=true
+// 會跳過所有檢查,等於那個開關對新登入者完全沒作用。
+// ══════════════════════════════════════════════════════════════════════
+win.eval(`
+  try { localStorage.removeItem('pgg_onboard_seen_v1'); } catch (e) {}
+  G._onboardEnabled = false;        // 助理端:導覽關閉(預設值)
+  G._autoRejoined = false;          // 第一次登入,不是重整回來
+  G._gameStarted = false;
+  G.name = ''; G.team = '';
+  goStage('login');
+  document.getElementById('inp-name').value = '王小明';
+  doLogin();
+`);
+await new Promise((r) => setTimeout(r, 550));   // 等 showOnboarding 那個 400ms setTimeout
+
+check('12. 導覽關閉時,新登入不會跳導覽',
+  !doc.getElementById('onboard')?.classList.contains('show'),
+  'onboard 面板被打開了');
+check('13. 導覽關閉時,新登入直接停在集合頁(不會卡在遊戲頁空白畫面)',
+  doc.getElementById('stage-lobby')?.classList.contains('active'),
+  `目前 active=${doc.querySelector('.stage.active')?.id}`);
+
+// 開關打開時仍要跳(不能為了修 bug 把功能修掉)
+win.eval(`
+  try { localStorage.removeItem('pgg_onboard_seen_v1'); } catch (e) {}
+  G._onboardEnabled = true;
+  G._autoRejoined = false;
+  G.name = ''; G.team = '';
+  goStage('login');
+  document.getElementById('inp-name').value = '王小明';
+  doLogin();
+`);
+await new Promise((r) => setTimeout(r, 550));
+check('14. 導覽打開時照常會跳(功能沒被修掉)',
+  doc.getElementById('onboard')?.classList.contains('show'),
+  'onboard 面板沒有打開');
+win.eval(`closeOnboarding();`);
+
+// ══════════════════════════════════════════════════════════════════════
+// 結算頁的「離開」按鈕:兩種去向由 server 快照的 phase 決定
+// ══════════════════════════════════════════════════════════════════════
+// 缺函式要記成 FAIL,不是讓整支測試崩掉(否則跑舊版比對時看不到前面的結果)
+const hasLeave = win.eval(`typeof leaveEndScreen === 'function'`);
+check('15-pre. 結算頁有 leaveEndScreen()',
+  hasLeave, '參賽者端找不到這個函式 → 結算頁沒有離開的出口');
+
+// (a) 助理還沒開新的一場 → 回現場集合待機
+if (hasLeave) win.eval(`
+  G.name = '梓瑜'; G.team = '第三組';
+  G._lastSnap = ${JSON.stringify({ ...snapshot, phase: 'lobby', currentQuestion: null, timerRemainingSec: 0 })};
+  goStage('end');
+  leaveEndScreen();
+`);
+await new Promise((r) => setTimeout(r, 80));
+check('15. 離開結算頁 — server 還在 lobby → 回現場集合待機',
+  doc.getElementById('stage-lobby')?.classList.contains('active'),
+  `目前 active=${doc.querySelector('.stage.active')?.id}`);
+
+// (b) 助理已經開了新的一場 → 直接跟上進度
+if (hasLeave) win.eval(`
+  G._shownQId = null;
+  G._lastSnap = ${JSON.stringify(snapshot)};
+  goStage('end');
+  leaveEndScreen();
+`);
+await new Promise((r) => setTimeout(r, 80));
+check('16. 離開結算頁 — server 已開新場 → 進遊戲頁',
+  doc.getElementById('stage-game')?.classList.contains('active'),
+  `目前 active=${doc.querySelector('.stage.active')?.id}`);
+check('17. 離開結算頁 — 且已接上當前題目與題號',
+  doc.getElementById('q-body')?.style.display === 'block'
+    && doc.getElementById('gs-round')?.textContent.trim() === '03 / 20',
+  `q-body=${doc.getElementById('q-body')?.style.display} 題號=「${doc.getElementById('gs-round')?.textContent.trim()}」`);
+
 // ── 報告 ──
-console.log('\n=== 重載後接回進度 ===');
+console.log('\n=== 重載後接回進度 + 導覽開關 + 結算頁離開 ===');
 passes.forEach((p) => console.log(`  ✓ ${p}`));
 failures.forEach((f) => console.log(`  ✗ ${f}`));
 console.log(`\n${passes.length} passed, ${failures.length} failed`);

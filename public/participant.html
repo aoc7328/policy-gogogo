@@ -1067,6 +1067,16 @@ body.tm-paradise .opt{border-radius:0 12px 12px 0;border-left:3px solid var(--se
 .qa-act-btn:hover{border-color:var(--accent);color:var(--accent)}
 .qa-act-btn.done{border-color:var(--accent);color:var(--accent);background:var(--accent-s)}
 .qa-actions-hint{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.08em;color:var(--ink-3);margin-top:8px;line-height:1.6}
+/* 離開結算頁:整列大按鈕(手指好按),用 accent 色跟上面三顆保存鍵區隔 —
+   那三顆是「帶走東西」,這顆是「走人」,不該長得一樣。 */
+.end-leave-btn{
+  width:100%;padding:16px;cursor:pointer;
+  border:1px solid var(--accent);background:var(--accent-s);color:var(--accent);
+  font-family:var(--font-sans,"Noto Sans TC");font-size:15px;font-weight:700;
+  letter-spacing:.06em;transition:all 180ms;
+}
+.end-leave-btn:hover{background:var(--accent);color:var(--bg)}
+.end-leave-btn:active{transform:translateY(1px)}
 
 /* ── 新手引導(聚光燈式:遮罩挖洞 + 箭頭指向實際按鈕) ────────── */
 .onboard{position:fixed;inset:0;z-index:9000;display:none}
@@ -1436,6 +1446,17 @@ body.tm-paradise .opt{border-radius:0 12px 12px 0;border-left:3px solid var(--se
   <div>
     <div class="sec-lbl">本場題目與解答</div>
     <div class="qa-list" id="qa-list"></div>
+  </div>
+
+  <!-- 離開結算頁:唯一能自己走出這一頁的出口。沒有這顆的話,看完成績的人
+       只能等助理開新的一場(或重整網頁)才離得開。 -->
+  <div style="margin-top:26px">
+    <button class="end-leave-btn" id="end-leave-btn" onclick="leaveEndScreen()">
+      離開結算頁 · 回到遊戲
+    </button>
+    <div class="qa-actions-hint" id="end-leave-hint">
+      回顧檔請先下載或複製再離開;離開後這一頁就收起來了。
+    </div>
   </div>
 
 </div>
@@ -1913,14 +1934,16 @@ function doLogin() {
     // game_start 廣播到了才進遊戲頁。重整/開新分頁的自動重連不重看說明,
     // 直接回集合頁。
     renderLobby();
-    if (G._autoRejoined) {
-      goStage('lobby');
-    } else {
-      // 導覽的聚光燈要框遊戲頁的真實按鈕:先切到遊戲頁再開導覽,
-      // closeOnboarding 會在遊戲未開始時把人送到集合頁。
+    // 只有「這次真的會跳導覽」才繞道遊戲頁 —— 導覽的聚光燈要框遊戲頁的真實
+    // 按鈕,所以得先切過去,再由 closeOnboarding 把人送回集合頁。
+    // 助理端把導覽關掉時(預設關閉)沒有人會呼叫 closeOnboarding,舊版仍然
+    // 無條件 showOnboarding(true) 硬跳導覽,等於那個開關根本沒作用。
+    if (!G._autoRejoined && shouldAutoOnboard()) {
       if (typeof resetWaitToPreGame === 'function') resetWaitToPreGame();
       goStage('game');
       setTimeout(() => showOnboarding(true), 400);
+    } else {
+      goStage('lobby');
     }
   }
 }
@@ -3385,13 +3408,18 @@ const ONBOARD_STEPS = [
 ];
 let _obStep = 0;
 
+/* 這次進場「會不會自動跳導覽」。抽成函式的原因:doLogin 需要先知道答案才能
+   決定要把人送去哪一頁 —— 導覽關掉時沒人會呼叫 closeOnboarding(),不先問就
+   會把人留在遊戲頁的空白等待畫面。 */
+function shouldAutoOnboard() {
+  // 助理端關閉導覽時(預設就是關的)完全不自動跳 —— 30 人實戰:年長學員
+  // 多半不看,反而擋住畫面。頂部「?」按鈕(force=true)不受影響。
+  if (G._onboardEnabled !== true) return false;
+  try { if (localStorage.getItem(OB_SEEN_KEY)) return false; } catch { /* ignore */ }
+  return true;
+}
 function showOnboarding(force) {
-  if (!force) {
-    // 助理端關閉導覽時(預設就是關的)完全不自動跳 —— 30 人實戰:年長學員
-    // 多半不看,反而擋住畫面。頂部「?」按鈕(force=true)不受影響。
-    if (G._onboardEnabled !== true) return;
-    try { if (localStorage.getItem(OB_SEEN_KEY)) return; } catch { /* ignore */ }
-  }
+  if (!force && !shouldAutoOnboard()) return;
   _obStep = 0;
   document.getElementById('onboard')?.classList.add('show');
   renderOnboardStep();
@@ -4033,6 +4061,49 @@ window.closeResultModal = closeResultModal;
    參賽者保留 G.name / G.team,但題目進度全清。
    抽成具名函式:game_restart 廣播、以及快照對帳(server 已回 lobby 而
    本機還停在上一場畫面 —— 廣播漏接時的自癒)共用同一套重置。 */
+/* 離開結算頁。兩種去向,以 server 快照的 phase 為準:
+   - server 還在 lobby / ended(助理還沒開新的一場)→ 回「現場集合」待機,
+     跟開場前同一個畫面,看得到大家都還在。
+   - server 已經在遊戲中(漏接了 game_start 廣播,例如按下去那一刻正在斷線)
+     → 直接進遊戲頁,再用快照把題目/題號/倒數/分數接回來。
+
+   刻意不看 G._gameStarted:那個旗標在一場「結束」之後仍然是 true(只有
+   game_restart 才會清),拿它判斷會把待機中的人誤送進遊戲頁。 */
+function leaveEndScreen() {
+  // 上一場的結果彈窗與暫存先收掉,免得跟著飄到下一個畫面
+  document.getElementById('result-modal')?.classList.remove('show');
+  G._pendingResult = null;
+
+  const snap = G._lastSnap;
+  const serverInGame = !!(snap && snap.phase && snap.phase !== 'lobby' && snap.phase !== 'ended');
+
+  if (!serverInGame) {
+    resetToPreGame();          // → 現場集合(玩家池)待機
+    return;
+  }
+
+  // 追上進行中的新一場:先清乾淨上一場的殘留,再進遊戲頁
+  G.round = 0;
+  G.revealed = false;
+  G.currentQ = null;
+  G.buzzed = false;
+  G._buzzLockout = [];
+  G._shownQId = null;
+  G._gameStarted = true;
+  if (snap.totalQ) G.totalQ = snap.totalQ;
+  const m = snap.game?.mode;
+  if (m) {
+    G.mode = m;
+    document.body.classList.remove('tm-ordinary','tm-hell','tm-paradise','tm-custom');
+    document.body.classList.add('tm-' + m);
+  }
+  G.canRenameTeam = false;     // 已開賽 → 組名鎖住
+  if (typeof setTeamNameEditable === 'function') setTeamNameEditable(false);
+  enterGameStage();
+  if (typeof restoreProgressFromSnapshot === 'function') restoreProgressFromSnapshot(snap);
+}
+window.leaveEndScreen = leaveEndScreen;
+
 function resetToPreGame() {
   // 關掉可能還開著的結果 modal,清掉暫存
   document.getElementById('result-modal')?.classList.remove('show');

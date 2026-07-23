@@ -992,6 +992,12 @@ input::placeholder{color:var(--ink-3)}
       </div>
 
       <button class="start-btn" id="start-btn" onclick="startGame()" disabled>確定、開始遊戲 →</button>
+      <!-- 按鈕變灰的原因寫在畫面上。原本只放在 button 的 title,要 hover 才看得到 ——
+           助理端常在手機/平板上操作,等於完全看不到,只會覺得「按鈕壞了」。 -->
+      <div class="hint" id="start-hint"
+        style="margin-top:8px;font-size:11px;color:var(--accent);display:none">
+        上一場尚未結案 · 要開新的一場,請先到「計分表」分頁按「重新開始」
+      </div>
 
       <div class="setup-block">
         <div class="sec-label">進退場紀錄</div>
@@ -3043,6 +3049,9 @@ function chk(){
   btn.disabled=
     !(BANK_AUTO_LOAD_READY && S.mode && q>0 && s>0 && groupOk && customOk) || !!S.gameStarted;
   btn.title = S.gameStarted ? '本場已開始或已結束 · 要開新的一場請先按「重新開始」' : '';
+  // 同一句話也顯示在畫面上(tooltip 在觸控裝置上看不到)
+  const hint = document.getElementById('start-hint');
+  if (hint) hint.style.display = S.gameStarted ? '' : 'none';
 }
 
 function startGame(){
@@ -4063,6 +4072,10 @@ function _doRestartImpl(emit){
   sw('setup');
   // 5. 解鎖分頁(回到「未開始遊戲」狀態)
   applyTabLock();
+  // 5b. 重算「確定、開始遊戲」的可按狀態。chk() 只掛在設定欄位的 oninput 上,
+  //     這裡把 S.gameStarted 清成 false 卻沒人重算 → 按鈕一直是灰的,要去亂動
+  //     一個設定欄位才會亮。實戰回報:上一場結束、按了重新開始,還是開不了新場。
+  if (typeof chk === 'function') chk();
   // 6. 廣播給主持人 / 參賽者(鏡射呼叫時 emit=false,不再廣播)
   if (emit) PartyBus.emit('game_restart', {});
   setStatus('遊戲已重置 · 投影端回模式選擇 · 參賽者回等待頁');
