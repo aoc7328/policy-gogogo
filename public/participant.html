@@ -1071,16 +1071,24 @@ body.tm-paradise .opt{border-radius:0 12px 12px 0;border-left:3px solid var(--se
 /* 區塊標題 */
 .sec-lbl{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.28em;color:var(--accent);text-transform:uppercase;margin-bottom:10px}
 
-/* 長條圖排行 */
-.bar-chart{display:flex;flex-direction:column;gap:8px;background:var(--bg-s);border:1px solid var(--line);padding:16px 18px}
-.bar-row{display:grid;grid-template-columns:110px 1fr 48px;gap:10px;align-items:center}
-.bar-name{font-size:13px;font-weight:500;color:var(--ink-2);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 長條圖排行
+   grid 開在 .bar-chart(不是每一列)、列用 display:contents —— 這樣三個欄位
+   會「跨列對齊」,同時組名/分數欄可以用 auto 依內容縮到剛好。
+   之前是每列各自 110px / 1fr / 48px 的固定格,「第二組」只佔 39px 卻吃掉
+   110px,分數「13」只佔 20px 卻吃掉 48px,長條被擠成 120×22 的肥短塊。
+   現在長條拿回那 100px 左右的空間,高度也收窄成細長條。 */
+.bar-chart{display:grid;grid-template-columns:auto 1fr auto;column-gap:12px;row-gap:11px;align-items:center;background:var(--bg-s);border:1px solid var(--line);padding:16px 18px}
+.bar-row{display:contents}
+/* max-width 抓 118px:組名上限 8 個字(見 lobbyCommitRename),13px 全形
+   剛好 104px,留一點餘裕讓 8 字組名不會被截成「無敵鐵金剛必…」。
+   短組名仍然只佔自己需要的寬度,空間全部讓給長條。 */
+.bar-name{font-size:13px;font-weight:500;color:var(--ink-2);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:118px}
 .bar-row.my-row .bar-name{color:var(--accent)}
-.bar-track{background:var(--bg-r);height:22px;position:relative;overflow:hidden}
+.bar-track{background:var(--bg-r);height:12px;border-radius:6px;position:relative;overflow:hidden}
 .bar-fill{position:absolute;left:0;top:0;bottom:0;background:var(--ink-4);transition:width 700ms cubic-bezier(.2,.7,.2,1)}
 .bar-fill.top{background:var(--accent)}
 .bar-row.my-row .bar-fill{background:var(--accent)}
-.bar-val{font-family:"JetBrains Mono",monospace;font-size:13px;color:var(--ink-2);text-align:right}
+.bar-val{font-family:"JetBrains Mono",monospace;font-size:13px;color:var(--ink-2);text-align:right;min-width:2ch}
 .bar-row.my-row .bar-val{color:var(--accent)}
 
 /* Q&A 回顧 */
