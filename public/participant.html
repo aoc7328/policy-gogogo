@@ -1824,6 +1824,10 @@ function doLogin() {
   // 廣播 player_join { name, team: 決定的組 } 給所有人,本端 listener
   // (下方 PartyBus.on('player_join'))認領自己的那筆來填 G.team。
   PartyBus.emit('player_join', { name: v });
+  // 標記「已完成過註冊」→ 之後每次 WS 重連都要補發 player_join(見下方
+  // onStatus)。server 在斷線時會把本機從 participants 摘掉;不補發的話,
+  // 開賽凍結/重新分組時本機會被漏掉,之後重整頁面就被當新人重新分組。
+  G._joinedOnce = true;
   // 若助理已經按開始遊戲,直接補跑進 game 流程(套主題色 + 開組名編輯倒數)
   if (G._gameStarted) {
     enterGameStage();
@@ -2839,6 +2843,23 @@ PartyBus.onStatus(status => {
     dot.style.boxShadow = '';
   }
 });
+
+/* ══ 斷線重連後補註冊(30 人實戰教訓)══════════════════════════════
+   手機螢幕鎖定/WiFi 抖動會讓 WS 常態性斷線重連(實戰一場 39 次)。
+   server 在斷線那一刻就把本機從 participants 名單摘掉,而重連的 WS URL
+   不帶 name —— 若不補發 player_join,server 名單會一直漏掉本機:
+   開賽凍結名單、重新分組都輪不到我們,之後頁面一重整就被當新人分組。
+   補發是冪等的:server 依 裝置鎖 → 名字 找回原組,不會跳組。 */
+(function rejoinOnReconnect(){
+  let lastRejoinAt = 0;
+  PartyBus.onStatus(status => {
+    if (status !== 'connected' || !G._joinedOnce || !G.name) return;
+    const now = Date.now();
+    if (now - lastRejoinAt < 2000) return;   // 連線抖動保護
+    lastRejoinAt = now;
+    PartyBus.emit('player_join', { name: G.name });
+  });
+})();
 
 /* ══ 事件記錄 + Clarity 身分標記(資管端 /admin 用)══════════════════
    把參賽者端遇到的問題寫進 D1(經 /api/log),事後在 /admin 回顧。走一般

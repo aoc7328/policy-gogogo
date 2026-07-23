@@ -967,6 +967,8 @@ input::placeholder{color:var(--ink-3)}
           </div>
         </div>
         <div class="group-names" id="group-names"></div>
+        <button class="cust-chip" id="regroup-btn" style="margin-top:10px;width:100%" onclick="doManualRegroup()">🔀 重新分組(全員隨機重洗)</button>
+        <div class="hint" style="margin-top:6px;font-size:11px;color:var(--ink-3)">分組只會在按這顆按鈕、或改「分幾組」數字時重洗。玩家中途加入只會補進人數最少的組,不會動到其他人;同一支手機 24 小時內固定同組。</div>
       </div>
 
       <button class="start-btn" id="start-btn" onclick="startGame()" disabled>確定、開始遊戲 →</button>
@@ -1364,14 +1366,11 @@ PartyBus.on('__welcome__', payload => {
     const el = document.getElementById('asst-code');
     if (el) el.textContent = S.asstCode;
   }
-  // 助理連上線後立刻把當前「分幾組」推給 server,作為這場 lobby 的權威值。
-  // server 端 onPlayerJoin 有 lazy-init fallback(2 組)應付 testbed 同時連線
-  // 的 race;這裡的明確 emit 確保正常情況下 server 的 groups 跟助理 UI 一致。
-  const nEl = document.getElementById('i-n');
-  const n = nEl ? parseInt(nEl.value) : NaN;
-  if (Number.isFinite(n) && n >= 2 && n <= 10) {
-    PartyBus.emit('team_count_changed', { count: n });
-  }
+  // ⚠ 這裡過去會自動 emit team_count_changed(count) —— 30 人實戰證實是
+  // 全場玩家反覆被隨機重分組的主因:__welcome__ 在「每一次重連」都會收到,
+  // 助理手機螢幕鎖定/WiFi 抖動/切分頁重連一次,全場就被重洗一次。
+  // 現改為:在 __room_state__ 快照裡看到「lobby 且 server 尚無分組」才
+  // 初始化一次(見下方 snapshot handler);重洗只能靠「重新分組」按鈕。
 });
 
 /* 接收 server snapshot 中的 frameworks(從 bank metadata 讀):
@@ -1399,6 +1398,25 @@ PartyBus.on('__room_state__', snap => {
   const b = snap?.branding;
   if (b && typeof b.titlePrefix === 'string' && typeof b.titleSuffix === 'string') {
     document.title = `${b.titlePrefix}${b.titleSuffix} · 助理端`;
+  }
+  // lobby 階段的分組同步(30 人實戰後改版):
+  // - server 已有分組 → 以 server 為準對齊「分幾組」輸入框,避免第二位
+  //   助理帶著預設值進來、一動輸入框就把全場重洗成別的組數。
+  // - server 完全沒有分組(全新房間)→ 才推一次本機組數做初始化。
+  //   注意:絕不能無條件推 —— 舊版在 __welcome__ 每次重連都推,等於
+  //   「助理斷線重連 = 全場重新洗組」。
+  if (snap && snap.phase === 'lobby' && snap.groupingMode !== 'prefix') {
+    const inN = document.getElementById('i-n');
+    const serverGroups = Array.isArray(snap.groups) ? snap.groups.length : 0;
+    if (serverGroups === 0) {
+      const n = inN ? parseInt(inN.value) : NaN;
+      if (Number.isFinite(n) && n >= 2 && n <= 10) {
+        PartyBus.emit('team_count_changed', { count: n });
+      }
+    } else if (inN && !inN.disabled && String(serverGroups) !== inN.value) {
+      inN.value = String(serverGroups);
+      if (typeof rebuildNames === 'function') rebuildNames();
+    }
   }
   // 多助理:遊戲進行中/已結束時,用 server 快照完整還原本機 UI,
   // 讓「中途加入的第 2、3 位助理」立即看到現場,而非卡在「尚未選擇模式」。
@@ -1458,6 +1476,7 @@ function hydrateFromSnapshot(snap){
   const iq = document.getElementById('i-q'); if (iq) iq.value = S.totalQ;
   const is = document.getElementById('i-s'); if (is) is.value = S.spq;
   const inN = document.getElementById('i-n'); if (inN) { inN.value = String(S.groups.length); inN.disabled = true; }
+  if (typeof updateRegroupBtn === 'function') updateRegroupBtn();
   const mq = document.getElementById('m-q'); if (mq) mq.textContent = `${S.currQ} / ${S.totalQ}`;
   const mmax = document.getElementById('m-max'); if (mmax) mmax.textContent = `${S.totalQ * S.spq}`;
   const totq = document.getElementById('tot-q'); if (totq) totq.textContent = S.totalQ;
@@ -2009,6 +2028,7 @@ PartyBus.on('game_start', cfg => {
   const iq = document.getElementById('i-q'); if (iq) iq.value = cfg.totalQ;
   const is = document.getElementById('i-s'); if (is) is.value = cfg.spq;
   const inN = document.getElementById('i-n'); if (inN) { inN.value = String(S.groups.length); inN.disabled = true; }
+  if (typeof updateRegroupBtn === 'function') updateRegroupBtn();
   document.getElementById('m-round').textContent = '01';
   document.getElementById('m-q').textContent = `0 / ${S.totalQ}`;
   document.getElementById('m-max').textContent = `${S.totalQ * S.spq}`;
@@ -2528,12 +2548,14 @@ function setGroupingMode(el) {
     if (nLabel) nLabel.textContent = '分幾組(自動)';
     if (hint) hint.textContent = '名字「-」之前相同者同組(例:中信1-王、中信1-李 → 中信1 組);沒有「-」的人歸「其他」組。組數由名字自動決定。';
     if (names) names.style.display = 'none';   // 組名由前綴決定,隱藏手動命名
+    if (typeof updateRegroupBtn === 'function') updateRegroupBtn();
     PartyBus.emit('grouping_mode_changed', { mode: 'prefix' });
   } else {
     if (inN) { inN.disabled = false; inN.title = ''; }
     if (nLabel) nLabel.textContent = '分幾組';
     if (hint) hint.textContent = '依當下加入人數隨機平均分組,人數均衡。';
     if (names) names.style.display = '';
+    if (typeof updateRegroupBtn === 'function') updateRegroupBtn();
     const n = parseInt(inN?.value) || 2;
     PartyBus.emit('grouping_mode_changed', { mode: 'random', count: n });
   }
@@ -2789,6 +2811,30 @@ function onTeamCountInputChange() {
 }
 window.onTeamCountInputChange = onTeamCountInputChange;
 
+/* 「重新分組」按鈕:唯一會主動全員重洗的入口(30 人實戰後,server 在
+   組數未變且非明示 reshuffle 時一律不重洗)。lobby 限定,server 也會擋。 */
+function doManualRegroup(){
+  if (S.gameStarted) { setStatus('遊戲進行中無法重新分組'); return; }
+  if (S.groupingMode === 'prefix') { setStatus('依名稱前綴模式的分組由名字決定,無需重洗'); return; }
+  const n = parseInt(document.getElementById('i-n')?.value) || 2;
+  cfOpen({
+    eyebrow: 'Regroup · 重新分組',
+    title: `確定要全員隨機重新分成 ${n} 組?`,
+    sub: '所有玩家的分組會整批重新洗牌,24 小時裝置固定分組也會重設。只有必要時才做這個動作。',
+    okText: '重新分組',
+    okClass: 'danger',
+    onOk: () => PartyBus.emit('team_count_changed', { count: n, reshuffle: true }),
+  });
+}
+window.doManualRegroup = doManualRegroup;
+
+/* 重新分組按鈕開關:跟「分幾組」同步 —— 遊戲開始鎖、prefix 模式鎖 */
+function updateRegroupBtn(){
+  const b = document.getElementById('regroup-btn');
+  if (b) b.disabled = !!S.gameStarted || S.groupingMode === 'prefix';
+}
+window.updateRegroupBtn = updateRegroupBtn;
+
 /* 從設定頁的 input 同步到 S.groups(讓分組表/計分表能即時預覽,
    即使尚未按開始遊戲) */
 function syncGroupsFromInputs() {
@@ -2918,6 +2964,7 @@ function startGame(){
   updateCategoryGrid();
   // 廣播遊戲開始(主持人/參賽者收到後初始化)
   S.gameStarted = true;
+  if (typeof updateRegroupBtn === 'function') updateRegroupBtn();
   PartyBus.emit('game_start', {
     mode: S.mode,
     customTiers: S.customTiers,
@@ -3556,6 +3603,7 @@ function _doRestartImpl(emit){
   // 解鎖「分幾組」(回到 lobby phase 後又能調整)
   const inN = document.getElementById('i-n');
   if (inN) inN.disabled = false;
+  if (typeof updateRegroupBtn === 'function') updateRegroupBtn();
   // 解鎖答題倒數預設輸入
   ['i-timer-word','i-timer-mc','i-timer-short','i-timer-calc','i-timer-essay'].forEach(id => {
     const el = document.getElementById(id); if (el) el.disabled = false;

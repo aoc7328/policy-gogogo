@@ -96,7 +96,25 @@ export interface ParticipantRef {
   name: string;
   team: string;
   joinedAt: number;
+  /** 裝置識別碼(pgg_device_id_v1)。舊 client / URL 沒帶時為 null。 */
+  deviceId: string | null;
 }
+
+/**
+ * 裝置 → 組別鎖定(30 人實戰後加上)。
+ * 目的:同一支手機在 24 小時內永遠回到第一次被分到的組,不因斷線、
+ * 重整、重連、開賽凍結時剛好不在線而被當成新人重新分組。
+ * key = deviceId;name 記「最後一次用這個裝置入房的名字」,
+ * 供重洗名單時把離線者也能對回名字。
+ */
+export interface DeviceTeamLock {
+  name: string;
+  team: string;
+  at: number;             // 最後一次確認/寫入的時間(epoch ms)
+}
+
+/** 鎖定有效期:24 小時(Vincent 規格)。 */
+export const DEVICE_TEAM_TTL_MS = 24 * 60 * 60 * 1000;
 
 // ──────────────────────────────────────────────────────────────────────
 // Room state — the single source of truth per Durable Object
@@ -160,6 +178,10 @@ export interface RoomState {
   // Live participants (by connection). Used for player_leave broadcasts.
   participants: Map<string, ParticipantRef>;
 
+  // 裝置 → 組別鎖定表(deviceId → lock)。入組時優先查這裡;隨持久化
+  // 保存、跨 game_restart 保留,只有「重新分組」(明示 reshuffle)會重建。
+  deviceTeams: Map<string, DeviceTeamLock>;
+
   // True after someone has successfully claimed the presenter role for this
   // room. Persists across game_restart (presenter is per-room infra, not
   // per-game) — only resets when the DurableObject itself is destroyed.
@@ -201,6 +223,7 @@ export function createInitialState(
     rushModeActual: null,
     rushSession: null,
     participants: new Map(),
+    deviceTeams: new Map(),
     presenterClaimed: false,
   };
 }
@@ -227,11 +250,17 @@ export function startGame(state: RoomState, config: GameConfig): void {
   state.timerDeadline = null;
   state.excludedTeams = [];
   state.lastBuzzWinnerTeam = null;
+  // 開賽前的完整名單(含當下剛好斷線的人)。30 人實戰教訓:只從
+  // participants(僅在線連線)重建名單,會把「按開始遊戲那一刻剛好
+  // WS 斷線」的玩家整個踢出名單,之後他重整頁面就被當新人重新分組。
+  const prevMembers = new Map<string, string[]>(
+    state.groups.map((g) => [g.name, [...g.members]])
+  );
   state.groups = config.groups.map((g, i) => ({
     idx: i,
     name: g.name,
     score: 0,
-    members: [],
+    members: prevMembers.get(g.name) ?? [],
     leader: null,
   }));
   // Re-attach existing participants to their teams (preserve roster across
@@ -256,9 +285,21 @@ export function restartGame(state: RoomState): void {
     participants: state.participants,
     presenterClaimed: state.presenterClaimed,
     groupingMode: prevGroupingMode,
+    // 組別結構+成員跨「重新開始」保留、只歸零分數與組長(30 人實戰教訓:
+    // 兩場之間組員必須不變,否則獎勵沒辦法發)。舊行為是清空 groups 等
+    // 助理重新設定,結果第二場全員被隨機重洗。要打散重分 → 助理按
+    // 「重新分組」按鈕(明示 reshuffle)。
+    groups: state.groups.map((g) => ({
+      ...g,
+      score: 0,
+      leader: null,
+      members: [...g.members],
+    })),
+    // 裝置鎖組表同樣跨場保留(24h 內同裝置固定同組)。
+    deviceTeams: pruneDeviceTeams(state.deviceTeams),
   });
   // prefix 模式:重新開始後把仍在線的 participant 依名字前綴重新整組
-  // (random 模式維持舊行為:groups 留空,game_start/改組數時再重建)。
+  // (組是從名字長出來的,維持既有行為)。
   if (prevGroupingMode === 'prefix') {
     regroupByPrefix(state);
   }
@@ -287,14 +328,49 @@ export function upsertParticipant(
   state: RoomState,
   connId: string,
   name: string,
-  team: string
+  team: string,
+  deviceId: string | null = null
 ): void {
-  state.participants.set(connId, { connId, name, team, joinedAt: Date.now() });
+  state.participants.set(connId, { connId, name, team, joinedAt: Date.now(), deviceId });
   // If a game is in progress, add to team roster too.
   const teamRow = state.groups.find((g) => g.name === team);
   if (teamRow && !teamRow.members.includes(name)) {
     teamRow.members.push(name);
   }
+  // 記錄/更新裝置鎖:這支手機 24h 內固定回到這一組。
+  if (deviceId) {
+    state.deviceTeams.set(deviceId, { name, team, at: Date.now() });
+  }
+}
+
+/**
+ * 查某裝置的鎖定組。回傳組名;以下情況回 null(呼叫端 fallback 到
+ * 名字比對 → 最少人組):
+ * - 沒有鎖 / 鎖超過 24h
+ * - 鎖定的組已不存在(組數改過、重新分組過、組名不符)
+ */
+export function lockedTeamForDevice(
+  state: RoomState,
+  deviceId: string
+): string | null {
+  const lock = state.deviceTeams.get(deviceId);
+  if (!lock) return null;
+  if (Date.now() - lock.at > DEVICE_TEAM_TTL_MS) {
+    state.deviceTeams.delete(deviceId);
+    return null;
+  }
+  return state.groups.some((g) => g.name === lock.team) ? lock.team : null;
+}
+
+/** 把過期(>24h)的裝置鎖清掉。回傳同一個 Map(方便 inline 使用)。 */
+export function pruneDeviceTeams(
+  map: Map<string, DeviceTeamLock>
+): Map<string, DeviceTeamLock> {
+  const now = Date.now();
+  for (const [k, v] of map) {
+    if (now - v.at > DEVICE_TEAM_TTL_MS) map.delete(k);
+  }
+  return map;
 }
 
 // ──────────────────────────────────────────────────────────────────────
@@ -485,6 +561,14 @@ export function reshuffleParticipants(state: RoomState): void {
     team.members.push(p.name);
     p.team = team.name;
   });
+  // 重洗是「明示重分組」:整張裝置鎖表重建 —— 在線者鎖到新組;
+  // 離線者舊鎖作廢(回來時依「最少人組」規則重新分配)。
+  state.deviceTeams.clear();
+  for (const p of players) {
+    if (p.deviceId) {
+      state.deviceTeams.set(p.deviceId, { name: p.name, team: p.team, at: Date.now() });
+    }
+  }
 }
 
 export function removeParticipantByConn(
@@ -545,6 +629,10 @@ export function renameParticipant(
 
   ref.name = newName;
   ref.team = newTeam;
+  // 裝置鎖同步新名字/新組(prefix 模式改名可能換組)
+  if (ref.deviceId) {
+    state.deviceTeams.set(ref.deviceId, { name: newName, team: newTeam, at: Date.now() });
+  }
 
   prunePrefixGroups(state);
   return { ok: true, oldName, newName, oldTeam, newTeam };
@@ -592,6 +680,10 @@ export function renameTeam(
   if (team) team.name = trimmed;
   for (const p of affectedParticipants) {
     p.team = trimmed;
+  }
+  // 裝置鎖表的組名一併改掉,否則鎖著舊組名的裝置重連時查不到組會被亂分
+  for (const lock of state.deviceTeams.values()) {
+    if (lock.team === oldName) lock.team = trimmed;
   }
   return { ok: true };
 }
@@ -665,6 +757,8 @@ export interface PersistedState {
   rushMode: RushMode;
   rushModeActual: ActualRushMode | null;
   presenterClaimed: boolean;
+  /** 裝置鎖組表(此欄位加入前的舊存檔沒有 → hydrate 時給空表)。 */
+  deviceTeams?: [string, DeviceTeamLock][];
 }
 
 export function dehydrateState(state: RoomState): PersistedState {
@@ -695,6 +789,7 @@ export function dehydrateState(state: RoomState): PersistedState {
     rushMode: state.rushMode,
     rushModeActual: state.rushModeActual,
     presenterClaimed: state.presenterClaimed,
+    deviceTeams: [...pruneDeviceTeams(state.deviceTeams).entries()],
   };
 }
 
@@ -731,4 +826,6 @@ export function hydrateState(state: RoomState, saved: PersistedState): void {
   state.presenterClaimed = saved.presenterClaimed;
   state.rushSession = null;
   state.participants = new Map();
+  // 舊存檔沒有 deviceTeams → 空表;有 → 還原並清掉過期鎖
+  state.deviceTeams = pruneDeviceTeams(new Map(saved.deviceTeams ?? []));
 }

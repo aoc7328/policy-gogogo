@@ -211,10 +211,16 @@ export type TeamRenameCommand = {
  * Assistant changes team count (lobby only). Server replaces state.groups
  * with N teams, randomly redistributes all currently-connected participants,
  * and broadcasts roster_reshuffled. Phase mismatch → __error__ to sender.
+ *
+ * reshuffle 語意(30 人實戰後加上):
+ * - reshuffle:true  = 助理明確按了「重新分組」→ 即使組數沒變也全員重洗。
+ * - 省略/false      = 同步性質(如 bootstrap 初始化)→ 組數與現況相同時
+ *                     server 直接忽略,不得重洗名單。過去助理端每次重連都
+ *                     自動送這個指令,造成全場玩家被反覆隨機重分組。
  */
 export type TeamCountChangedCommand = {
   type: 'team_count_changed';
-  payload: { count: number };
+  payload: { count: number; reshuffle?: boolean };
   controlCode?: string;
 };
 

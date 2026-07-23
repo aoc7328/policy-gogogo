@@ -37,6 +37,7 @@ import {
   setupTeams,
   pickTeamForParticipant,
   pickTeamByPrefix,
+  lockedTeamForDevice,
   regroupByPrefix,
   assignLeaders,
   tallyMvpWin,
@@ -190,7 +191,7 @@ export default class PolicyGogogoServer implements Party.Server {
     // 不廣播 player_join — 觀眾視角這個人本來就在房裡,助理進退場紀錄
     // 不該再多跳一條「加入」。
     if (role === 'participant' && name && team) {
-      upsertParticipant(this.state, conn.id, name, team);
+      upsertParticipant(this.state, conn.id, name, team, deviceId);
       if (!replacedExistingTab) {
         this.broadcast({ type: 'player_join', payload: { name, team } });
       }
@@ -850,6 +851,7 @@ export default class PolicyGogogoServer implements Party.Server {
     // three windows open together, or assistant connected later), bootstrap
     // with the default 2 teams. Assistant's subsequent team_count_changed
     // (with their actual i-n value) will reshuffle.
+    const deviceId = sender.state?.deviceId ?? null;
     let team: string | null;
     if (this.state.groupingMode === 'prefix') {
       // prefix 模式:依名字前綴 find-or-create 組(組數動態長出來)
@@ -858,10 +860,16 @@ export default class PolicyGogogoServer implements Party.Server {
       if (this.state.groups.length === 0) {
         setupTeams(this.state, 2);
       }
-      team = pickTeamForParticipant(this.state, payload.name);
+      // 入組優先序(30 人實戰後定案):
+      //   1. 裝置鎖(同一支手機 24h 內固定同組,連名字打錯/改名都拉得回來)
+      //   2. 名字已在某組名單 → 回原組(斷線名單不清,重連不跳組)
+      //   3. 都沒有 → 最少人組(平手隨機)= 遲到者平均分配
+      team =
+        (deviceId ? lockedTeamForDevice(this.state, deviceId) : null) ??
+        pickTeamForParticipant(this.state, payload.name);
     }
     if (!team) return;
-    upsertParticipant(this.state, sender.id, payload.name, team);
+    upsertParticipant(this.state, sender.id, payload.name, team, deviceId);
     sender.setState({
       role: 'participant',
       name: payload.name,
@@ -1014,7 +1022,7 @@ export default class PolicyGogogoServer implements Party.Server {
   }
 
   private onTeamCountChanged(
-    payload: { count: number },
+    payload: { count: number; reshuffle?: boolean },
     sender: Party.Connection<ConnState>
   ): void {
     // Lobby-only — once game starts, team count is locked.
@@ -1026,9 +1034,20 @@ export default class PolicyGogogoServer implements Party.Server {
       );
       return;
     }
+    const n = Math.max(2, Math.min(10, Math.floor(payload.count)));
+    // 防誤重洗(30 人實戰教訓):助理端過去每次 WS 重連都自動送這個指令,
+    // 全場玩家就被隨機重分組一次。現在「組數沒變 + 非明示 reshuffle」
+    // 一律視為同步訊息,直接忽略;只有按「重新分組」按鈕(reshuffle:true)
+    // 或組數真的改變才重洗名單。
+    if (
+      !payload.reshuffle &&
+      this.state.groupingMode === 'random' &&
+      this.state.groups.length === n
+    ) {
+      return;
+    }
     // 改組數隱含「隨機平均」模式(prefix 模式不吃組數)
     this.state.groupingMode = 'random';
-    const n = Math.max(2, Math.min(10, Math.floor(payload.count)));
     setupTeams(this.state, n);
     reshuffleParticipants(this.state);
     this.broadcastRoster();
