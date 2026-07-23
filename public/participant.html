@@ -3911,6 +3911,12 @@ PartyBus.on('export_result', payload => {
   if (!payload) return;
   // 暫存 payload 等使用者按確定才渲染
   G._pendingResult = payload;
+  // 已經在看結果頁的人(例如助理按了「重新同步」補送一次)→ 直接用新資料
+  // 重畫,不要再彈一次「是否觀看結果」把人嚇一跳。
+  if (document.getElementById('stage-end')?.classList.contains('active')) {
+    renderEndStage(payload);
+    return;
+  }
   // 跳出 modal
   document.getElementById('result-modal')?.classList.add('show');
 });

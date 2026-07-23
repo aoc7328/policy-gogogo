@@ -1096,6 +1096,7 @@ input::placeholder{color:var(--ink-3)}
         <span id="timer-readout" style="font-family:var(--font-mono);font-size:14px;color:var(--accent);min-width:48px;text-align:right;margin-left:auto"></span>
       </div>
       <div class="ctrl-row">
+        <button class="cb"        id="btn-resync" onclick="doResync()" title="把目前狀態重推給所有還連著的端(投影/助理/參賽者)。有人卡在上一場畫面時按這顆,不用請他重整">↻ 重新同步</button>
         <button class="cb"        id="btn-restart" onclick="doRestart()">重新開始</button>
         <button class="cb danger" onclick="doEnd()">結束本場</button>
       </div>
@@ -3378,6 +3379,55 @@ function renderGroups(){
     </div>`;
   }).join('');
 }
+
+/* ── 重新同步:把 server 權威狀態重推給所有還連著的端 ──────────────
+   使用時機:上一場結束後有學員卡在結算頁、或投影端畫面停在舊狀態。
+   按下去他們會被自動帶到正確畫面,不用請人手動重整。
+   能力邊界:只推得到「連線還活著」的端。手機連線真的斷掉的人收不到,
+   要等他自己重連(最多 25 秒)才會被快照救回 —— 所以這是加速手段,
+   不是唯一解法。server 會回報實際推送到幾個端,順便當點名用。 */
+function doResync() {
+  const btn = document.getElementById('btn-resync');
+  if (btn) { btn.disabled = true; btn.textContent = '同步中…'; }
+  _resyncPending = true;
+  PartyBus.emit('resync_all', {});
+  setStatus('重新同步中…');
+  // 3 秒沒收到回報 = 助理自己這條連線也有問題
+  clearTimeout(_resyncTimer);
+  _resyncTimer = setTimeout(() => {
+    if (!_resyncPending) return;
+    _resyncPending = false;
+    resetResyncBtn();
+    setStatus('⚠ 同步沒有回應 — 助理端自己可能已離線,請檢查右上連線狀態或重整本頁');
+  }, 3000);
+}
+let _resyncPending = false;
+let _resyncTimer = null;
+function resetResyncBtn() {
+  const btn = document.getElementById('btn-resync');
+  if (btn) { btn.disabled = false; btn.textContent = '↻ 重新同步'; }
+}
+window.doResync = doResync;
+
+/* server 回報同步結果 → 顯示各端連線數(現場點名) */
+PartyBus.on('__resync_report__', payload => {
+  _resyncPending = false;
+  clearTimeout(_resyncTimer);
+  resetResyncBtn();
+  if (!payload) return;
+  const p = payload.participant || 0;
+  const parts = [
+    `投影 ${payload.presenter || 0}`,
+    `助理 ${payload.assistant || 0}`,
+    `參賽者 ${p}`,
+  ].join(' · ');
+  if (p === 0) {
+    // 例:整場結束、大家都關掉手機了 → 明講沒有人在線,而不是假裝成功
+    setStatus(`已同步 ${parts} — 目前沒有參賽者連線(可能都已離開或關閉頁面)`);
+  } else {
+    setStatus(`✓ 已同步 ${parts}`);
+  }
+});
 
 /* 重抽某組組長:組長中離不回來、或現場臨時要換人代表領獎時用。
    server 會避開現任組長(除非該組只剩一個人)並廣播 group_leaders。 */

@@ -349,6 +349,8 @@ export class PolicyGogogoServer extends Server {
         return this.onResumeQuestion(sender);
       case 'reassign_leader':
         return this.onReassignLeader(cmd.payload, sender);
+      case 'resync_all':
+        return this.onResyncAll(sender);
       default: {
         const _exhaustive: never = cmd;
         void _exhaustive;
@@ -1052,6 +1054,57 @@ export class PolicyGogogoServer extends Server {
     this.state.rebuzzPending = false;
     this.state.phase = 'answering';
     this.broadcastEvent({ type: 'resume_question', payload: {} });
+  }
+
+  /**
+   * 助理「重新同步」:把權威狀態重推給每一個還連著的端。
+   *
+   * 為什麼需要:上一場結束後停在結算頁的學員,若剛好漏接
+   * game_restart / game_start 廣播,畫面會停在舊的一場。收到快照後
+   * participant.html 的階段對帳會自動把他帶到正確畫面。
+   *
+   * 能力邊界(誠實說):只推得到 WebSocket 還活著的連線。手機連線真的
+   * 斷掉的人收不到 —— 那種情況要等他自己的 keepalive 重連(最多 25 秒),
+   * 重連時本來就會拿到快照,一樣會自動歸位。所以這顆按鈕是「加速」,
+   * 不是「唯一解法」。
+   *
+   * 順便回報各角色實際連線數,現場可當點名用。
+   */
+  private onResyncAll(sender: Connection<ConnState>): void {
+    const snap = snapshot(this.state);
+    const count = { presenter: 0, assistant: 0, participant: 0 };
+    for (const c of this.getConnections<ConnState>()) {
+      const role = c.state?.role;
+      if (role === 'presenter' || role === 'assistant' || role === 'participant') {
+        count[role] += 1;
+      }
+      try {
+        this.send(c, { type: '__room_state__', payload: snap });
+      } catch {
+        /* 連線正在關閉 → 略過,它重連時自然會拿到快照 */
+      }
+    }
+    // 分組/分數/組長是各端分開維護的畫面,一併重推,避免只有階段對了、
+    // 名單還是舊的。
+    this.broadcastRoster();
+    this.broadcastLeaders();
+    this.broadcastEvent({
+      type: 'score_update',
+      payload: {
+        scores: this.state.groups.map((g) => ({ idx: g.idx, name: g.name, score: g.score })),
+        changedIdx: -1,
+        delta: 0,
+      },
+    });
+    // 已結束的場次:光推快照救不了「卡在題目畫面」的人 —— 結算頁需要成績
+    // 資料才畫得出來。補送一次 export_result,讓他們也能看到結果頁。
+    if (this.state.phase === 'ended') {
+      this.onExportResult();
+    }
+    this.send(sender, {
+      type: '__resync_report__',
+      payload: { ...count, phase: this.state.phase },
+    });
   }
 
   /** 助理重抽某組組長(組長中離不回來、或現場要換人代表領獎)。 */

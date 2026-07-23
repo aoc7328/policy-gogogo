@@ -309,6 +309,17 @@ export type ClaimPresenterCommand = {
 };
 
 /**
+ * 助理端「重新同步」:把 server 的權威狀態重推給所有還連著的端。
+ * 用於「上一場結束後有人卡在結算頁」這類畫面錯位 —— 免去請學員手動重整。
+ * 注意:只推得到「WebSocket 還活著」的端;連線真的死掉的手機收不到,
+ * 得等它自己的 keepalive 重連(最多 25 秒)才會被快照救回。
+ * server 以私訊 __resync_report__ 回報實際推送到幾個端(兼作點名工具)。
+ */
+export type ResyncAllCommand = {
+  type: 'resync_all';
+} & PrivilegedHeader;
+
+/**
  * 助理端「重抽組長」:指定某一組重新隨機抽組長(會避開現任,除非只剩一人)。
  * 用於組長中離不回來、或現場臨時要換人代表領獎。server 回廣播 group_leaders。
  */
@@ -361,6 +372,7 @@ export type ClientCommand =
   | RebuzzSameCommand
   | ResumeQuestionCommand
   | ReassignLeaderCommand
+  | ResyncAllCommand
   | ClaimPresenterCommand
   | StaffLoginCommand;
 
@@ -461,6 +473,20 @@ export type KickedEvent = {
 export type PongEvent = {
   type: '__pong__';
   payload: { t: number };
+};
+
+/**
+ * 私訊回覆 resync_all:實際推送到幾個端(依角色)。助理端據此顯示
+ * 「已同步 投影1 · 助理2 · 參賽者23」,兼作「現在還有幾支手機連著」的點名。
+ */
+export type ResyncReportEvent = {
+  type: '__resync_report__';
+  payload: {
+    presenter: number;
+    assistant: number;
+    participant: number;
+    phase: Phase;
+  };
 };
 
 /**
@@ -755,6 +781,7 @@ export type ServerEvent =
   | KickedEvent
   | PongEvent
   | StaffRouteEvent
+  | ResyncReportEvent
   | GameStartEvent
   | ModePreviewEvent
   | CustomTiersChangedEvent
@@ -821,6 +848,7 @@ export const PRIVILEGED_COMMAND_TYPES = new Set<string>([
   'rebuzz_same',
   'resume_question',
   'reassign_leader',
+  'resync_all',
 ]);
 
 export function isPrivilegedCommand(
