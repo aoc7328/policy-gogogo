@@ -82,6 +82,12 @@ input::placeholder{color:var(--ink-3)}
 @keyframes purgLabel{0%,100%{opacity:.85}50%{opacity:1}}
 @keyframes purgIn{from{opacity:0;transform:translateX(8px) scale(.9)}to{opacity:1;transform:translateX(0) scale(1)}}
 .meta-chip{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;color:var(--ink-3)}
+/* 頂部列「重新同步」:任何分頁都按得到(含兩場之間計分頁被鎖時) */
+.hd-resync{font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;color:var(--ink-2);
+  background:var(--bg-raised);border:1px solid var(--line);padding:5px 12px;cursor:pointer;
+  transition:all 180ms;white-space:nowrap}
+.hd-resync:hover:not(:disabled){color:var(--accent);border-color:var(--accent)}
+.hd-resync:disabled{opacity:.45;cursor:wait}
 .meta-chip .v{color:var(--ink-1);margin-left:5px}
 
 /* tabs */
@@ -756,6 +762,10 @@ input::placeholder{color:var(--ink-3)}
         <span class="flame"></span>
         <span class="label">煉獄</span>
       </span>
+      <!-- 重新同步:放在頂部列(不受分頁鎖影響)。原本放計分頁,但兩場之間
+           gameStarted=false 會把計分頁鎖起來 —— 正好是最需要這顆按鈕的時候。 -->
+      <button class="hd-resync" id="btn-resync" onclick="doResync()"
+        title="把目前狀態重推給所有還連著的端(投影/助理/參賽者)。有人卡在上一場畫面時按這顆,不用請他重整">↻ 重新同步</button>
     </div>
   </div>
 
@@ -1096,7 +1106,6 @@ input::placeholder{color:var(--ink-3)}
         <span id="timer-readout" style="font-family:var(--font-mono);font-size:14px;color:var(--accent);min-width:48px;text-align:right;margin-left:auto"></span>
       </div>
       <div class="ctrl-row">
-        <button class="cb"        id="btn-resync" onclick="doResync()" title="把目前狀態重推給所有還連著的端(投影/助理/參賽者)。有人卡在上一場畫面時按這顆,不用請他重整">↻ 重新同步</button>
         <button class="cb"        id="btn-restart" onclick="doRestart()">重新開始</button>
         <button class="cb danger" onclick="doEnd()">結束本場</button>
       </div>
