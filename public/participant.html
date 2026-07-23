@@ -1721,11 +1721,21 @@ PartyBus.on('__room_state__', (snap) => {
     document.querySelectorAll('.brand-suffix').forEach(el => { el.textContent = b.titleSuffix; });
     document.title = `${b.titlePrefix}${b.titleSuffix} · 參與者`;
   }
-  // 真實組員名單:server snapshot 的 participants 是權威全房名單。
-  // 重建本機 _roster,再刷新「組員」浮窗(取代舊版的 MOCK_TEAMS 假名單)。
-  if (Array.isArray(snap?.participants)) {
+  // 真實組員名單(幽靈組員修正):優先用 snapshot groups[].members ——
+  // 名字為準的權威名單,「暫時斷線的人也還是組員」。舊版只用 participants
+  // (在線連線名單)重建,結果任何人重連一次,斷線中的組員就從他的名單上
+  // 消失(30 人實戰的「小胖」現象)。participants 仍聯集進來,兼容
+  // 新前端先上、PartyKit 後端還沒重新部署的過渡期。
+  if (Array.isArray(snap?.participants) || Array.isArray(snap?.groups)) {
     _roster.clear();
-    snap.participants.forEach(p => { if (p?.name && p?.team) _roster.set(p.name, p.team); });
+    (snap?.groups || []).forEach(g => {
+      if (g?.name && Array.isArray(g.members)) {
+        g.members.forEach(n => { if (n) _roster.set(n, g.name); });
+      }
+    });
+    (snap?.participants || []).forEach(p => {
+      if (p?.name && p?.team && !_roster.has(p.name)) _roster.set(p.name, p.team);
+    });
     rebuildMyRoster();
   }
   // 組長(reconnect 還原):snapshot 的 groups 帶 leader
@@ -1739,24 +1749,44 @@ PartyBus.on('__room_state__', (snap) => {
     _groupsOrder = snap.groups.map(g => g?.name).filter(Boolean);
   }
   if (typeof renderLobby === 'function') renderLobby();
-  // 遊戲階段還原:phase 不是 lobby = 助理已按過「開始遊戲」。晚到或
-  // 重整的人不該停在集合畫面 — 補上等同 game_start 的旗標與主題色,
-  // 人若正停在集合頁就直接送進遊戲頁(等待畫面),細節由後續事件接手。
-  if (snap?.phase && snap.phase !== 'lobby' && !G._gameStarted) {
-    G._gameStarted = true;
-    if (snap.totalQ) G.totalQ = snap.totalQ;
-    const m = snap?.game?.mode;
-    if (m) {
-      G.mode = m;
-      document.body.classList.remove('tm-ordinary','tm-hell','tm-paradise','tm-custom');
-      document.body.classList.add('tm-' + m);
+  // 遊戲階段對帳(重連/晚到都會收到快照;server 是權威)。三種錯位:
+  // a. server 已開賽、本機停在集合頁 → 進遊戲頁(原有行為)
+  // b. server 已開賽「新的一場」、本機停在上一場結算頁 → 清結果、進遊戲頁
+  //    (30 人實戰:讀上一場結果時錯過 game_restart+game_start 廣播的人,
+  //     過去會永遠卡在結算頁,只能教他手動重整網頁)
+  // c. server 回到 lobby(助理按了重新開始)、本機還在遊戲/結算頁
+  //    → 鏡射 game_restart 的重置,回集合頁
+  const _onEnd = !!document.getElementById('stage-end')?.classList.contains('active');
+  if (snap?.phase && snap.phase !== 'lobby' && snap.phase !== 'ended') {
+    // server 在遊戲進行中 → 上一場的結果彈窗一定是殘留,先清掉
+    if (G._pendingResult) {
+      document.getElementById('result-modal')?.classList.remove('show');
+      G._pendingResult = null;
     }
-    // 開賽即鎖組名(與 game_start 廣播的行為一致)
-    G.canRenameTeam = false;
-    if (typeof setTeamNameEditable === 'function') setTeamNameEditable(false);
-    if (G.name && document.getElementById('stage-lobby')?.classList.contains('active')) {
-      enterGameStage();
+    if (!G._gameStarted || _onEnd) {
+      G._gameStarted = true;
+      if (snap.totalQ) G.totalQ = snap.totalQ;
+      const m = snap?.game?.mode;
+      if (m) {
+        G.mode = m;
+        document.body.classList.remove('tm-ordinary','tm-hell','tm-paradise','tm-custom');
+        document.body.classList.add('tm-' + m);
+      }
+      // 開賽即鎖組名(與 game_start 廣播的行為一致)
+      G.canRenameTeam = false;
+      if (typeof setTeamNameEditable === 'function') setTeamNameEditable(false);
+      if (_onEnd) {
+        // 結算頁殘留 → 清上一場遊戲狀態,直接進新一場的等待畫面
+        G.round = 0; G.revealed = false; G.currentQ = null;
+        G.buzzed = false; G._buzzLockout = [];
+        if (G.name) enterGameStage();
+      } else if (G.name && document.getElementById('stage-lobby')?.classList.contains('active')) {
+        enterGameStage();
+      }
     }
+  } else if (snap?.phase === 'lobby' && (G._gameStarted || _onEnd)) {
+    // 助理已按「重新開始」而本機漏接廣播 → 補做同一套重置(回集合頁)
+    if (typeof resetToPreGame === 'function') resetToPreGame();
   }
 });
 
@@ -3855,8 +3885,10 @@ window.confirmViewResult = confirmViewResult;
 window.closeResultModal = closeResultModal;
 
 /* 助理按重新開始 → 回到「已輸入完姓名的等待頁」(stage-game 等待態)
-   參賽者保留 G.name / G.team,但題目進度全清 */
-PartyBus.on('game_restart', () => {
+   參賽者保留 G.name / G.team,但題目進度全清。
+   抽成具名函式:game_restart 廣播、以及快照對帳(server 已回 lobby 而
+   本機還停在上一場畫面 —— 廣播漏接時的自癒)共用同一套重置。 */
+function resetToPreGame() {
   // 關掉可能還開著的結果 modal,清掉暫存
   document.getElementById('result-modal')?.classList.remove('show');
   G._pendingResult = null;
@@ -3902,7 +3934,8 @@ PartyBus.on('game_restart', () => {
       note.style.color = '';
     }
   }
-});
+}
+PartyBus.on('game_restart', resetToPreGame);
 
 function renderEndStage(payload) {
   // 找出我所在的組(用 G.team 比對 payload.groups)

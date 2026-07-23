@@ -376,7 +376,12 @@ export type WelcomeEvent = {
 export interface RoomStateSnapshot {
   phase: Phase;
   game: GameConfig | null;
-  groups: TeamScore[];
+  /**
+   * groups 帶 members(名字為準的權威組員名單,「暫時斷線的人也還是
+   * 組員」)。30 人實戰的「幽靈組員」修正:過去 client 只能拿 participants
+   * (在線連線名單)重建組員畫面,斷線中的人就從所有人的名單上消失。
+   */
+  groups: (TeamScore & { members: string[] })[];
   currQ: number;                 // current question number (1-based; 0 before any pick)
   totalQ: number;
   rushMode: RushMode;

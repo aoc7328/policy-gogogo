@@ -696,7 +696,7 @@ export function snapshot(state: RoomState): RoomStateSnapshot {
   return {
     phase: state.phase,
     game: state.game,
-    groups: state.groups.map((g) => ({ idx: g.idx, name: g.name, score: g.score, leader: g.leader, mvp: computeMvp(state, g.idx) })),
+    groups: state.groups.map((g) => ({ idx: g.idx, name: g.name, score: g.score, leader: g.leader, mvp: computeMvp(state, g.idx), members: [...g.members] })),
     currQ: state.currQ,
     totalQ: state.game?.totalQ ?? 0,
     rushMode: state.rushMode,

@@ -1418,6 +1418,22 @@ PartyBus.on('__room_state__', snap => {
       if (typeof rebuildNames === 'function') rebuildNames();
     }
   }
+  // lobby 重連/第二位助理:各組「成員」以快照的權威名單同步(幽靈組員
+  // 修正 —— 含暫時斷線者;過去助理重連後名單只剩本機進退場紀錄拼出來的
+  // 版本,斷線中的組員就此消失)。只動 members,不動組名 —— 組名輸入框
+  // 是本機編輯區,不能被快照蓋掉。
+  if (snap && snap.phase === 'lobby' && Array.isArray(snap.groups) && snap.groups.length > 0) {
+    let touched = false;
+    snap.groups.forEach((g, i) => {
+      if (!Array.isArray(g.members)) return;
+      const local = (S.groups || [])[Number.isFinite(g.idx) ? g.idx : i];
+      if (local) { local.members = [...g.members]; touched = true; }
+    });
+    if (touched) {
+      if (typeof renderGroups === 'function') renderGroups();
+      if (typeof updateTotalCount === 'function') updateTotalCount();
+    }
+  }
   // 多助理:遊戲進行中/已結束時,用 server 快照完整還原本機 UI,
   // 讓「中途加入的第 2、3 位助理」立即看到現場,而非卡在「尚未選擇模式」。
   // lobby 階段不還原 — 此時助理還在設定頁編輯,不該被快照蓋掉。
@@ -1441,8 +1457,13 @@ function hydrateFromSnapshot(snap){
   S.currentCat = snap.currentCat || null;
   S.catLocked = !!snap.catLocked;
   S.purgArmed = !!snap.purgArmed;
-  // 重建分組(分數來自 snap.groups,成員由 snap.participants 依隊名歸戶)
+  // 重建分組(分數來自 snap.groups;成員優先用 groups[].members —— 名字
+  // 為準的權威名單,含暫時斷線者(幽靈組員修正),再聯集 participants
+  // 兼容還沒重新部署的舊 server)
   const membersByTeam = {};
+  (snap.groups || []).forEach(grp => {
+    if (grp?.name && Array.isArray(grp.members)) membersByTeam[grp.name] = [...new Set(grp.members)];
+  });
   (snap.participants || []).forEach(p => {
     if (!membersByTeam[p.team]) membersByTeam[p.team] = [];
     if (!membersByTeam[p.team].includes(p.name)) membersByTeam[p.team].push(p.name);
