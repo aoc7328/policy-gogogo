@@ -134,6 +134,10 @@ export interface RoomState {
   // 分組方式(lobby 設定,預設 random)。決定 player_join 怎麼分組。
   groupingMode: GroupingMode;
 
+  // 參賽者新手導覽是否自動跳出。預設 false —— 30 人實戰回饋:年長學員
+  // 多半不看,反而擋住畫面。助理端可開;關閉時「?」按鈕仍可手動叫出。
+  onboardingEnabled: boolean;
+
   // Team scoreboards — created on game_start, persist till game_restart.
   groups: TeamState[];
 
@@ -205,6 +209,7 @@ export function createInitialState(
     phase: 'lobby',
     game: null,
     groupingMode: 'random',
+    onboardingEnabled: false,
     groups: [],
     currQ: 0,
     currentQuestion: null,
@@ -751,6 +756,7 @@ export function snapshot(state: RoomState): RoomStateSnapshot {
     askedIds: [...state.usedIds],
     presenterClaimed: state.presenterClaimed,
     groupingMode: state.groupingMode,
+    onboardingEnabled: state.onboardingEnabled,
     timerRemainingSec: state.timerDeadline
       ? Math.max(0, Math.ceil((state.timerDeadline - Date.now()) / 1000))
       : 0,
@@ -779,6 +785,8 @@ export interface PersistedState {
   phase: Phase;
   game: GameConfig | null;
   groupingMode: GroupingMode;
+  /** 舊存檔沒有這欄 → hydrate 時視為 false(預設關閉)。 */
+  onboardingEnabled?: boolean;
   groups: TeamState[];
   currQ: number;
   currentQuestion: RoomState['currentQuestion'];
@@ -811,6 +819,7 @@ export function dehydrateState(state: RoomState): PersistedState {
     phase: state.phase,
     game: state.game,
     groupingMode: state.groupingMode,
+    onboardingEnabled: state.onboardingEnabled,
     groups: state.groups.map((g) => ({ ...g, members: [...g.members] })),
     currQ: state.currQ,
     currentQuestion: state.currentQuestion,
@@ -844,6 +853,7 @@ export function hydrateState(state: RoomState, saved: PersistedState): void {
   state.phase = saved.phase === 'rushing' ? 'idle' : saved.phase;
   state.game = saved.game;
   state.groupingMode = saved.groupingMode;
+  state.onboardingEnabled = saved.onboardingEnabled === true;   // 舊存檔 → 預設關閉
   state.groups = saved.groups.map((g) => ({ ...g, members: [...g.members] }));
   state.currQ = saved.currQ;
   state.currentQuestion = saved.currentQuestion;

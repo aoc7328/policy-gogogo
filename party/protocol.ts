@@ -309,6 +309,25 @@ export type ClaimPresenterCommand = {
 };
 
 /**
+ * 助理端開關「參賽者新手導覽」。預設關閉(30 人實戰:年長學員多半不看,
+ * 反而擋住畫面)。關閉時參賽者端不自動跳導覽,但頂部「?」仍可自行叫出。
+ */
+export type SetOnboardingCommand = {
+  type: 'set_onboarding';
+  payload: { enabled: boolean };
+} & PrivilegedHeader;
+
+/**
+ * 助理端「再加一題」:題數用完後臨場追加題目(控時用)。server 把
+ * game.totalQ 加 n 並廣播 total_q_changed。可無限追加 —— 總分上限會跟著
+ * 變動,這是刻意的(現場控時優先於分數美觀)。
+ */
+export type AddQuestionCommand = {
+  type: 'add_question';
+  payload?: { n?: number };
+} & PrivilegedHeader;
+
+/**
  * 助理端「重新同步」:把 server 的權威狀態重推給所有還連著的端。
  * 用於「上一場結束後有人卡在結算頁」這類畫面錯位 —— 免去請學員手動重整。
  * 注意:只推得到「WebSocket 還活著」的端;連線真的死掉的手機收不到,
@@ -373,6 +392,8 @@ export type ClientCommand =
   | ResumeQuestionCommand
   | ReassignLeaderCommand
   | ResyncAllCommand
+  | AddQuestionCommand
+  | SetOnboardingCommand
   | ClaimPresenterCommand
   | StaffLoginCommand;
 
@@ -421,6 +442,8 @@ export interface RoomStateSnapshot {
   presenterClaimed: boolean;
   /** 當前分組方式(lobby 設定;late-join 端據此還原 UI)。 */
   groupingMode: GroupingMode;
+  /** 參賽者新手導覽是否自動顯示(預設 false;助理端可開)。 */
+  onboardingEnabled: boolean;
   /** 答題倒數剩餘秒數(0 = 無倒數);late-join 端據此續跑。 */
   timerRemainingSec: number;
   /**
@@ -539,7 +562,13 @@ export type RushTickEvent = {
   type: 'rush_tick';
   payload: {
     mode: 'count';
-    teamCounts: { idx: number; name: string; count: number }[];
+    /**
+     * size = 該組人數,avg = count / size。勝負以 avg 判定(見 rush/count.ts),
+     * 所以即時長條圖也必須照 avg 排 —— 否則比賽中觀眾看到「B 組總數領先」,
+     * 最後卻是 A 組獲勝,台上解釋不清。size/avg 為 optional,舊 client
+     * 收到照樣能用 count 顯示。
+     */
+    teamCounts: { idx: number; name: string; count: number; size?: number; avg?: number }[];
     remainingMs: number;
   };
 };
@@ -566,6 +595,10 @@ export type RushWinnerCount = {
   rushMode: 'count';
   personName: string;
   teamTotalClicks: number;
+  /** 該組人數(人均判定的分母);舊版 client 沒這欄也不會壞。 */
+  teamSize?: number;
+  /** 人均點擊 = teamTotalClicks / teamSize —— 勝負以此判定,不看總數。 */
+  avgClicks?: number;
   mvpClicks: number;
   runnerUp?: { name: string; count: number };
 };
@@ -707,6 +740,12 @@ export type PlayerRenamedEvent = {
   payload: { oldName: string; newName: string; oldTeam: string; newTeam: string };
 };
 
+/** 題數被追加(助理按「再加一題」)→ 三端更新總題數顯示與結束判定。 */
+export type TotalQChangedEvent = {
+  type: 'total_q_changed';
+  payload: { totalQ: number };
+};
+
 /** 答題倒數狀態。remainingSec > 0 = 開始/續跑倒數;0 = 停止/隱藏。 */
 export type TimerUpdateEvent = {
   type: 'timer_update';
@@ -816,6 +855,7 @@ export type ServerEvent =
   | PlayerRenamedEvent
   | TimerUpdateEvent
   | ResumeQuestionEvent
+  | TotalQChangedEvent
   | BuzzLockoutEvent;
 
 // ──────────────────────────────────────────────────────────────────────
@@ -849,6 +889,8 @@ export const PRIVILEGED_COMMAND_TYPES = new Set<string>([
   'resume_question',
   'reassign_leader',
   'resync_all',
+  'add_question',
+  'set_onboarding',
 ]);
 
 export function isPrivilegedCommand(

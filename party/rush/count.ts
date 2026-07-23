@@ -76,16 +76,23 @@ function emitTick(ctx: RushCtx): void {
   const session = ctx.state.rushSession;
   if (!session || session.mode !== 'count') return;
   const data = session.data.count!;
-  const teamCounts: { idx: number; name: string; count: number }[] = ctx.state.groups.map((g) => ({
-    idx: g.idx,
-    name: g.name,
-    count: data.teamCounts.get(g.idx) ?? 0,
-  }));
+  // 帶上人數與人均 —— 勝負是照人均判的,即時長條圖也要照人均排
+  const teamCounts = ctx.state.groups.map((g) => {
+    const count = data.teamCounts.get(g.idx) ?? 0;
+    const size = teamSizeOf(ctx, g.idx);
+    return { idx: g.idx, name: g.name, count, size, avg: count / size };
+  });
   const remainingMs = Math.max(0, session.armedAt + COUNT_DURATION_MS - Date.now());
   ctx.broadcast({
     type: 'rush_tick',
     payload: { mode: 'count', teamCounts, remainingMs },
   });
+}
+
+/** 該組人數(用於人均判定)。空組視為 1,避免除以 0。 */
+function teamSizeOf(ctx: RushCtx, idx: number): number {
+  const g = ctx.state.groups[idx];
+  return Math.max(1, g?.members.length ?? 1);
 }
 
 function lockWinner(ctx: RushCtx): void {
@@ -120,17 +127,29 @@ function lockWinner(ctx: RushCtx): void {
     return;
   }
 
-  // Q1 tiebreak: among teams with maxCount, pick the one that reached
-  // maxCount earliest.
+  // 勝負改用「人均點擊」(30 人實戰回饋:各組人數不一樣,比總數對小組不公平)。
+  //   A 組 5 人點 200 下 → 40.0;B 組 6 人點 240 下 → 40.0 → 同分
+  // 同分時沿用原本的 Q1 規則:先達到自己最高次數的那組贏。
+  const avgOf = (idx: number, count: number) => count / teamSizeOf(ctx, idx);
+  let bestAvg = -1;
+  for (const [idx, count] of data.teamCounts.entries()) {
+    const avg = avgOf(idx, count);
+    if (avg > bestAvg) bestAvg = avg;
+  }
+  const EPS = 1e-9;   // 浮點數比較容差(200/5 與 240/6 必須算平手)
   const tiedIdxs: number[] = [];
   for (const [idx, count] of data.teamCounts.entries()) {
-    if (count === maxCount) tiedIdxs.push(idx);
+    if (Math.abs(avgOf(idx, count) - bestAvg) < EPS) tiedIdxs.push(idx);
   }
   let winnerIdx = tiedIdxs[0]!;
-  let earliestTs = data.teamReachedAt.get(winnerIdx)?.get(maxCount) ?? Number.POSITIVE_INFINITY;
+  let earliestTs =
+    data.teamReachedAt.get(winnerIdx)?.get(data.teamCounts.get(winnerIdx) ?? 0) ??
+    Number.POSITIVE_INFINITY;
   for (let i = 1; i < tiedIdxs.length; i++) {
     const idx = tiedIdxs[i]!;
-    const ts = data.teamReachedAt.get(idx)?.get(maxCount) ?? Number.POSITIVE_INFINITY;
+    const ts =
+      data.teamReachedAt.get(idx)?.get(data.teamCounts.get(idx) ?? 0) ??
+      Number.POSITIVE_INFINITY;
     if (ts < earliestTs) {
       earliestTs = ts;
       winnerIdx = idx;
@@ -139,6 +158,8 @@ function lockWinner(ctx: RushCtx): void {
 
   const team = ctx.state.groups[winnerIdx];
   if (!team) return;
+  const winnerTotal = data.teamCounts.get(winnerIdx) ?? 0;
+  const winnerSize = teamSizeOf(ctx, winnerIdx);
 
   // MVP = team member with most clicks.
   const pp = data.perPerson.get(winnerIdx) ?? new Map<string, number>();
@@ -162,7 +183,9 @@ function lockWinner(ctx: RushCtx): void {
       groupName: team.name,
       rushMode: 'count',
       personName: mvpName,
-      teamTotalClicks: maxCount,
+      teamTotalClicks: winnerTotal,
+      teamSize: winnerSize,
+      avgClicks: winnerTotal / winnerSize,
       mvpClicks,
       runnerUp,
     },

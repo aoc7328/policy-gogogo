@@ -978,6 +978,14 @@ input::placeholder{color:var(--ink-3)}
         </div>
         <div class="group-names" id="group-names"></div>
         <button class="cust-chip" id="regroup-btn" style="margin-top:10px;width:100%" onclick="doManualRegroup()">🔀 重新分組(全員隨機重洗)</button>
+        <div class="fld" style="margin-top:14px">
+          <span class="flbl">參賽者新手導覽</span>
+          <div class="cust-chips" id="onboard-chips" style="margin-top:4px">
+            <button class="cust-chip active" data-ob="off" onclick="setOnboarding(false)">關閉(預設)</button>
+            <button class="cust-chip"        data-ob="on"  onclick="setOnboarding(true)">開啟</button>
+          </div>
+          <div class="hint" style="margin-top:6px;font-size:11px;color:var(--ink-3)">關閉時參賽者進場不會自動跳出操作說明(老手場建議關閉)。他們仍可自己按手機右上角的「?」查看。</div>
+        </div>
         <div class="hint" style="margin-top:6px;font-size:11px;color:var(--ink-3)">分組只會在按這顆按鈕、或改「分幾組」數字時重洗。玩家中途加入只會補進人數最少的組,不會動到其他人;同一支手機 24 小時內固定同組。</div>
       </div>
 
@@ -1218,6 +1226,7 @@ input::placeholder{color:var(--ink-3)}
     <div class="cf-sub" id="cf-sub"></div>
     <div class="cf-actions">
       <button class="cf-btn" onclick="cfCancel()">取消</button>
+      <button class="cf-btn" id="cf-alt-btn" style="display:none" onclick="cfAlt()">其他</button>
       <button class="cf-btn primary" id="cf-ok-btn" onclick="cfConfirm()">確定</button>
     </div>
   </div>
@@ -1408,6 +1417,13 @@ PartyBus.on('__room_state__', snap => {
   const b = snap?.branding;
   if (b && typeof b.titlePrefix === 'string' && typeof b.titleSuffix === 'string') {
     document.title = `${b.titlePrefix}${b.titleSuffix} · 助理端`;
+  }
+  // 新手導覽開關:以 server 為準同步 chip 狀態(第二位助理/重連端才不會
+  // 顯示成跟實際相反)。只改 UI,不回送指令,避免兩個助理互相覆蓋。
+  if (snap && typeof snap.onboardingEnabled === 'boolean') {
+    document.querySelectorAll('#onboard-chips .cust-chip').forEach(c => {
+      c.classList.toggle('active', (c.dataset.ob === 'on') === snap.onboardingEnabled);
+    });
   }
   // lobby 階段的分組同步(30 人實戰後改版):
   // - server 已有分組 → 以 server 為準對齊「分幾組」輸入框,避免第二位
@@ -1661,6 +1677,25 @@ PartyBus.on('team_rename', payload => {
 
 /* server 開賽後廣播各組組長(隨機抽)。存進 S.leaders,重渲染組別/計分表
    讓組長名字旁顯示徽章。 */
+/* 題數被追加(自己或別位助理按了「再加一題」)→ 同步總題數,
+   本機若正在等這筆確認,就接著真的走進下一題。 */
+PartyBus.on('total_q_changed', payload => {
+  const t = payload?.totalQ;
+  if (!Number.isFinite(t)) return;
+  S.totalQ = t;
+  const totq = document.getElementById('tot-q'); if (totq) totq.textContent = S.totalQ;
+  const iq = document.getElementById('i-q'); if (iq) iq.value = S.totalQ;
+  const mq = document.getElementById('m-q'); if (mq) mq.textContent = `${S.currQ} / ${S.totalQ}`;
+  const mmax = document.getElementById('m-max'); if (mmax) mmax.textContent = `${S.totalQ * S.spq}`;
+  if (S._pendingAddQ) {
+    S._pendingAddQ = false;
+    setStatus(`已加到第 ${S.totalQ} 題 · 繼續下一題`);
+    if (typeof doNext === 'function') doNext();   // 此時 currQ < totalQ,會正常往下走
+  } else {
+    setStatus(`題數已追加為 ${S.totalQ} 題`);
+  }
+});
+
 PartyBus.on('group_leaders', payload => {
   if (!Array.isArray(payload?.leaders)) return;
   S.leaders = {};
@@ -2842,6 +2877,17 @@ function onTeamCountInputChange() {
 }
 window.onTeamCountInputChange = onTeamCountInputChange;
 
+/* 參賽者新手導覽開關(server 權威、預設關閉)。改完 server 會把快照推給
+   所有端,已在線的參賽者立刻套用,不必重整。 */
+function setOnboarding(enabled) {
+  document.querySelectorAll('#onboard-chips .cust-chip').forEach(c => {
+    c.classList.toggle('active', (c.dataset.ob === 'on') === !!enabled);
+  });
+  PartyBus.emit('set_onboarding', { enabled: !!enabled });
+  setStatus(enabled ? '參賽者新手導覽:已開啟' : '參賽者新手導覽:已關閉');
+}
+window.setOnboarding = setOnboarding;
+
 /* 「重新分組」按鈕:唯一會主動全員重洗的入口(30 人實戰後,server 在
    組數未變且非明示 reshuffle 時一律不重洗)。lobby 限定,server 也會擋。 */
 function doManualRegroup(){
@@ -3178,7 +3224,8 @@ function onRushWinner(idx, _serverPayload) {
   // 時 pickCategory 看 S.phase 還是 'won',會重複 emit 一次 enter_category,
   // server 已在 picking → 跳 wrong_phase 錯誤。
   const rushMode = _serverPayload?.rushMode || S.rushMode || 'speed';
-  const winnerCardMs = (rushMode === 'count' || rushMode === 'allhands') ? 8000 : 5000;
+  // 30 人實戰回饋:大家按完抬起頭時畫面已經跳走,來不及看結算細項 → 加倍。
+  const winnerCardMs = (rushMode === 'count' || rushMode === 'allhands') ? 16000 : 10000;
   S._winnerCardTimer = setTimeout(() => {
     if (S.phase !== 'won') return;
     PartyBus.emit('enter_category', {});
@@ -3248,7 +3295,8 @@ function doNext(){
   S.rushSession = null;
   // Phase 4:S.currQ 已在 question_pick listener 從 server roundQ 套好,
   // 這裡不再 increment。只用「目前已 ≥ totalQ」這條 end-of-game 判定。
-  if (S.currQ >= S.totalQ) { doEnd(); return; }
+  // 題數用完 → 讓助理選:再加一題(控時用,可無限加)或結束本場
+  if (S.currQ >= S.totalQ) { askEndOrAddQuestion(); return; }
   document.getElementById('rev-acts').classList.remove('show');
   S.pendingIdx = null;
   S.selectedIdx = null;
@@ -3263,6 +3311,31 @@ function doNext(){
   setPhase('idle');
   setStatus('已進入下一題 · 按「開始搶答」開始下輪');
 }
+
+/* 題目全部答完後按「下一題」→ 三選一:再加一題 / 結束本場 / 取消。
+   「再加一題」讓現場可以視時間無限追加(總分上限會跟著變動,刻意的)。 */
+function askEndOrAddQuestion() {
+  cfOpen({
+    eyebrow: 'Next · 題目已全部完成',
+    title: `${S.totalQ} 題都答完了`,
+    sub: '可以再加一題繼續玩(時間還夠的話),或直接結束本場、公佈成績。',
+    okText: '結束本場',
+    okClass: 'danger',
+    onOk: _doEndImpl,
+    altText: '＋ 再加一題',
+    onAlt: doAddQuestion,
+  });
+}
+window.askEndOrAddQuestion = askEndOrAddQuestion;
+
+/* 再加一題:server 把 totalQ +1 並廣播,本機收到 total_q_changed 後
+   才真的往下一題走(server 是權威,避免本機先加、server 沒收到就脫節)。 */
+function doAddQuestion() {
+  S._pendingAddQ = true;
+  PartyBus.emit('add_question', { n: 1 });
+  setStatus('已追加一題 · 等待伺服器確認…');
+}
+window.doAddQuestion = doAddQuestion;
 
 function _stopTimerSafe(){ if (typeof stopQuestionTimer === 'function') stopQuestionTimer(); }
 function doSkip(){
@@ -3770,6 +3843,9 @@ function doRestart(){
 
 /* ── 通用確認 modal(用於重新開始 / 結束本場 等危險操作) ───────────── */
 let _cfPendingOk = null;
+let _cfPendingAlt = null;
+/* opts.altText + opts.onAlt → 顯示第三顆按鈕(用於「再加一題 / 結束本場」
+   這種二選一 + 取消的情境)。不給就維持原本的兩顆。 */
 function cfOpen(opts) {
   document.getElementById('cf-eyebrow').textContent = opts.eyebrow || 'CONFIRM';
   document.getElementById('cf-title').textContent = opts.title || '確定?';
@@ -3778,22 +3854,45 @@ function cfOpen(opts) {
   okBtn.textContent = opts.okText || '確定';
   okBtn.className = 'cf-btn primary';
   if (opts.okClass) okBtn.classList.add(opts.okClass);
+  const altBtn = document.getElementById('cf-alt-btn');
+  if (altBtn) {
+    if (opts.altText && typeof opts.onAlt === 'function') {
+      altBtn.textContent = opts.altText;
+      altBtn.className = 'cf-btn';
+      if (opts.altClass) altBtn.classList.add(opts.altClass);
+      altBtn.style.display = '';
+      _cfPendingAlt = opts.onAlt;
+    } else {
+      altBtn.style.display = 'none';
+      _cfPendingAlt = null;
+    }
+  }
   _cfPendingOk = opts.onOk || null;
   document.getElementById('cf-modal').classList.add('show');
 }
 function cfCancel() {
   document.getElementById('cf-modal').classList.remove('show');
   _cfPendingOk = null;
+  _cfPendingAlt = null;
 }
 function cfConfirm() {
   const fn = _cfPendingOk;
   _cfPendingOk = null;
+  _cfPendingAlt = null;
+  document.getElementById('cf-modal').classList.remove('show');
+  if (typeof fn === 'function') fn();
+}
+function cfAlt() {
+  const fn = _cfPendingAlt;
+  _cfPendingOk = null;
+  _cfPendingAlt = null;
   document.getElementById('cf-modal').classList.remove('show');
   if (typeof fn === 'function') fn();
 }
 window.cfOpen = cfOpen;
 window.cfCancel = cfCancel;
 window.cfConfirm = cfConfirm;
+window.cfAlt = cfAlt;
 
 function doExport(){
   // 整理本場資料 → 廣播給參賽者(讓他們在 stage-end 看到結果)

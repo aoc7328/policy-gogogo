@@ -351,6 +351,10 @@ export class PolicyGogogoServer extends Server {
         return this.onReassignLeader(cmd.payload, sender);
       case 'resync_all':
         return this.onResyncAll(sender);
+      case 'add_question':
+        return this.onAddQuestion(cmd.payload, sender);
+      case 'set_onboarding':
+        return this.onSetOnboarding(cmd.payload);
       default: {
         const _exhaustive: never = cmd;
         void _exhaustive;
@@ -1106,6 +1110,40 @@ export class PolicyGogogoServer extends Server {
     this.send(sender, {
       type: '__resync_report__',
       payload: { ...count, phase: this.state.phase },
+    });
+  }
+
+  /**
+   * 助理開關參賽者新手導覽(預設關閉)。改完把快照推給所有端,
+   * 已在線的參賽者也會立刻套用(不必重整)。
+   */
+  private onSetOnboarding(payload: { enabled: boolean }): void {
+    this.state.onboardingEnabled = payload?.enabled === true;
+    const snap = snapshot(this.state);
+    for (const c of this.getConnections<ConnState>()) {
+      try {
+        this.send(c, { type: '__room_state__', payload: snap });
+      } catch { /* 連線關閉中 */ }
+    }
+  }
+
+  /**
+   * 助理「再加一題」:題數用完後臨場追加(現場控時用)。
+   * 可無限追加 —— 總分上限會跟著變動,這是刻意的取捨。
+   */
+  private onAddQuestion(
+    payload: { n?: number } | undefined,
+    sender: Connection<ConnState>
+  ): void {
+    if (!this.state.game) {
+      this.sendError(sender, 'no_game', '尚未開始遊戲,無法加題');
+      return;
+    }
+    const n = Math.max(1, Math.min(20, Math.floor(payload?.n ?? 1)));
+    this.state.game.totalQ += n;
+    this.broadcastEvent({
+      type: 'total_q_changed',
+      payload: { totalQ: this.state.game.totalQ },
     });
   }
 

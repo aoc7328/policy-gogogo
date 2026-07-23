@@ -1752,6 +1752,8 @@ PartyBus.on('__room_state__', (snap) => {
     });
     rebuildMyRoster();
   }
+  // 新手導覽開關(server 權威,預設關閉;助理端可開)
+  if (typeof snap?.onboardingEnabled === 'boolean') G._onboardEnabled = snap.onboardingEnabled;
   // 分組方式:被請出房間後的「改名並重新加入」要據此檢查名字格式
   // (prefix 模式沒帶「-」就會再被歸到「其他」組、再被請出去一次)
   if (snap?.groupingMode) G._groupingMode = snap.groupingMode;
@@ -3313,6 +3315,9 @@ let _obStep = 0;
 
 function showOnboarding(force) {
   if (!force) {
+    // 助理端關閉導覽時(預設就是關的)完全不自動跳 —— 30 人實戰:年長學員
+    // 多半不看,反而擋住畫面。頂部「?」按鈕(force=true)不受影響。
+    if (G._onboardEnabled !== true) return;
     try { if (localStorage.getItem(OB_SEEN_KEY)) return; } catch { /* ignore */ }
   }
   _obStep = 0;
@@ -4585,6 +4590,18 @@ PartyBus.on('player_renamed', payload => {
   }
   rebuildMyRoster();
   if (typeof updateLeaderBadge === 'function') updateLeaderBadge();
+});
+
+/* 助理追加題目 → 更新總題數顯示(頂部 00 / NN) */
+PartyBus.on('total_q_changed', payload => {
+  const t = payload?.totalQ;
+  if (!Number.isFinite(t)) return;
+  G.totalQ = t;
+  const el = document.getElementById('gs-round');
+  if (el) {
+    const cur = String(G.round || 0).padStart(2, '0');
+    el.textContent = `${cur} / ${String(G.totalQ).padStart(2, '0')}`;
+  }
 });
 
 /* 答題倒數計時(參賽端,題目上方;歸零震動。聲音由投影端負責) */

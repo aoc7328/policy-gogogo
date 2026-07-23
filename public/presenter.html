@@ -2676,16 +2676,23 @@ PartyBus.on('rush_tick', payload => {
   // 更新長條圖(從高到低排序、找出最高分組畫金色)
   const bars = document.getElementById('bcp-bars');
   if (bars && Array.isArray(payload.teamCounts)) {
-    const sorted = [...payload.teamCounts].sort((a, b) => b.count - a.count);
-    const max = Math.max(1, sorted[0]?.count || 1);  // 避免除以 0
-    const leaderCount = sorted[0]?.count || 0;
+    // 依「人均」排名 —— 勝負就是照人均判的(各組人數不同,比總數對小組不公平)。
+    // server 沒帶 avg 的舊版 payload 退回用總數,不會壞。
+    const avgOf = t => (typeof t.avg === 'number' ? t.avg : t.count);
+    const sorted = [...payload.teamCounts].sort((a, b) => avgOf(b) - avgOf(a));
+    const maxAvg = Math.max(0.0001, avgOf(sorted[0] || {}) || 0.0001);
+    const leadAvg = avgOf(sorted[0] || {}) || 0;
     bars.innerHTML = sorted.map(t => {
-      const pct = Math.round((t.count / max) * 100);
-      const isLeader = t.count === leaderCount && t.count > 0 ? ' leader' : '';
+      const avg = avgOf(t);
+      const pct = Math.round((avg / maxAvg) * 100);
+      const isLeader = avg === leadAvg && t.count > 0 ? ' leader' : '';
+      // 主數字顯示人均(一位小數),括號附總數/人數,讓觀眾看得懂怎麼算的
+      const main = (typeof t.avg === 'number') ? avg.toFixed(1) : String(t.count);
+      const detail = (typeof t.size === 'number') ? `${t.count}/${t.size}人` : '';
       return `<div class="bcp-bar-row${isLeader}">
         <div class="bcp-bar-name">${t.name}</div>
         <div class="bcp-bar-track"><div class="bcp-bar-fill" style="width:${pct}%"></div></div>
-        <div class="bcp-bar-count">${t.count}</div>
+        <div class="bcp-bar-count">${main}${detail ? `<span style="font-size:.62em;opacity:.65;margin-left:5px">${detail}</span>` : ''}</div>
       </div>`;
     }).join('');
   }
@@ -2828,7 +2835,13 @@ PartyBus.on('rush_winner', payload => {
     if (badge) badge.textContent = '狂點奪魁 · 搶答成功';
     const total = payload.teamTotalClicks || 0;
     const mvp = payload.mvpClicks || 0;
-    sub.innerHTML = `<span class="person">${person}</span>&nbsp;個人最多&nbsp;<span class="ms">${mvp}</span>&nbsp;次<br>全組共點擊&nbsp;<span class="ms">${total}</span>&nbsp;次 · 全場最多`;
+    // 勝負以人均判定(各組人數不同);沒帶 avg 的舊 payload 退回顯示總數。
+    if (typeof payload.avgClicks === 'number' && payload.teamSize) {
+      sub.innerHTML = `<span class="person">${person}</span>&nbsp;個人最多&nbsp;<span class="ms">${mvp}</span>&nbsp;次<br>`
+        + `全組共&nbsp;<span class="ms">${total}</span>&nbsp;次 ÷ ${payload.teamSize} 人 = 人均&nbsp;<span class="ms">${payload.avgClicks.toFixed(1)}</span>&nbsp;次 · 全場最高`;
+    } else {
+      sub.innerHTML = `<span class="person">${person}</span>&nbsp;個人最多&nbsp;<span class="ms">${mvp}</span>&nbsp;次<br>全組共點擊&nbsp;<span class="ms">${total}</span>&nbsp;次 · 全場最多`;
+    }
     if (payload.runnerUp && runnerUpBlock) {
       document.getElementById('wru-name').textContent = payload.runnerUp.name || '';
       document.getElementById('wru-count').textContent = payload.runnerUp.count || 0;
