@@ -2929,7 +2929,8 @@ PartyBus.onStatus(status => {
 (function rejoinOnReconnect(){
   let lastRejoinAt = 0;
   PartyBus.onStatus(status => {
-    if (status !== 'connected' || !G._joinedOnce || !G.name) return;
+    // _leftRoom:自己主動離開/被請出房間 → 不再自動回房
+    if (status !== 'connected' || G._leftRoom || !G._joinedOnce || !G.name) return;
     const now = Date.now();
     if (now - lastRejoinAt < 2000) return;   // 連線抖動保護
     lastRejoinAt = now;
@@ -4484,6 +4485,11 @@ function submitNoticeRename() {
 }
 function noticeTimeoutKick() {
   closeGroupNotice();
+  // 先關掉「重連自動補註冊」——否則 server 踢掉後 partysocket 會自動重連,
+  // 補註冊又把人拉回房間,等於踢不掉(實測發現的回歸)。
+  G._leftRoom = true;
+  G._joinedOnce = false;
+  clearStoredParticipant();   // 也別讓下次開頁自動以舊名字回填登入
   PartyBus.emit('leave_room', { reason: 'rename_timeout' });
   showKickedVeil('你已被請出房間',
     '因為未在時間內更正名稱。<br>請用正確的隊伍名稱(例:中信1-小明)重新掃碼加入。');
