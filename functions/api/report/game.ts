@@ -6,7 +6,7 @@
  *   - report:助理端上傳的完整內容(分組名單、逐輪搶答、逐題明細、計分)
  *   - conn:該場時間窗內的連線品質(從既有的 events 表算,不重複儲存)
  *
- * payload 已被保留策略清掉(超過最近 5 場)時,report = null,
+ * payload 已被保留策略清掉(超過最近 10 場)時,report = null,
  * 但 summary 仍在 —— 前端據此顯示「完整內容已輪替刪除,僅存摘要」。
  */
 import type { Env } from '../../_shared';

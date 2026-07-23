@@ -216,7 +216,7 @@
   </div></header>
   <main>
     <div class="slist" id="session-list"></div>
-    <div class="foot">一場 = 一份報告 · 完整內容保留最近 5 場</div>
+    <div class="foot">一場 = 一份報告 · 完整內容保留最近 10 場</div>
   </main>
 </div>
 
@@ -407,7 +407,7 @@ function renderReport(j) {
   const out = [];
 
   if (!rep) {
-    out.push(`<div class="note">這一場的<b>完整內容已被輪替刪除</b>（只保留最近 5 場）。以下是永久保留的精簡摘要。</div>`);
+    out.push(`<div class="note">這一場的<b>完整內容已被輪替刪除</b>（只保留最近 10 場）。以下是永久保留的精簡摘要。</div>`);
     if (sum && Array.isArray(sum.groups)) {
       out.push(panel('各組成績（摘要）', '', `<div class="tw"><table>
         <thead><tr><th>組別</th><th class="num">人數</th><th class="num">得分</th><th class="num">搶到</th></tr></thead>

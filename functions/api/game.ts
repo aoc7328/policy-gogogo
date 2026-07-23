@@ -7,7 +7,7 @@
  * - **一場 = 一列**。game_key 由助理端產生(room + 開賽時間戳),同一場
  *   重複上傳就是 UPSERT —— 所以助理可以每題結束就存一次(中途瀏覽器掛掉
  *   也留得下已完成的部分),最後 結束本場 再存一次完整版。
- * - **保留策略**:完整 payload 只留最近 5 場;更舊的把 payload 清成 NULL,
+ * - **保留策略**:完整 payload 只留最近 10 場;更舊的把 payload 清成 NULL,
  *   但整列與 summary 永久保留(Vincent 要的長期趨勢分析靠這個)。
  * - 不設密碼(Vincent 明確指示):報告靠房號查詢即可。
  */
@@ -16,8 +16,12 @@ import { json, taipeiDay, cap } from '../_shared';
 
 /** payload 上限(D1 單欄位不宜過大;一場 20 題約 30~60KB,取 1MB 很寬鬆)。 */
 const MAX_PAYLOAD = 1_000_000;
-/** 完整報告保留場次數 */
-const KEEP_FULL = 5;
+/** 完整報告(逐題明細)保留場次數 —— 全站計算,不分房號。
+ *  超過的場次只清 payload,那一列與 summary(分數/名次/人數/模式)永久保留。
+ *  10:一天的活動含中途開錯重開約 3~6 場,10 場可以完整涵蓋當天,
+ *  再留一些額度給上一次活動。一場 payload 約 30~60KB,D1 免費 5GB,
+ *  調大幾乎沒有成本。 */
+const KEEP_FULL = 10;
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
   const { request, env } = context;
