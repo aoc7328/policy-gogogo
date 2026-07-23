@@ -259,7 +259,11 @@ function show(which) {
 /* ── 場次清單 ───────────────────────────────────────────────
    首頁不再要求先輸入房號 —— 直接列出跨房號的最新 10 場(只有 Vincent
    自己會看這頁)。想聚焦某一場活動時,才用右上角的房號欄位篩。 ── */
+// 清單頁的狀態(_room 空字串 = 跨房號的最新場次)
 let _sessions = [], _room = '';
+// 報告頁下拉的狀態:永遠是「正在看的那一場所屬房號」的完整場次,與清單頁分開。
+// 合用同一份會出事 —— 從跨房號首頁點進來時清單裝的是別房的資料。
+let _repSessions = [], _repRoom = '';
 async function lookupLatest() {
   $('entry-err').textContent = '';
   try {
@@ -353,11 +357,30 @@ async function openGame(key) {
     if (!j.ok) throw new Error(j.error || 'failed');
     renderReport(j);
     history.replaceState(null, '', `?room=${encodeURIComponent(j.meta.room)}&g=${encodeURIComponent(key)}`);
+    // 場次下拉是「這一房的場次」。從跨房號首頁點進來時 _sessions 裝的是
+    // 別房的資料,不能直接拿來當下拉內容(實測會列出 8 場、含別房的),
+    // 所以另外抓一次這一房的清單。_sessions 保持不動,返回鍵才回得去原本
+    // 那份清單。
+    await loadRepSessions(j.meta.room, key);
   } catch (e) {
     alert('讀取報告失敗，請稍後再試');
   }
 }
 window.openGame = openGame;
+
+/** 取這一房的場次清單,只給報告頁的下拉用(與清單頁的 _sessions 分開)。 */
+async function loadRepSessions(room, currentKey) {
+  if (_repRoom === room && _repSessions.length) { renderRepTools(currentKey); return; }
+  try {
+    const r = await fetch(`/api/report/sessions?room=${encodeURIComponent(room)}`, { cache: 'no-store' });
+    const j = await r.json();
+    _repSessions = (j.ok && Array.isArray(j.sessions)) ? j.sessions : [];
+    _repRoom = room;
+  } catch (e) {
+    _repSessions = []; _repRoom = '';
+  }
+  renderRepTools(currentKey);
+}
 
 /* 報告頁頂列的兩顆工具:場次下拉 + 換房號。
    目的是「一天看好幾場時不用一直退回入口頁再重打房號」。
@@ -365,14 +388,14 @@ window.openGame = openGame;
 function renderRepTools(currentKey) {
   const sel = $('rep-session');
   const inp = $('rep-room-input');
-  if (inp && _room) inp.value = _room;
+  if (inp && _repRoom) inp.value = _repRoom;
   if (!sel) return;
-  if (!Array.isArray(_sessions) || _sessions.length < 2) {
+  if (!Array.isArray(_repSessions) || _repSessions.length < 2) {
     sel.style.display = 'none';
     sel.innerHTML = '';
     return;
   }
-  sel.innerHTML = _sessions.map(s => {
+  sel.innerHTML = _repSessions.map(s => {
     const bits = [fmtHM(s.started_at), s.mode_label ? s.mode_label + '模式' : null,
                   s.finished ? null : '未完成'].filter(Boolean);
     return `<option value="${esc(s.game_key)}"${s.game_key === currentKey ? ' selected' : ''}>`
@@ -383,7 +406,6 @@ function renderRepTools(currentKey) {
 
 function renderReport(j) {
   const m = j.meta, rep = j.report, sum = j.summary;
-  _room = m.room;                 // 從網址直接進來時 _room 可能還是空的
   renderRepTools(m.game_key);
   $('rep-title').textContent = `賽後報告 · 第 ${m.seq} 場`;
   const dur = durLabel(m.started_at, m.ended_at);
@@ -568,8 +590,7 @@ $('rep-room-form').addEventListener('submit', e => {
   e.preventDefault();
   const v = String($('rep-room-input').value || '').trim();
   if (!v) return;
-  if (v === _room) { renderList(); return; }   // 同房號 → 回到它的場次清單
-  lookup(v);
+  lookup(v);   // 一律重查:換房號、或想看目前這房的完整清單,都走同一條路
 });
 (function boot() {
   const qs = new URLSearchParams(location.search);
