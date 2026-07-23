@@ -164,6 +164,6 @@ if (mismatches === 0) {
   process.exit(0);
 }
 console.log(`\n❌ ${mismatches} framework(s) where /public/data/ has questions but server says it doesn't.`);
-console.log(`   → server's bundled BANK is stale. Restart partykit dev process (not just hot-reload)`);
+console.log(`   → server's bundled BANK is stale. Restart the npm run dev process (not just hot-reload)`);
 console.log(`   to re-bundle the JSON imports.`);
 process.exit(1);

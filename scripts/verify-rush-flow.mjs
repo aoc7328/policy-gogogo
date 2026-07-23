@@ -74,9 +74,12 @@ send(assistant.ws, 'start_rush', {}, assistant.controlCode);
 await startRushEcho;
 
 // 2. participant buzzes → server emits rush_winner → phase 'won'
-const winnerEcho = waitFor(presenter.ws, 'rush_winner', 5000);
-// wait past 3s armed window then buzz
-await new Promise((r) => setTimeout(r, 3300));
+const winnerEcho = waitFor(presenter.ws, 'rush_winner', 6000);
+// 等過武裝倒數(ARM_COUNTDOWN_MS = 3800ms:3-2-1 三秒 + GO 停 800ms)再按。
+// 早於 armedAt 的按壓會被 server 當 pre-arm 丟棄 → 永遠等不到 rush_winner。
+// (本行原本寫死 3300ms,是 5e43069 把 3000 改成 3800 之前的舊值,
+//  這支腳本不在 verify:all 裡所以一直沒人發現它壞掉。)
+await new Promise((r) => setTimeout(r, 4300));
 send(participant.ws, 'buzz_press', { name: 'Alice', team: 'Team1', ts: Date.now() });
 await winnerEcho;
 

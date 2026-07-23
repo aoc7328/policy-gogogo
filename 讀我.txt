@@ -6,6 +6,8 @@
   遊戲者端          https://policy-gogogo.pages.dev/gamer
 (舊網址 /assistant.html /presenter.html /participant.html 仍可用)
 
+資管端(事後回顧) https://policy-gogogo.pages.dev/admin
+
 
 
 如果有修正線上版的話，需要sync-deploy.bat。
@@ -17,3 +19,26 @@
 bank-uploader.vbs
 
 這個檔案是上傳題庫的專用檔案。你上傳了題庫以後，它會自動推到伺服器。
+
+
+
+────────────────────────────────────────────────
+2026-07-23 遊戲後端搬家(重要，出問題時看這裡)
+────────────────────────────────────────────────
+
+遊戲的即時連線後端本來跑在 PartyKit 這個平台上，網址是
+  policy-gogogo.aoc7328.partykit.dev
+
+那個平台已經沒人維護、而且從 2026-07-09 起因為 Cloudflare 的新規定
+完全無法再部署(sync-deploy.bat 會跳 new_sqlite_classes 錯誤)。
+
+所以後端搬到自己的 Cloudflare 帳號了，新網址是
+  policy-gogogo-party.aoc7328.workers.dev
+
+對你的影響:
+  * 三端網址完全不變，玩法也不變。
+  * sync-deploy.bat 照舊雙擊就好(它已經改成用 wrangler 部署)。
+  * 換新電腦時，第一次要先在終端機跑一次:  npx wrangler login
+    (會開瀏覽器要你按「允許」，之後就不用再弄)
+
+費用: 0 元。Cloudflare 免費方案的額度對 30 人的活動綽綽有餘。

@@ -1,0 +1,28 @@
+// wrangler.jsonc — 遊戲即時後端(partyserver Durable Object)的部署設定。
+//
+// ⚠ 跟根目錄的 wrangler.toml 是兩件事:
+//   - 根目錄 wrangler.toml = Cloudflare Pages(前端 + /api Functions + D1)
+//   - 這個檔            = Workers(遊戲 WebSocket 後端,原 PartyKit)
+//   部署指令一律走 npm run deploy(帶 -c 指到這個檔),不會互相干擾。
+//
+// 2026-07 從 PartyKit 託管平台搬過來:partykit.dev 平台已無人維護且無法
+// 再部署(Cloudflare 2026-07-09 起新 DO namespace 強制 SQLite 後端,
+// PartyKit CLI 不支援)。這裡用 new_sqlite_classes,免費方案 OK。
+//
+// binding 名稱 "Main" 經 kebab-case 後對應 URL /parties/main/<房號>,
+// 與 PartyKit 時代的路徑完全一致,前端 partysocket 不用改。
+{
+  "name": "policy-gogogo-party",
+  "main": "../party/server.ts",
+  "compatibility_date": "2026-07-01",
+  "workers_dev": true,
+  "durable_objects": {
+    "bindings": [
+      { "name": "Main", "class_name": "PolicyGogogoServer" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["PolicyGogogoServer"] }
+  ],
+  "observability": { "enabled": true }
+}

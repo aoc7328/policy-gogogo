@@ -5,7 +5,7 @@
  * 啟動方式:雙擊根目錄的 bank-uploader.bat。
  * 它會 listen 在 http://localhost:3001 並自動開瀏覽器。
  * 介面上選 1~5 個 JSON 檔(任何檔名都可,工具自動改名),按確認 →
- * 寫到 public/data/ → git pull/add/commit/push → npm run deploy。
+ * 寫到 public/data/ → git pull/add/commit/push → npm run deploy(wrangler)。
  * 進度即時 streaming 到頁面上。
  */
 
@@ -250,7 +250,7 @@ ${[1,2,3,4].map(n => `<div class="cfg-row">
 <ol>
 <li>檔案被改名後寫入 <code>public/data/</code></li>
 <li>git pull → add → commit → push(Cloudflare Pages 自動 redeploy 前端)</li>
-<li>npm run deploy(把新題庫推到 PartyKit server)</li>
+<li>npm run deploy(把新題庫推到遊戲後端 Worker)</li>
 <li>大概 1~2 分鐘後新題庫上線,玩家連進來就吃新題目</li>
 </ol>
 
@@ -259,7 +259,7 @@ ${[1,2,3,4].map(n => `<div class="cfg-row">
 <ul>
 <li>JSON 格式錯 → 自己用 jsonlint.com 檢查或請 Claude 幫忙</li>
 <li>git push 被拒 → 可能是有衝突,跟 Claude 說</li>
-<li>partykit deploy 失敗 → 可能是登入過期,終端機跑一次 <code>npx partykit login</code></li>
+<li>npm run deploy 失敗 → 可能是登入過期,終端機跑一次 <code>npx wrangler login</code></li>
 </ul>
 
 <button class="modal-close" onclick="document.getElementById('help-modal').classList.add('hidden')">關閉</button>

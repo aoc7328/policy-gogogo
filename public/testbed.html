@@ -198,7 +198,7 @@ html,body{height:100%;background:#050912;color:#F2EDE1;font-family:"Noto Sans TC
 (function injectIframeRooms() {
   const qs = new URLSearchParams(window.location.search);
   const room = qs.get('room') || String(Math.floor(Math.random() * 10000)).padStart(4, '0');
-  // ?host=127.0.0.1:1999 一併轉發給三個 iframe,本機 partykit dev 測試用
+  // ?host=127.0.0.1:1999 一併轉發給三個 iframe,本機 npm run dev 測試用
   const host = qs.get('host');
   try { localStorage.setItem('pgg_last_room', room); } catch {}
   ['presenter', 'assistant', 'participant'].forEach(role => {

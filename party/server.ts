@@ -1,5 +1,13 @@
 /**
- * server.ts — PartyKit Durable Object entry point.
+ * server.ts — Durable Object entry point (partyserver on Cloudflare Workers).
+ *
+ * 2026-07 平台搬遷:原本跑在 PartyKit 託管平台(policy-gogogo.aoc7328
+ * .partykit.dev),但該平台已無人維護(partykit.dev 網域撞 Cloudflare 一萬
+ * Workers 上限、CLI 不支援 2026-07-09 起強制的 new_sqlite_classes DO
+ * migration → 無法再部署)。改用 Cloudflare 官方接手的 partyserver
+ * (API 幾乎同構),以 wrangler 部署到自己的 Cloudflare 帳號。
+ * URL 形狀 /parties/main/<room> 不變(binding "Main" kebab 後 = "main"),
+ * partysocket 前端零改動,只需改 PGG_PARTY_HOST。
  *
  * Owns the RoomState (single-threaded per DO instance), routes
  * ClientCommand messages from connections to per-command handlers,
@@ -14,7 +22,13 @@
  *     first assistant gets the code; later assistants must present it).
  */
 
-import type * as Party from 'partykit/server';
+import {
+  Server,
+  routePartykitRequest,
+  type Connection,
+  type ConnectionContext,
+  type WSMessage,
+} from 'partyserver';
 
 import {
   isPrivilegedCommand,
@@ -77,13 +91,13 @@ const STATE_STORAGE_KEY = 'pgg_room_state_v1';
 // 存檔超過 24 小時視為上一場活動的殘留,不還原(活動不會跨日進行)
 const STATE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
-export default class PolicyGogogoServer implements Party.Server {
-  state: RoomState;
+export class PolicyGogogoServer extends Server {
+  // rush 的倒數用 in-memory setTimeout,DO 不可休眠(與 PartyKit 行為一致)
+  static options = { hibernate: false };
 
-  constructor(readonly room: Party.Room) {
-    // 兩組獨立控制碼:controlCode = 投影端(+特權簽章);assistantCode = 助理端登入路由
-    this.state = createInitialState(room.id, generateControlCode(), generateControlCode());
-  }
+  // 兩組獨立控制碼:controlCode = 投影端(+特權簽章);assistantCode = 助理端登入路由。
+  // roomId 在建構時還拿不到(this.name 由 routePartykitRequest 解析),onStart 補填。
+  state: RoomState = createInitialState('', generateControlCode(), generateControlCode());
 
   // ────────────────────────────────────────────────────────────
   // Lifecycle
@@ -92,19 +106,21 @@ export default class PolicyGogogoServer implements Party.Server {
   /** DO 重啟(deploy / eviction / dev hot-reload)後從 storage 還原遊戲,
    *  中場 deploy 不再把整場打回 lobby(user-reported start_rush lobby 錯誤)。 */
   async onStart(): Promise<void> {
+    // 補填房號(partyserver 在 onStart 前已解析好 this.name)
+    this.state.roomId = this.name;
     try {
-      const saved = await this.room.storage.get<PersistedState>(STATE_STORAGE_KEY);
+      const saved = await this.ctx.storage.get<PersistedState>(STATE_STORAGE_KEY);
       if (!saved || saved.v !== 1) return;
       if (Date.now() - saved.savedAt > STATE_MAX_AGE_MS) {
-        await this.room.storage.delete(STATE_STORAGE_KEY);
+        await this.ctx.storage.delete(STATE_STORAGE_KEY);
         return;
       }
       hydrateState(this.state, saved);
       console.log(
-        `[room ${this.room.id}] state restored (phase=${this.state.phase}, currQ=${this.state.currQ})`
+        `[room ${this.name}] state restored (phase=${this.state.phase}, currQ=${this.state.currQ})`
       );
     } catch (err) {
-      console.error(`[room ${this.room.id}] state restore failed:`, err);
+      console.error(`[room ${this.name}] state restore failed:`, err);
     }
   }
 
@@ -115,13 +131,13 @@ export default class PolicyGogogoServer implements Party.Server {
     if (this._persistTimer) return;
     this._persistTimer = setTimeout(() => {
       this._persistTimer = null;
-      this.room.storage
+      this.ctx.storage
         .put(STATE_STORAGE_KEY, dehydrateState(this.state))
-        .catch((err) => console.error(`[room ${this.room.id}] state persist failed:`, err));
+        .catch((err) => console.error(`[room ${this.name}] state persist failed:`, err));
     }, 1000);
   }
 
-  onConnect(conn: Party.Connection<ConnState>, ctx: Party.ConnectionContext): void {
+  onConnect(conn: Connection<ConnState>, ctx: ConnectionContext): void {
     const url = new URL(ctx.request.url);
     const rawRole = url.searchParams.get('role');
     const role = this.normalizeRole(rawRole);
@@ -137,7 +153,7 @@ export default class PolicyGogogoServer implements Party.Server {
     // 最後 close()。新連線繼續走下面的 register flow 接管同一個 (name, team)。
     let replacedExistingTab = false;
     if (role === 'participant' && deviceId) {
-      for (const c of this.room.getConnections<ConnState>()) {
+      for (const c of this.getConnections<ConnState>()) {
         if (c.id === conn.id) continue;
         if (c.state?.role !== 'participant') continue;
         if (c.state?.deviceId !== deviceId) continue;
@@ -193,7 +209,7 @@ export default class PolicyGogogoServer implements Party.Server {
     if (role === 'participant' && name && team) {
       upsertParticipant(this.state, conn.id, name, team, deviceId);
       if (!replacedExistingTab) {
-        this.broadcast({ type: 'player_join', payload: { name, team } });
+        this.broadcastEvent({ type: 'player_join', payload: { name, team } });
       }
     }
 
@@ -201,12 +217,12 @@ export default class PolicyGogogoServer implements Party.Server {
     this.send(conn, { type: '__room_state__', payload: snapshot(this.state) });
   }
 
-  onClose(conn: Party.Connection<ConnState>): void {
+  onClose(conn: Connection<ConnState>): void {
     const cs = conn.state;
     if (cs?.role === 'participant') {
       const ref = removeParticipantByConn(this.state, conn.id);
       if (ref) {
-        this.broadcast({
+        this.broadcastEvent({
           type: 'player_leave',
           payload: { name: ref.name, team: ref.team },
         });
@@ -214,7 +230,7 @@ export default class PolicyGogogoServer implements Party.Server {
     }
   }
 
-  onError(conn: Party.Connection, err: Error): void {
+  onError(conn: Connection, err: Error): void {
     console.error(`conn ${conn.id} error:`, err);
   }
 
@@ -222,7 +238,12 @@ export default class PolicyGogogoServer implements Party.Server {
   // Message routing
   // ────────────────────────────────────────────────────────────
 
-  onMessage(message: string, sender: Party.Connection<ConnState>): void {
+  // 注意:partyserver 的參數順序是 (connection, message),與 PartyKit 相反
+  onMessage(sender: Connection<ConnState>, message: WSMessage): void {
+    if (typeof message !== 'string') {
+      this.sendError(sender, 'bad_payload', 'binary frame not supported');
+      return;
+    }
     let cmd: ClientCommand;
     try {
       cmd = JSON.parse(message) as ClientCommand;
@@ -257,7 +278,7 @@ export default class PolicyGogogoServer implements Party.Server {
     }
   }
 
-  private dispatch(cmd: ClientCommand, sender: Party.Connection<ConnState>): void {
+  private dispatch(cmd: ClientCommand, sender: Connection<ConnState>): void {
     switch (cmd.type) {
       case 'ping':
         // keepalive:回私訊 __pong__ 給發送端,讓 client 端知道連線還活著
@@ -294,13 +315,13 @@ export default class PolicyGogogoServer implements Party.Server {
       case 'staff_login':
         return this.onStaffLogin(cmd.payload, sender);
       case 'mode_preview':
-        return this.broadcast({ type: 'mode_preview', payload: cmd.payload });
+        return this.broadcastEvent({ type: 'mode_preview', payload: cmd.payload });
       case 'custom_tiers_changed':
-        return this.broadcast({ type: 'custom_tiers_changed', payload: cmd.payload });
+        return this.broadcastEvent({ type: 'custom_tiers_changed', payload: cmd.payload });
       case 'rush_mode_changed':
         return this.onRushModeChanged(cmd.payload);
       case 'presenter_show_qr':
-        return this.broadcast({ type: 'presenter_show_qr', payload: cmd.payload });
+        return this.broadcastEvent({ type: 'presenter_show_qr', payload: cmd.payload });
       case 'export_result':
         return this.onExportResult();
       case 'player_join':
@@ -341,9 +362,9 @@ export default class PolicyGogogoServer implements Party.Server {
     stateStartGame(this.state, config);
     // 名單已凍結 → 每組隨機抽組長
     assignLeaders(this.state);
-    this.broadcast({ type: 'game_start', payload: config });
+    this.broadcastEvent({ type: 'game_start', payload: config });
     // Push fresh score baseline (all zeros) so clients render bars.
-    this.broadcast({
+    this.broadcastEvent({
       type: 'score_update',
       payload: {
         scores: this.state.groups.map((g) => ({ idx: g.idx, name: g.name, score: g.score })),
@@ -352,7 +373,7 @@ export default class PolicyGogogoServer implements Party.Server {
       },
     });
     // 廣播組長:參賽者標記名單 + 告知本人;投影結算頁領獎用
-    this.broadcast({
+    this.broadcastEvent({
       type: 'group_leaders',
       payload: {
         leaders: this.state.groups.map((g) => ({ name: g.name, leader: g.leader })),
@@ -363,7 +384,7 @@ export default class PolicyGogogoServer implements Party.Server {
   private onScoreAdjust(payload: { teamIdx: number; delta: number }): void {
     const result = adjustScore(this.state, payload.teamIdx, payload.delta);
     if (!result.ok) return;
-    this.broadcast({
+    this.broadcastEvent({
       type: 'score_update',
       payload: {
         scores: this.state.groups.map((g) => ({ idx: g.idx, name: g.name, score: g.score })),
@@ -373,7 +394,7 @@ export default class PolicyGogogoServer implements Party.Server {
     });
   }
 
-  private onStartRush(rerush: boolean, sender: Party.Connection<ConnState>): void {
+  private onStartRush(rerush: boolean, sender: Connection<ConnState>): void {
     // Accepted phases: idle / rushing / won / picking. Anything past picking
     // (answering / revealed / ended / lobby) we now SEND ERROR instead of
     // silent return — Phase 4 lesson: silent server rejections + assistant's
@@ -408,7 +429,7 @@ export default class PolicyGogogoServer implements Party.Server {
       // 記住「當前答題者」= 最近搶到的組,供「同一題重新搶答」排除用
       this.state.lastBuzzWinnerTeam = p.groupIdx;
     }
-    this.broadcast(e);
+    this.broadcastEvent(e);
   };
 
   /** 廣播本輪搶答失格組(組名);一般搶答為空陣列。 */
@@ -416,10 +437,10 @@ export default class PolicyGogogoServer implements Party.Server {
     const teams = this.state.excludedTeams
       .map((idx) => this.state.groups[idx]?.name)
       .filter((n): n is string => typeof n === 'string');
-    this.broadcast({ type: 'buzz_lockout', payload: { teams } });
+    this.broadcastEvent({ type: 'buzz_lockout', payload: { teams } });
   }
 
-  private onEnterCategory(sender: Party.Connection<ConnState>): void {
+  private onEnterCategory(sender: Connection<ConnState>): void {
     // 冪等:多助理協作時,每位助理 onRushWinner 都排了 3.5s 計時器送
     // enter_category。第一個把 won→picking 後,其餘的若還沒被自己的
     // 廣播鏡射取消,會再送一次 — 此時 server 已在 picking,視為成功 no-op
@@ -434,13 +455,13 @@ export default class PolicyGogogoServer implements Party.Server {
     this.state.phase = 'picking';
     this.state.currentCat = null;
     this.state.catLocked = false;
-    this.broadcast({ type: 'enter_category', payload: {} });
+    this.broadcastEvent({ type: 'enter_category', payload: {} });
   }
 
   private onCategoryPreview(payload: { fid: string }): void {
     if (this.state.phase !== 'picking') return;
     this.state.currentCat = payload.fid;
-    this.broadcast({ type: 'category_preview', payload });
+    this.broadcastEvent({ type: 'category_preview', payload });
   }
 
   /**
@@ -459,7 +480,7 @@ export default class PolicyGogogoServer implements Party.Server {
 
   private onCategoryConfirm(
     payload: { fid: string },
-    sender: Party.Connection<ConnState>
+    sender: Connection<ConnState>
   ): void {
     // Reject visibly so the assistant client can unstuck its optimistic
     // cat-picker UI on its __error__ listener, instead of hanging at
@@ -535,11 +556,11 @@ export default class PolicyGogogoServer implements Party.Server {
     this.state.currQ = (this.state.currQ ?? 0) + 1;
     this.state.phase = 'answering';
 
-    this.broadcast({ type: 'category_confirm', payload });
+    this.broadcastEvent({ type: 'category_confirm', payload });
     if (result.triggersPurgatory) {
-      this.broadcast({ type: 'purgatory_summon', payload: {} });
+      this.broadcastEvent({ type: 'purgatory_summon', payload: {} });
     }
-    this.broadcast({
+    this.broadcastEvent({
       type: 'question_pick',
       payload: {
         id: result.question.id,
@@ -553,10 +574,10 @@ export default class PolicyGogogoServer implements Party.Server {
   private onCategoryReset(): void {
     this.state.currentCat = null;
     this.state.catLocked = false;
-    this.broadcast({ type: 'category_reset', payload: {} });
+    this.broadcastEvent({ type: 'category_reset', payload: {} });
   }
 
-  private onRevealAnswer(sender: Party.Connection<ConnState>): void {
+  private onRevealAnswer(sender: Connection<ConnState>): void {
     if (this.state.phase !== 'answering') {
       this.sendError(sender, 'wrong_phase',
         `reveal_answer 只能在 answering 階段送(目前 server phase=${this.state.phase})。` +
@@ -564,10 +585,10 @@ export default class PolicyGogogoServer implements Party.Server {
       return;
     }
     this.state.phase = 'revealed';
-    this.broadcast({ type: 'reveal_answer', payload: {} });
+    this.broadcastEvent({ type: 'reveal_answer', payload: {} });
   }
 
-  private onNextQuestion(sender: Party.Connection<ConnState>): void {
+  private onNextQuestion(sender: Connection<ConnState>): void {
     if (this.state.phase !== 'revealed' && this.state.phase !== 'answering') {
       this.sendError(sender, 'wrong_phase',
         `next_question 只能在 answering/revealed 階段送(目前 server phase=${this.state.phase})。` +
@@ -576,7 +597,7 @@ export default class PolicyGogogoServer implements Party.Server {
     }
     // Was the question a purgatory one? If so, end the FX before transitioning.
     if (this.state.currentQuestion?.difficulty === 'purgatory') {
-      this.broadcast({ type: 'purgatory_end', payload: {} });
+      this.broadcastEvent({ type: 'purgatory_end', payload: {} });
     }
     this.state.currentQuestion = null;
     this.state.currentCat = null;
@@ -584,14 +605,14 @@ export default class PolicyGogogoServer implements Party.Server {
     this.state.excludedTeams = [];           // 新題 → 清掉失格名單
     this.state.lastBuzzWinnerTeam = null;
     this.state.phase = 'idle';
-    this.broadcast({ type: 'next_question', payload: {} });
+    this.broadcastEvent({ type: 'next_question', payload: {} });
     // End game if we've reached totalQ.
     if (this.state.game && this.state.currQ >= this.state.game.totalQ) {
       this.state.phase = 'ended';
     }
   }
 
-  private onSkipQuestion(sender: Party.Connection<ConnState>): void {
+  private onSkipQuestion(sender: Connection<ConnState>): void {
     if (this.state.phase !== 'answering' && this.state.phase !== 'revealed') {
       this.sendError(sender, 'wrong_phase',
         `skip_question 只能在 answering/revealed 階段送(目前 server phase=${this.state.phase})。` +
@@ -599,7 +620,7 @@ export default class PolicyGogogoServer implements Party.Server {
       return;
     }
     if (this.state.currentQuestion?.difficulty === 'purgatory') {
-      this.broadcast({ type: 'purgatory_end', payload: {} });
+      this.broadcastEvent({ type: 'purgatory_end', payload: {} });
     }
     // Phase 4 fix:不再 decrement currQ。currQ 語意統一成「已抽過的題數」,
     // skip 也算抽過(問題已亮出來給觀眾看了),不能讓 counter 退回去。
@@ -611,7 +632,7 @@ export default class PolicyGogogoServer implements Party.Server {
     this.state.excludedTeams = [];           // 新題 → 清掉失格名單
     this.state.lastBuzzWinnerTeam = null;
     this.state.phase = 'idle';
-    this.broadcast({ type: 'skip_question', payload: {} });
+    this.broadcastEvent({ type: 'skip_question', payload: {} });
   }
 
   private onGameRestart(): void {
@@ -620,13 +641,13 @@ export default class PolicyGogogoServer implements Party.Server {
     // 但 .purg-on / stage[data-mode="purgatory"] / 火星粒子全部殘留,
     // 看起來像 bug(user-reported Phase 4)。
     if (this.state.currentQuestion?.difficulty === 'purgatory') {
-      this.broadcast({ type: 'purgatory_end', payload: {} });
+      this.broadcastEvent({ type: 'purgatory_end', payload: {} });
     }
     rushAbort(this.state);
     stateRestartGame(this.state);
-    this.broadcast({ type: 'game_restart', payload: {} });
+    this.broadcastEvent({ type: 'game_restart', payload: {} });
     // Also push a fresh snapshot to all so they reset their UI.
-    for (const c of this.room.getConnections<ConnState>()) {
+    for (const c of this.getConnections<ConnState>()) {
       this.send(c, { type: '__room_state__', payload: snapshot(this.state) });
     }
     // prefix 模式:restartGame 已依名字前綴重新整組 → 廣播 roster,
@@ -655,7 +676,7 @@ export default class PolicyGogogoServer implements Party.Server {
    */
   private onClaimPresenter(
     payload: { code: string },
-    sender: Party.Connection<ConnState>
+    sender: Connection<ConnState>
   ): void {
     const code = (payload?.code || '').trim().toUpperCase();
     if (!code) {
@@ -667,7 +688,7 @@ export default class PolicyGogogoServer implements Party.Server {
       return;
     }
     this.state.presenterClaimed = true;
-    this.broadcast({
+    this.broadcastEvent({
       type: 'presenter_claimed',
       payload: { at: Date.now() },
     });
@@ -682,7 +703,7 @@ export default class PolicyGogogoServer implements Party.Server {
    */
   private onStaffLogin(
     payload: { code: string },
-    sender: Party.Connection<ConnState>
+    sender: Connection<ConnState>
   ): void {
     const code = (payload?.code || '').trim().toUpperCase();
     if (!code) {
@@ -691,7 +712,7 @@ export default class PolicyGogogoServer implements Party.Server {
     }
     if (code === this.state.controlCode) {
       this.state.presenterClaimed = true;
-      this.broadcast({ type: 'presenter_claimed', payload: { at: Date.now() } });
+      this.broadcastEvent({ type: 'presenter_claimed', payload: { at: Date.now() } });
       this.send(sender, {
         type: '__staff_route__',
         payload: { dest: 'presenter', controlCode: this.state.controlCode },
@@ -705,7 +726,7 @@ export default class PolicyGogogoServer implements Party.Server {
     this.sendError(sender, 'bad_code', '控制碼錯誤,請向助理確認');
   }
 
-  private onRedrawQuestion(sender: Party.Connection<ConnState>): void {
+  private onRedrawQuestion(sender: Connection<ConnState>): void {
     // 重抽:當前題還沒公佈答案時可以換一題(同 framework / tier pool / type 限制),
     // 計數器不增加(還是同一輪)。
     if (this.state.phase !== 'answering') {
@@ -767,12 +788,12 @@ export default class PolicyGogogoServer implements Party.Server {
     };
     // currQ 不變(同一輪)
     if (result.triggersPurgatory) {
-      this.broadcast({ type: 'purgatory_summon', payload: {} });
+      this.broadcastEvent({ type: 'purgatory_summon', payload: {} });
     } else if (this.state.currentQuestion.difficulty !== 'purgatory') {
       // 重抽從煉獄變一般題,要清掉煉獄特效
-      this.broadcast({ type: 'purgatory_end', payload: {} });
+      this.broadcastEvent({ type: 'purgatory_end', payload: {} });
     }
-    this.broadcast({
+    this.broadcastEvent({
       type: 'question_pick',
       payload: {
         id: result.question.id,
@@ -786,7 +807,7 @@ export default class PolicyGogogoServer implements Party.Server {
 
   private onRushModeChanged(payload: { mode: import('./protocol').RushMode; label: string }): void {
     this.state.rushMode = payload.mode;
-    this.broadcast({ type: 'rush_mode_changed', payload });
+    this.broadcastEvent({ type: 'rush_mode_changed', payload });
   }
 
   private onExportResult(): void {
@@ -799,7 +820,7 @@ export default class PolicyGogogoServer implements Party.Server {
     // 設成 ended,與三端結束畫面一致。
     rushAbort(this.state);
     if (this.state.currentQuestion?.difficulty === 'purgatory') {
-      this.broadcast({ type: 'purgatory_end', payload: {} });
+      this.broadcastEvent({ type: 'purgatory_end', payload: {} });
     }
     this.state.phase = 'ended';
     const sortedGroups = [...this.state.groups]
@@ -834,7 +855,7 @@ export default class PolicyGogogoServer implements Party.Server {
       askedQuestions: [...this.state.askedQuestions],
       exportTime: new Date().toISOString(),
     };
-    this.broadcast({ type: 'export_result', payload });
+    this.broadcastEvent({ type: 'export_result', payload });
   }
 
   // ────────────────────────────────────────────────────────────
@@ -843,7 +864,7 @@ export default class PolicyGogogoServer implements Party.Server {
 
   private onPlayerJoin(
     payload: { name: string; team?: string },
-    sender: Party.Connection<ConnState>
+    sender: Connection<ConnState>
   ): void {
     if (!payload.name) return;
     // Server is authoritative for team assignment — ignore client's payload.team.
@@ -877,7 +898,7 @@ export default class PolicyGogogoServer implements Party.Server {
       deviceId: sender.state?.deviceId ?? null,
       verified: false,
     });
-    this.broadcast({ type: 'player_join', payload: { name: payload.name, team } });
+    this.broadcastEvent({ type: 'player_join', payload: { name: payload.name, team } });
     // prefix 模式可能剛建了新組 → 廣播完整 roster,讓三端同步新組結構
     if (this.state.groupingMode === 'prefix') {
       this.broadcastRoster();
@@ -886,7 +907,7 @@ export default class PolicyGogogoServer implements Party.Server {
 
   /** 廣播當前完整分組(roster_reshuffled);多處共用。 */
   private broadcastRoster(): void {
-    this.broadcast({
+    this.broadcastEvent({
       type: 'roster_reshuffled',
       payload: {
         groups: this.state.groups.map((g) => ({
@@ -900,7 +921,7 @@ export default class PolicyGogogoServer implements Party.Server {
 
   private onGroupingModeChanged(
     payload: { mode: import('./protocol').GroupingMode; count?: number },
-    sender: Party.Connection<ConnState>
+    sender: Connection<ConnState>
   ): void {
     if (this.state.phase !== 'lobby') {
       this.sendError(sender, 'phase_mismatch', '遊戲已開始,無法切換分組方式');
@@ -921,7 +942,7 @@ export default class PolicyGogogoServer implements Party.Server {
   /** 助理對整組發通知 → 廣播 group_notice(該組參賽者畫面跳提示)。 */
   private onNotifyGroup(payload: { team: string; kind: import('./protocol').GroupNoticeKind }): void {
     const kind = payload.kind === 'rename' ? 'rename' : 'confirm';
-    this.broadcast({
+    this.broadcastEvent({
       type: 'group_notice',
       payload: { team: payload.team, kind, deadlineMs: kind === 'rename' ? 30000 : 0 },
     });
@@ -930,7 +951,7 @@ export default class PolicyGogogoServer implements Party.Server {
   /** 參賽者改自己的名字(prefix 模式會重新歸組)。 */
   private onRenameSelf(
     payload: { newName: string },
-    sender: Party.Connection<ConnState>
+    sender: Connection<ConnState>
   ): void {
     const r = renameParticipant(this.state, sender.id, payload?.newName ?? '');
     if (!r.ok) {
@@ -944,13 +965,13 @@ export default class PolicyGogogoServer implements Party.Server {
       deviceId: sender.state?.deviceId ?? null,
       verified: false,
     });
-    this.broadcast({
+    this.broadcastEvent({
       type: 'player_renamed',
       payload: { oldName: r.oldName!, newName: r.newName!, oldTeam: r.oldTeam!, newTeam: r.newTeam! },
     });
     // 換組/清空組可能改變分組結構 → 全量 roster + 分數基準重發
     this.broadcastRoster();
-    this.broadcast({
+    this.broadcastEvent({
       type: 'score_update',
       payload: {
         scores: this.state.groups.map((g) => ({ idx: g.idx, name: g.name, score: g.score })),
@@ -961,7 +982,7 @@ export default class PolicyGogogoServer implements Party.Server {
   }
 
   /** 同一題重新搶答:保留題目,重新開放搶答。 */
-  private onRebuzzSame(sender: Party.Connection<ConnState>): void {
+  private onRebuzzSame(sender: Connection<ConnState>): void {
     // revealed 也放行:公佈答案後發現答題組答錯 → 不計分 → 讓其他組
     // 再挑戰同一題(答案已公開,但申論/計算題仍可比誰講得完整,由助理
     // 用部分給分裁量)。user-reported:原本揭曉後只剩「下一題」,流程卡死。
@@ -988,34 +1009,34 @@ export default class PolicyGogogoServer implements Party.Server {
     // 保留 currentQuestion/currentCat,標記「這輪 rush 完要回同一題」。停掉倒數。
     this.state.rebuzzPending = true;
     this.state.timerDeadline = null;
-    this.broadcast({ type: 'timer_update', payload: { remainingSec: 0 } });
+    this.broadcastEvent({ type: 'timer_update', payload: { remainingSec: 0 } });
     // 跑一輪 rush(phase → rushing,走 rushBroadcast 才會累計 MVP)。
     rushStart(this.state, this.rushBroadcast, { rerush: true });
   }
 
   /** 重新搶答後回到同一題作答(phase: won → answering)。 */
-  private onResumeQuestion(sender: Party.Connection<ConnState>): void {
+  private onResumeQuestion(sender: Connection<ConnState>): void {
     if (!this.state.rebuzzPending) {
       this.sendError(sender, 'wrong_phase', '目前不是「同一題重新搶答」流程');
       return;
     }
     this.state.rebuzzPending = false;
     this.state.phase = 'answering';
-    this.broadcast({ type: 'resume_question', payload: {} });
+    this.broadcastEvent({ type: 'resume_question', payload: {} });
   }
 
   /** 助理設定答題倒數。durationSec>0 開始/重啟;0 停止。 */
   private onSetTimer(payload: { durationSec: number }): void {
     const dur = Math.max(0, Math.min(600, Math.floor(payload?.durationSec ?? 0)));
     this.state.timerDeadline = dur > 0 ? Date.now() + dur * 1000 : null;
-    this.broadcast({ type: 'timer_update', payload: { remainingSec: dur } });
+    this.broadcastEvent({ type: 'timer_update', payload: { remainingSec: dur } });
   }
 
   /** 參賽者改名逾時自踢 → 硬移除 + 廣播 + 關閉連線。 */
-  private onLeaveRoom(sender: Party.Connection<ConnState>): void {
+  private onLeaveRoom(sender: Connection<ConnState>): void {
     const r = hardRemoveParticipant(this.state, sender.id);
     if (r.ok) {
-      this.broadcast({ type: 'player_leave', payload: { name: r.name!, team: r.team! } });
+      this.broadcastEvent({ type: 'player_leave', payload: { name: r.name!, team: r.team! } });
       this.broadcastRoster();
     }
     try { sender.close(); } catch { /* already closing */ }
@@ -1023,7 +1044,7 @@ export default class PolicyGogogoServer implements Party.Server {
 
   private onTeamCountChanged(
     payload: { count: number; reshuffle?: boolean },
-    sender: Party.Connection<ConnState>
+    sender: Connection<ConnState>
   ): void {
     // Lobby-only — once game starts, team count is locked.
     if (this.state.phase !== 'lobby') {
@@ -1055,7 +1076,7 @@ export default class PolicyGogogoServer implements Party.Server {
 
   private onBuzzPress(
     payload: { name: string; team: string; ts: number },
-    sender: Party.Connection<ConnState>
+    sender: Connection<ConnState>
   ): void {
     // Resolve the presser's team idx authoritatively.
     const team = this.state.groups.find((g) => g.name === payload.team);
@@ -1075,12 +1096,12 @@ export default class PolicyGogogoServer implements Party.Server {
   private onTeamRename(payload: { oldName: string; newName: string; by: string }): void {
     const result = renameTeam(this.state, payload.oldName, payload.newName);
     if (!result.ok) return;
-    this.broadcast({
+    this.broadcastEvent({
       type: 'team_rename',
       payload: { oldName: payload.oldName, newName: payload.newName.trim(), by: payload.by },
     });
     // Also emit a score_update so any UI that re-renders by name gets the new label.
-    this.broadcast({
+    this.broadcastEvent({
       type: 'score_update',
       payload: {
         scores: this.state.groups.map((g) => ({ idx: g.idx, name: g.name, score: g.score })),
@@ -1099,19 +1120,32 @@ export default class PolicyGogogoServer implements Party.Server {
     return 'presenter'; // safest default — read-only
   }
 
-  private send(conn: Party.Connection, event: ServerEvent): void {
+  private send(conn: Connection, event: ServerEvent): void {
     conn.send(JSON.stringify(event));
   }
 
-  private broadcast(event: ServerEvent, except?: string[]): void {
-    this.room.broadcast(JSON.stringify(event), except);
+  private broadcastEvent(event: ServerEvent, except?: string[]): void {
+    // this.broadcast = partyserver 基底類別的廣播(字串進、全連線出)
+    this.broadcast(JSON.stringify(event), except);
   }
 
   private sendError(
-    conn: Party.Connection,
+    conn: Connection,
     code: string,
     message: string
   ): void {
     this.send(conn, { type: '__error__', payload: { code, message } });
   }
 }
+
+// ──────────────────────────────────────────────────────────────────────
+// Worker entry — 路由 /parties/main/<room> 到 Main binding(= 上面的 DO)。
+// URL 形狀與 PartyKit 完全一致,partysocket 前端不用改。
+// ──────────────────────────────────────────────────────────────────────
+
+export default {
+  async fetch(request: Request, env: Record<string, unknown>): Promise<Response> {
+    const res = await routePartykitRequest(request, env as never);
+    return res ?? new Response('Not found', { status: 404 });
+  },
+};

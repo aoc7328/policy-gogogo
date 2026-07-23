@@ -7,7 +7,7 @@
  *   0 → findings match expectation; nothing to do.
  *   1 → action required. The script prints exactly what to do.
  *
- * Run after every `npm install` that touches partykit or its tree.
+ * Run after every `npm install` that touches wrangler or its tree.
  * See NOTES.md for the full maintenance protocol.
  */
 
@@ -17,12 +17,13 @@ import { execSync } from 'node:child_process';
 // If `npm audit` ever reports a vulnerability outside this set, the
 // script flags it. If `npm audit` reports zero vulnerabilities, the
 // script tells you to delete the NOTES.md section.
+// 2026-07 從 PartyKit 搬到 wrangler + partyserver 後,esbuild/ws/partykit
+// 三筆隨 partykit 一起消失,改成 wrangler 這條樹的四筆。
 const ACCEPTED_PACKAGES = new Set([
-  'esbuild',    // partykit → esbuild (local bundler)
-  'undici',     // partykit → miniflare → undici (Workers HTTP sim)
-  'partykit',   // transitive carrier of the above
-  'miniflare',  // transitive carrier of undici
-  'ws',         // partykit → miniflare → ws (local-dev WebSocket server)
+  'wrangler',   // 本機 dev/deploy CLI(transitive carrier of miniflare)
+  'miniflare',  // wrangler → miniflare(本機 Workers 模擬器)
+  'undici',     // miniflare → undici(模擬器的 HTTP fetch)
+  'sharp',      // miniflare → sharp(本機 dev 圖片處理;libvips CVE)
 ]);
 
 let raw;
@@ -83,7 +84,7 @@ if (unexpected.length > 0) {
   console.log('     it in NOTES.md → "Known Dev Dependencies CVE".');
   console.log('');
   console.log('Reminder: do NOT run "npm audit fix --force" — it will downgrade');
-  console.log('partykit to 0.0.0 and brick the project.');
+  console.log('wrangler to an incompatible version and brick deploys.');
   process.exit(1);
 }
 

@@ -1123,9 +1123,9 @@ html, body { background: #080A10; font-family: var(--font-sans); -webkit-font-sm
 /* ═══════════════════════════════════════════════════════════════
    房號 / 短網址 / PartyKit host(三端共用同一組常數命名)
    - 三端 URL 都可用 ?room=XYZ 跟 ?host=localhost:9988 覆寫預設
-   - 本機 partykit dev 預設 1999,1999 被佔時會落到其他 port,
+   - 本機 npm run dev(wrangler)預設 1999,1999 被佔時會落到其他 port,
      這時把實際 port 寫進 ?host= 救急
-   - Phase 5 部署時把預設 host 改成 policy-gogogo.<account>.partykit.dev
+   - 正式站預設 policy-gogogo-party.aoc7328.workers.dev(2026-07 從 PartyKit 搬來)
    ═══════════════════════════════════════════════════════════════ */
 const _PGG_QS = new URLSearchParams(window.location.search);
 // URL 沒帶 ?room= 時,試 localStorage 'pgg_last_room'(同裝置上的 testbed
@@ -1148,7 +1148,7 @@ if (!PGG_ROOM_CODE) {
 }
 const PGG_JOIN_URL = window.location.origin + '/r/' + PGG_ROOM_CODE;
 // 部署環境:預設指向正式 PartyKit URL;本機開發可用 ?host=localhost:1999 覆寫。
-const PGG_PARTY_HOST = _PGG_QS.get('host') || 'policy-gogogo.aoc7328.partykit.dev';
+const PGG_PARTY_HOST = _PGG_QS.get('host') || 'policy-gogogo-party.aoc7328.workers.dev';
 
 // 同 origin 跨 tab 同步(同 participant.html 的邏輯):助理 reload 換房時
 // 自動同步本分頁。URL 帶明確 ?room= 的不動,user 刻意指定就尊重。

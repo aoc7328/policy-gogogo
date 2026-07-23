@@ -1223,7 +1223,7 @@ input::placeholder{color:var(--ink-3)}
    - PGG_PARTY_HOST PartyKit server host
                     URL 可用 ?host=localhost:9988 覆寫(partykit 預設 1999;
                     若 1999 被佔住會落到 2000/9988 等,這時可用 ?host= 救急)
-                    Phase 5 部署時把預設改成 policy-gogogo.<account>.partykit.dev
+                    正式站預設 policy-gogogo-party.aoc7328.workers.dev(2026-07 從 PartyKit 搬來)
    ═══════════════════════════════════════════════════════════════ */
 const _PGG_QS = new URLSearchParams(window.location.search);
 // 自動產房號:URL 沒帶 ?room= 就現場產一組 4 位數字、塞回 URL(不 reload),
@@ -1238,7 +1238,7 @@ if (!_autoRoom) {
 const PGG_ROOM_CODE = _autoRoom;
 const PGG_JOIN_URL = window.location.origin + '/r/' + PGG_ROOM_CODE;
 // 部署環境:預設指向正式 PartyKit URL;本機開發可用 ?host=localhost:1999 覆寫。
-const PGG_PARTY_HOST = _PGG_QS.get('host') || 'policy-gogogo.aoc7328.partykit.dev';
+const PGG_PARTY_HOST = _PGG_QS.get('host') || 'policy-gogogo-party.aoc7328.workers.dev';
 // 把這場 room 寫進 localStorage 當 hint;主持人/參賽者端開啟時若 URL 沒
 // ?room= 就拿這個 fallback,讓三端在同一 origin / 同一裝置上自動對齊到
 // 同一房,免得測試時還要手動複製貼網址。

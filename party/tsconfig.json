@@ -1,0 +1,21 @@
+{
+  // 遊戲後端(partyserver DO)專用 typecheck 設定。跟 functions/ 同一個
+  // 理由與根 tsconfig 分開:跑在 Cloudflare Workers runtime,要掛
+  // @cloudflare/workers-types(才有 cloudflare:workers 模組型別,
+  // partyserver 的 Server 基底 ctx/env 都靠它),且不能掛 DOM lib,
+  // 以免跟 client/(瀏覽器環境)的全域宣告互撞。
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "types": ["@cloudflare/workers-types"],
+    "lib": ["ES2022"]
+  },
+  "include": ["**/*.ts"]
+}
