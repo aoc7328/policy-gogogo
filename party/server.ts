@@ -286,7 +286,7 @@ export class PolicyGogogoServer extends Server {
         // (半死 TCP 偵測用,見 client/partybus.ts keepalive)。
         return this.send(sender, { type: '__pong__', payload: { t: Date.now() } });
       case 'game_start':
-        return this.onGameStart(cmd.payload);
+        return this.onGameStart(cmd.payload, sender);
       case 'score_adjust':
         return this.onScoreAdjust(cmd.payload);
       case 'start_rush':
@@ -367,7 +367,18 @@ export class PolicyGogogoServer extends Server {
   // Privileged handlers
   // ────────────────────────────────────────────────────────────
 
-  private onGameStart(config: GameConfig): void {
+  private onGameStart(config: GameConfig, sender: Connection<ConnState>): void {
+    // 只在 lobby 接受(稽核發現):賽後 phase=ended 時助理端設定分頁是開的、
+    // 「確定、開始遊戲」也會亮 —— 誤按會 stateStartGame 把剛打完那場的
+    // 分數全部歸零。要開新的一場請先按「重新開始」(server 會回到 lobby)。
+    if (this.state.phase !== 'lobby') {
+      this.sendError(
+        sender,
+        'phase_mismatch',
+        `本場已在進行中或已結束(${this.state.phase}),不能再按「開始遊戲」。要開新的一場請先按「重新開始」。`,
+      );
+      return;
+    }
     stateStartGame(this.state, config);
     // 補齊組長(不重抽既有的 —— 玩家池顯示的人選必須延續到開賽後)
     ensureLeaders(this.state);
@@ -1234,6 +1245,10 @@ export class PolicyGogogoServer extends Server {
   }
 
   private onTeamRename(payload: { oldName: string; newName: string; by: string }): void {
+    // 開賽即鎖組名(稽核發現:過去這條規則只靠 participant 端的
+    // G.canRenameTeam 把按鈕藏起來,server 完全沒擋 —— 漏接 game_start
+    // 廣播的分頁仍可在遊戲中改組名,而分數多處以組名為鍵)。
+    if (this.state.phase !== 'lobby') return;
     const result = renameTeam(this.state, payload.oldName, payload.newName);
     if (!result.ok) return;
     this.broadcastEvent({

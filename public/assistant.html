@@ -3033,8 +3033,13 @@ function chk(){
   const groupOk = S.groupingMode === 'prefix'
     ? (Array.isArray(S.groups) && S.groups.length >= 1)
     : n >= 2;
-  document.getElementById('start-btn').disabled=
-    !(BANK_AUTO_LOAD_READY && S.mode && q>0 && s>0 && groupOk && customOk);
+  // S.gameStarted 也是條件之一(稽核發現):賽後 phase=ended 時設定分頁會
+  // 解鎖,舊版這裡沒看 gameStarted → 開始鈕重新亮起,誤按會把剛打完那場的
+  // 分數整個洗掉。要開新的一場請先按「重新開始」(它會把 gameStarted 清掉)。
+  const btn = document.getElementById('start-btn');
+  btn.disabled=
+    !(BANK_AUTO_LOAD_READY && S.mode && q>0 && s>0 && groupOk && customOk) || !!S.gameStarted;
+  btn.title = S.gameStarted ? '本場已開始或已結束 · 要開新的一場請先按「重新開始」' : '';
 }
 
 function startGame(){
@@ -4302,6 +4307,10 @@ if (Object.values(BANK).some(b => b && b.questions)) {
 }
 chk();
 updateCategoryGrid();
+// 套一次初始 phase(稽核發現):舊版載入時從未呼叫 setPhase,九宮格因此
+// 少了 .phase-locked —— 遊戲都還沒開始就點得下去,點完本機會進入「已選定」
+// 狀態,但 server 在 lobby 會靜默忽略,畫面與實際脫節。
+setPhase(S.phase || 'idle');
 
 /* Phase 0 Q11:auto-fetch /data/ 5 個 BANK JSON。
    策略:fill empty slots only(不覆蓋手動上傳或 localStorage 快取),
