@@ -203,7 +203,8 @@ input::placeholder{color:var(--ink-3)}
   border:1px solid var(--line-s);background:transparent;
   cursor:pointer;transition:all 160ms;user-select:none;
 }
-.cust-chip:hover{color:var(--ink-1);border-color:#C49A5A}
+.cust-chip:hover:not(:disabled){color:var(--ink-1);border-color:#C49A5A}
+.cust-chip:disabled{cursor:not-allowed}
 .cust-chip.active{
   color:#1A1410;background:#C49A5A;border-color:#C49A5A;
   font-weight:700;
@@ -247,7 +248,8 @@ input::placeholder{color:var(--ink-3)}
 .gc-note{font-size:13px;color:var(--ink-3);line-height:1.6}
 .gc-notify{display:flex;gap:6px;flex-shrink:0}
 .gc-nbtn{background:transparent;border:1px solid var(--line-s);color:var(--ink-2);font-family:var(--font-sans);font-size:11px;padding:4px 9px;cursor:pointer;letter-spacing:.04em;transition:all 160ms;white-space:nowrap}
-.gc-nbtn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-s)}
+.gc-nbtn:hover:not(:disabled){border-color:var(--accent);color:var(--accent);background:var(--accent-s)}
+.gc-nbtn:disabled{opacity:.35;cursor:not-allowed}
 .gc-nbtn.warn:hover{border-color:#D8344A;color:#EC5068;background:rgba(216,52,74,.1)}
 
 /* ===== SCORES ===== */
@@ -2600,6 +2602,13 @@ function pickMode(m){
    - random:恢復「分幾組」,通知 server 用該組數隨機重洗。
    server 會回 roster_reshuffled,本端 group/score 預覽自動跟著更新。 */
 function setGroupingMode(el) {
+  // server 只在 lobby 接受 grouping_mode_changed。開賽後若放行,本機會先把
+  // UI 與 S.groupingMode 改掉、server 卻拒絕 → 畫面顯示前綴模式但實際還是
+  // 隨機模式的「無聲不同步」。這裡直接擋下,不動任何本機狀態。
+  if (S.gameStarted) {
+    setStatus('⚠ 遊戲已開始,無法切換分組方式(要換請先按「重新開始」)');
+    return;
+  }
   const mode = el.dataset.gmode === 'prefix' ? 'prefix' : 'random';
   S.groupingMode = mode;
   document.querySelectorAll('#grouping-mode-chips .cust-chip').forEach(c => {
@@ -2905,11 +2914,39 @@ function doManualRegroup(){
 }
 window.doManualRegroup = doManualRegroup;
 
-/* 重新分組按鈕開關:跟「分幾組」同步 —— 遊戲開始鎖、prefix 模式鎖 */
-function updateRegroupBtn(){
+/* 「只有 lobby 能用」的控制項統一熄燈處理。
+   對應 server 端守衛:
+     - grouping_mode_changed → phase 必須是 lobby
+     - team_count_changed    → phase 必須是 lobby
+   原則:server 會拒絕的操作,按鈕就要是暗的,不能讓人按了才發現沒用
+   (更不能像舊版那樣本機先改、server 拒絕,造成兩邊狀態不同步)。 */
+function updateLobbyOnlyControls(){
+  const locked = !!S.gameStarted;   // 開賽後(含已結束)server 都不在 lobby
+  const reason = locked ? '遊戲已開始 · 要調整請先按「重新開始」' : '';
+  // 重新分組:開賽後鎖;prefix 模式本來就不吃組數,也鎖
   const b = document.getElementById('regroup-btn');
-  if (b) b.disabled = !!S.gameStarted || S.groupingMode === 'prefix';
+  if (b) {
+    b.disabled = locked || S.groupingMode === 'prefix';
+    b.title = locked ? reason
+      : (S.groupingMode === 'prefix' ? '依名稱前綴模式的分組由名字決定,不需重洗' : '');
+  }
+  // 分組方式 chips
+  document.querySelectorAll('#grouping-mode-chips .cust-chip').forEach(c => {
+    c.disabled = locked;
+    c.style.opacity = locked ? '.4' : '';
+    c.style.cursor = locked ? 'not-allowed' : '';
+    c.title = reason;
+  });
+  // 分幾組:開賽中鎖。已結束時保持可按 —— onTeamCountInputChange 會先
+  // 自動「重新開始」把 server 帶回 lobby,再套新組數(既有的刻意設計)。
+  const inN = document.getElementById('i-n');
+  if (inN && S.groupingMode !== 'prefix') {
+    inN.disabled = locked && S.phase !== 'ended';
+  }
 }
+window.updateLobbyOnlyControls = updateLobbyOnlyControls;
+/* 舊名保留:多處呼叫點沿用,行為改由 updateLobbyOnlyControls 統一處理 */
+function updateRegroupBtn(){ updateLobbyOnlyControls(); }
 window.updateRegroupBtn = updateRegroupBtn;
 
 /* 從設定頁的 input 同步到 S.groups(讓分組表/計分表能即時預覽,
@@ -3121,6 +3158,9 @@ function setPhase(p) {
   });
   // phase 變化也會牽動分頁鎖定狀態
   if (typeof applyTabLock === 'function') applyTabLock();
+  // 「只有 lobby 能用」的控制項(分組方式 / 分幾組 / 重新分組)一併重算。
+  // 掛在 setPhase 是因為它是唯一每次階段變化都會走到的地方(含 ended)。
+  if (typeof updateLobbyOnlyControls === 'function') updateLobbyOnlyControls();
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -3454,7 +3494,7 @@ function renderGroups(){
         <span class="gc-notify">
           <button class="gc-nbtn warn" title="通知這組改名(會跳改名鈕、30 秒倒數、逾時踢出)" onclick="notifyGroup('${safe}','rename')">⚠ 通知改名</button>
           <button class="gc-nbtn" title="軟性提醒這組確認名稱(有改名鈕、不踢人)" onclick="notifyGroup('${safe}','confirm')">？確認分組</button>
-          <button class="gc-nbtn" title="重抽這組組長(組長中離不回來、或要換人領獎時用)" onclick="redrawLeader('${safe}')">★ 重抽組長</button>
+          <button class="gc-nbtn" ${members.length === 0 ? 'disabled title="這組還沒有人,無法抽組長"' : 'title="重抽這組組長(組長中離不回來、或要換人領獎時用)"'} onclick="redrawLeader('${safe}')">★ 重抽組長</button>
         </span>
       </div>
       ${body}
