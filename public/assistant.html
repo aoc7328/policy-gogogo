@@ -1868,6 +1868,7 @@ PartyBus.on('lightning_disqualify', payload => {
 PartyBus.on('rush_winner', payload => {
   if (S.rushSession) S.rushSession.winnerLocked = true;
   if (!payload || typeof payload.groupIdx !== 'number') return;
+  if (typeof recRound === 'function') recRound(payload);   // 賽後報告:記這一輪
   onRushWinner(payload.groupIdx, payload);
 });
 
@@ -1908,6 +1909,8 @@ PartyBus.on('question_pick', payload => {
       _framework: payload.framework,
     });
   }
+  // 賽後報告:記下這一題的全文與答案(server 只給題號,內容只有本機有)
+  if (typeof recQuestion === 'function') recQuestion(q, payload.difficulty, payload.framework);
 
   // Phase 4 fix:把 server 的 currQ 直接套到本機 + UI(server 是權威)。
   // 第一次抽題會增、重抽 (redraw=true) 不增 — server 的 roundQ 就是定義好的。
@@ -3084,6 +3087,7 @@ function startGame(){
   // 廣播遊戲開始(主持人/參賽者收到後初始化)
   S.gameStarted = true;
   if (typeof updateRegroupBtn === 'function') updateRegroupBtn();
+  if (typeof recStart === 'function') recStart();   // 賽後報告:開一筆新場次
   PartyBus.emit('game_start', {
     mode: S.mode,
     customTiers: S.customTiers,
@@ -3303,10 +3307,14 @@ function scorePartial(pct){
   if(S.pendingIdx===null)return;
   const pts = Math.round((S.spq || 0) * pct);
   if (pts > 0) adj(S.pendingIdx, pts);
+  if (typeof recScore === 'function') recScore(pts, `${Math.round(pct*100)}%`);
   afterScore();
 }
 function scoreOk(){scorePartial(1);}
-function scorePass(){afterScore();}
+function scorePass(){
+  if (typeof recScore === 'function') recScore(0, '不計分');
+  afterScore();
+}
 
 /* 揭曉後把三顆給分鈕的字樣換成實際分數(如 25% · +5分) */
 function updateRevActLabels(){
@@ -3340,6 +3348,8 @@ function doNext(){
   S.rushSession = null;
   // Phase 4:S.currQ 已在 question_pick listener 從 server roundQ 套好,
   // 這裡不再 increment。只用「目前已 ≥ totalQ」這條 end-of-game 判定。
+  // 賽後報告:每題結束就存一次(中途瀏覽器掛掉也留得住已完成的部分)
+  if (typeof recSave === 'function') recSave(false);
   // 題數用完 → 讓助理選:再加一題(控時用,可無限加)或結束本場
   if (S.currQ >= S.totalQ) { askEndOrAddQuestion(); return; }
   document.getElementById('rev-acts').classList.remove('show');
@@ -3572,6 +3582,185 @@ function redrawLeader(team) {
 }
 window.redrawLeader = redrawLeader;
 
+/* ══════════════════════════════════════════════════════════════════
+   單場記錄器 —— 賽後報告(/report)的資料來源
+   ────────────────────────────────────────────────────────────────────
+   為什麼在助理端做:
+   - 搶答結果過去完全沒有被任何地方保存(只是廣播出去、畫面顯示完就沒了)
+   - 題目「全文與答案」只有前端有(server 只存題號),要產報告非得在這裡湊
+   - 助理端本來就收得到所有廣播,資料最齊
+
+   一場 = 一筆(game_key = 房號 + 開賽時間戳)。每題結束就 upsert 一次,
+   所以中途瀏覽器掛掉也留得住已完成的部分;結束本場再存一次完整版。
+   ══════════════════════════════════════════════════════════════════ */
+const REC = {
+  key: null,        // game_key;null = 沒有進行中的場次
+  startedAt: 0,
+  rounds: [],       // 每一輪搶答 { n, rushMode, groupName, personName, detail, rebuzz }
+  questions: [],    // 每一題 { n, id, type, topic, difficulty, question, answer, extra, round, score }
+  pendingRound: null,
+};
+
+function recStart() {
+  REC.startedAt = Date.now();
+  REC.key = `${PGG_ROOM_CODE}-${REC.startedAt}`;
+  REC.rounds = [];
+  REC.questions = [];
+  REC.pendingRound = null;
+  recSave(false);
+}
+
+/* 每輪搶答結果(server 的 rush_winner payload 是權威資料) */
+function recRound(p) {
+  if (!REC.key || !p) return;
+  const mode = p.rushMode || 'speed';
+  let detail = '';
+  if (mode === 'speed') detail = `${((p.elapsedMs || 0) / 1000).toFixed(3)} 秒`;
+  else if (mode === 'lightning') detail = `第 ${(p.pressedAtSec || 0).toFixed(3)} 秒`;
+  else if (mode === 'count') {
+    detail = (typeof p.avgClicks === 'number' && p.teamSize)
+      ? `人均 ${p.avgClicks.toFixed(1)} 次(${p.teamTotalClicks} 次 ÷ ${p.teamSize} 人)`
+      : `全組 ${p.teamTotalClicks || 0} 次`;
+  } else if (mode === 'allhands') {
+    detail = `${p.clusterCount || 0} / ${p.totalCount || 0} 人同步(第 ${(p.endAtSec || 0).toFixed(2)} 秒)`;
+  }
+  const round = {
+    n: REC.rounds.length + 1,
+    rushMode: mode,
+    rushLabel: RUSH_MODE_LABELS[mode] || mode,
+    groupIdx: p.groupIdx,
+    groupName: p.groupName || '',
+    personName: p.personName || '',
+    detail,
+    elapsedMs: typeof p.elapsedMs === 'number' ? p.elapsedMs : null,
+    rebuzz: !!p.rerush,
+  };
+  REC.rounds.push(round);
+  REC.pendingRound = round;
+}
+
+/* 抽到題目 → 記題目全文與答案(從本機 BANK 撈,server 只給題號) */
+function recQuestion(q, difficulty, framework) {
+  if (!REC.key) return;
+  const id = q?.id;
+  if (!id || REC.questions.find(x => x.id === id && x.score === null)) return;
+  REC.questions.push({
+    n: REC.questions.length + 1,
+    id,
+    type: q?.type || '',
+    typeLabel: (typeof QA_TYPE_LABELS !== 'undefined' && QA_TYPE_LABELS[q?.type]) || q?.type || '',
+    topic: q?.topic || framework || '',
+    difficulty: difficulty || '',
+    question: q?.question || '(題目內容未取得)',
+    answer: q?.answer || '',
+    // 申論題的參考範文 / 計算題的解題步驟 —— 欄位名依題庫而異,能撈就撈
+    extra: q?.model_answer || q?.sample_answer || q?.steps || q?.solution || '',
+    keyPoints: Array.isArray(q?.key_points) ? q.key_points : [],
+    options: Array.isArray(q?.options) ? q.options : [],
+    round: REC.pendingRound ? REC.pendingRound.n : null,
+    winnerGroup: REC.pendingRound ? REC.pendingRound.groupName : '',
+    winnerPerson: REC.pendingRound ? REC.pendingRound.personName : '',
+    rushLabel: REC.pendingRound ? REC.pendingRound.rushLabel : '',
+    rushDetail: REC.pendingRound ? REC.pendingRound.detail : '',
+    score: null,      // 計分後補
+    scoreLabel: '',
+  });
+}
+
+/* 助理按了加分/不計分 → 補記這題實得幾分 */
+function recScore(delta, label) {
+  if (!REC.key) return;
+  const q = REC.questions[REC.questions.length - 1];
+  if (!q) return;
+  q.score = delta;
+  q.scoreLabel = label || '';
+  recSave(false);
+}
+
+/** 組出要上傳的整包報告 */
+function recBuild(finished) {
+  const groups = (S.groups || []).map((g, i) => {
+    const wins = REC.rounds.filter(r => r.groupName === g.name).length;
+    const perPerson = {};
+    REC.rounds.forEach(r => {
+      if (r.groupName === g.name && r.personName && !r.personName.startsWith('(')) {
+        perPerson[r.personName] = (perPerson[r.personName] || 0) + 1;
+      }
+    });
+    let mvp = null;
+    Object.entries(perPerson).forEach(([n, c]) => { if (!mvp || c > mvp.wins) mvp = { name: n, wins: c }; });
+    return {
+      idx: i,
+      name: g.name,
+      members: Array.isArray(g.members) ? [...g.members] : [],
+      leader: (S.leaders && S.leaders[g.name]) || null,
+      score: g.score || 0,
+      wins,
+      mvp,
+    };
+  });
+  const byMode = {};
+  REC.rounds.forEach(r => {
+    if (!byMode[r.rushMode]) byMode[r.rushMode] = { label: r.rushLabel, rounds: 0, byGroup: {} };
+    byMode[r.rushMode].rounds += 1;
+    byMode[r.rushMode].byGroup[r.groupName] = (byMode[r.rushMode].byGroup[r.groupName] || 0) + 1;
+  });
+  const persons = {};
+  REC.rounds.forEach(r => {
+    if (!r.personName || r.personName.startsWith('(')) return;
+    if (!persons[r.personName]) persons[r.personName] = { name: r.personName, team: r.groupName, wins: 0, bestMs: null };
+    persons[r.personName].wins += 1;
+    if (typeof r.elapsedMs === 'number' && (persons[r.personName].bestMs === null || r.elapsedMs < persons[r.personName].bestMs)) {
+      persons[r.personName].bestMs = r.elapsedMs;
+    }
+  });
+  const players = groups.reduce((a, g) => a + g.members.length, 0);
+  return {
+    game_key: REC.key,
+    room: PGG_ROOM_CODE,
+    started_at: REC.startedAt,
+    ended_at: finished ? Date.now() : null,
+    mode: S.mode || null,
+    mode_label: ({ ordinary: '普通', hell: '地獄', paradise: '極樂', custom: '自由' })[S.mode] || null,
+    total_q: S.totalQ || 0,
+    spq: S.spq || 0,
+    players,
+    groups_n: groups.length,
+    finished: !!finished,
+    summary: {
+      // 精簡摘要:永久保留,支撐長期趨勢分析
+      groups: groups.map(g => ({ name: g.name, n: g.members.length, score: g.score, wins: g.wins })),
+      rounds: REC.rounds.length,
+      questions: REC.questions.length,
+      byMode: Object.fromEntries(Object.entries(byMode).map(([k, v]) => [k, { rounds: v.rounds, byGroup: v.byGroup }])),
+    },
+    payload: {
+      groups,
+      rounds: REC.rounds,
+      questions: REC.questions,
+      byMode,
+      persons: Object.values(persons).sort((a, b) => b.wins - a.wins),
+      groupingMode: S.groupingMode || 'random',
+    },
+  };
+}
+
+/* 上傳(fetch keepalive:即使正在切走頁面也送得出去)。失敗絕不影響遊戲。 */
+function recSave(finished) {
+  if (!REC.key) return;
+  try {
+    const body = JSON.stringify(recBuild(finished));
+    fetch('/api/game', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body,
+      keepalive: true,
+      cache: 'no-store',
+    }).catch(() => {});
+  } catch (e) { /* 記錄失敗不能拖垮現場 */ }
+}
+window.PGGRec = REC;
+
 /* 對某一整組發通知。rename 種類會踢人,先跳確認;confirm 直接送。 */
 function notifyGroup(team, kind) {
   if (kind === 'rename') {
@@ -3790,6 +3979,8 @@ function _doEndImpl(){
     const el = document.getElementById(id); if (el) el.disabled = false;
   });
   applyTabLock();
+  // 賽後報告:本場正式收檔(finished=true),之後可在 /report 用房號查到
+  if (typeof recSave === 'function') recSave(true);
   // 自動匯出結果(廣播給參賽者 → 跳出「是否觀看結果」浮窗)
   if (typeof doExport === 'function') doExport();
   setStatus('本場遊戲結束 · 結果已推送 · 可切到「設定」改分組重新開始');
@@ -3813,6 +4004,9 @@ function doEnd(){
    echo 成無限迴圈)。 */
 function _doRestartImpl(emit){
   if (emit === undefined) emit = true;
+  // 賽後報告:把當前這一場收檔後脫鉤(標成未完成)。下次按「開始遊戲」
+  // 會 recStart() 開一筆新的 —— 一場一份,不會把兩場混在一起。
+  if (typeof recSave === 'function' && REC.key) { recSave(false); REC.key = null; }
   // 1. 重置助理本機狀態
   S.gameStarted = false;
   // 解鎖「分幾組」(回到 lobby phase 後又能調整)

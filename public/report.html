@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>賽後報告 · 保險知識星攻略</title>
+<!-- ══════════════════════════════════════════════════════════════════
+     report.html — 賽後報告查詢台(固定網址 /report)。
+
+     流程:輸入房號 → 該房號的場次清單 → 單場報告。
+     「一場 = 一份報告」,同房號打兩場就是兩份,不合併。
+     若該房號只有一場,直接跳進報告不停留在清單。
+
+     資料來源:
+       GET /api/report/sessions?room=XXXX  場次清單
+       GET /api/report/game?key=XXXX       單場完整內容 + 連線品質
+     寫入端是助理端的 REC 記錄器(assistant.html)。
+
+     依 Vincent 指示不設密碼。
+     ══════════════════════════════════════════════════════════════════ -->
+<style>
+  :root {
+    --bg:#eef1f7; --card:#ffffff; --ink:#1f2733; --ink-2:#5a6472; --ink-3:#8a94a3;
+    --line:#e2e7f0; --line-2:#eef1f6; --accent:#4f46e5; --accent-s:#eceafe;
+    --gold:#b8860b; --gold-s:#fdf6e3;
+    --warn-s:#fdf4e6; --err:#e5484d; --err-s:#fdeaea;
+    --ok:#12a150; --ok-s:#e7f7ee;
+    --shadow:0 1px 2px rgba(20,30,50,.05), 0 4px 16px rgba(20,30,50,.05);
+    --radius:14px;
+  }
+  * { box-sizing:border-box; }
+  html,body { margin:0; padding:0; }
+  body {
+    background:var(--bg); color:var(--ink);
+    font-family:"Noto Sans TC", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    font-size:15px; line-height:1.55; -webkit-text-size-adjust:100%;
+  }
+  .mono { font-family:"JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; }
+
+  header.top { background:linear-gradient(180deg,#20263a,#161b2b); color:#f4f6fb; padding:22px 20px 20px; }
+  header.top .wrap { max-width:1060px; margin:0 auto; }
+  header.top .back { display:inline-block; background:none; border:none; padding:0;
+    color:#9fb0d4; font:inherit; font-size:12.5px; cursor:pointer; margin-bottom:10px; }
+  header.top .back:hover { color:#cfd9ee; }
+  header.top h1 { margin:0; font-size:21px; font-weight:700; letter-spacing:.5px; }
+  header.top .sub { margin-top:6px; color:#aeb6c8; font-size:13px; }
+  header.top .meta { margin-top:12px; display:flex; flex-wrap:wrap; gap:8px; }
+  header.top .chip { background:rgba(255,255,255,.09); border:1px solid rgba(255,255,255,.14);
+    padding:4px 11px; border-radius:999px; font-size:12px; color:#dfe4ef; }
+  header.top .chip.hi { background:rgba(184,134,11,.22); border-color:rgba(233,196,106,.4); color:#f0dca8; }
+
+  main { max-width:1060px; margin:0 auto; padding:18px 16px 70px; }
+
+  .panel { background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    box-shadow:var(--shadow); padding:16px 18px; margin-bottom:16px; }
+  .panel > h2 { margin:0 0 4px; font-size:14px; font-weight:700; color:var(--ink-2);
+    letter-spacing:.5px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .panel > .h2sub { margin:0 0 14px; font-size:12px; color:var(--ink-3); }
+
+  /* ── 入口 ── */
+  .entry { max-width:420px; margin:6vh auto 0; }
+  .entry .logo { text-align:center; font-size:15px; color:var(--ink-2); margin-bottom:6px; }
+  .entry h1 { text-align:center; font-size:22px; margin:0 0 4px; }
+  .entry p.lead { text-align:center; color:var(--ink-3); font-size:13px; margin:0 0 22px; }
+  .entry form { display:flex; gap:9px; }
+  .entry input {
+    flex:1; font:inherit; font-size:20px; letter-spacing:.28em; text-align:center;
+    padding:14px 12px; border:1px solid var(--line); border-radius:11px; outline:none;
+    font-family:"JetBrains Mono", ui-monospace, monospace; background:#fff; color:var(--ink);
+  }
+  .entry input:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-s); }
+  .entry button.go {
+    font:inherit; font-weight:700; padding:0 20px; border:none; border-radius:11px;
+    background:var(--accent); color:#fff; cursor:pointer; white-space:nowrap;
+  }
+  .entry button.go:disabled { background:#b9bdd8; cursor:not-allowed; }
+  .entry .err { color:var(--err); font-size:13px; text-align:center; margin-top:12px; min-height:20px; }
+  .recent { margin-top:26px; }
+  .recent h3 { font-size:12px; color:var(--ink-3); font-weight:600; margin:0 0 8px; letter-spacing:.4px; }
+
+  /* ── 場次卡 ── */
+  .slist { display:flex; flex-direction:column; gap:9px; }
+  .scard {
+    display:flex; align-items:center; gap:12px; width:100%; text-align:left;
+    background:var(--card); border:1px solid var(--line); border-radius:12px;
+    padding:13px 15px; cursor:pointer; font:inherit; color:inherit; transition:all 140ms;
+  }
+  .scard:hover { border-color:var(--accent); box-shadow:0 2px 10px rgba(79,70,229,.1); }
+  .scard .seq { display:flex; align-items:center; justify-content:center; min-width:38px; height:38px;
+    border-radius:10px; background:var(--accent-s); color:var(--accent); font-weight:700; font-size:13px; }
+  .scard .info { flex:1; min-width:0; }
+  .scard .t1 { font-weight:600; font-size:14.5px; }
+  .scard .t2 { font-size:12px; color:var(--ink-3); margin-top:2px; }
+  .scard .arrow { color:var(--ink-3); }
+
+  .tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; }
+  .tile { background:#fafbfe; border:1px solid var(--line-2); border-radius:11px; padding:12px 14px; }
+  .tile .k { font-size:11px; color:var(--ink-3); letter-spacing:.4px; }
+  .tile .v { font-size:23px; font-weight:700; margin-top:3px; line-height:1.2; }
+  .tile .v small { font-size:12px; font-weight:500; color:var(--ink-3); margin-left:3px; }
+
+  .tw { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  table { border-collapse:collapse; width:100%; font-size:14px; min-width:520px; }
+  th, td { text-align:left; padding:9px 11px; border-bottom:1px solid var(--line-2); vertical-align:top; }
+  th { font-size:12px; color:var(--ink-3); font-weight:600; white-space:nowrap; background:#fafbfe; }
+  td.num, th.num { text-align:right; white-space:nowrap; }
+  tbody tr:last-child td { border-bottom:none; }
+  tr.zero td { background:var(--err-s); }
+
+  .rank { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px;
+    border-radius:6px; background:#eef0f6; color:var(--ink-2); font-size:12px; font-weight:700; }
+  .rank.r1 { background:var(--gold-s); color:var(--gold); }
+
+  .tag { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600;
+    border:1px solid var(--line); color:var(--ink-2); background:#fafbfe; white-space:nowrap; }
+  .tag.lead { background:var(--gold-s); border-color:#eddca6; color:var(--gold); }
+  .tag.mvp  { background:var(--accent-s); border-color:#d5d0fb; color:var(--accent); }
+  .tag.zero { background:var(--err-s); border-color:#f5c9c9; color:var(--err); }
+  .tag.ok   { background:var(--ok-s); border-color:#bfe6cf; color:var(--ok); }
+  .tag.mode { background:#f2f4f9; }
+
+  .members { display:flex; flex-wrap:wrap; gap:5px; margin-top:2px; }
+  .member { font-size:12.5px; padding:2px 8px; border-radius:999px; background:#f3f5fa;
+    border:1px solid var(--line-2); color:var(--ink-2); }
+  .member.lead { background:var(--gold-s); border-color:#eddca6; color:var(--gold); font-weight:600; }
+
+  .bar { height:7px; background:#eef0f6; border-radius:99px; overflow:hidden; min-width:80px; }
+  .bar > i { display:block; height:100%; background:var(--accent); border-radius:99px; }
+  .bar.zero > i { background:var(--err); }
+
+  details.q { border:1px solid var(--line); border-radius:11px; margin-bottom:9px; background:#fff; }
+  details.q > summary { list-style:none; cursor:pointer; padding:11px 14px; display:flex; gap:10px;
+    align-items:center; flex-wrap:wrap; }
+  details.q > summary::-webkit-details-marker { display:none; }
+  details.q > summary::after { content:'▾'; margin-left:auto; color:var(--ink-3); font-size:13px; }
+  details.q[open] > summary::after { content:'▴'; }
+  details.q[open] > summary { border-bottom:1px solid var(--line-2); }
+  .qno { font-weight:700; color:var(--ink-2); font-size:13px; min-width:38px; }
+  .qtitle { flex:1 1 220px; font-size:13.5px; color:var(--ink); }
+  .qbody { padding:13px 15px 15px; font-size:14px; }
+  .qbody .row { margin-bottom:11px; }
+  .qbody .row:last-child { margin-bottom:0; }
+  .qbody .lbl { font-size:11px; color:var(--ink-3); letter-spacing:.4px; margin-bottom:3px; }
+  .qbody .ans { background:var(--ok-s); border:1px solid #bfe6cf; border-radius:9px; padding:9px 12px; color:#0e6b38; }
+  .qbody .qtext { background:#fafbfe; border:1px solid var(--line-2); border-radius:9px; padding:9px 12px; }
+  .qbody ul { margin:6px 0 0; padding-left:20px; }
+
+  .note { background:var(--warn-s); border:1px solid #f0d9a8; border-radius:var(--radius);
+    padding:12px 15px; margin-bottom:16px; font-size:13px; color:#7a5a12; }
+  .empty { text-align:center; color:var(--ink-3); padding:34px 10px; font-size:14px; }
+  .foot { text-align:center; color:var(--ink-3); font-size:12px; margin-top:24px; line-height:1.9; }
+
+  @media (max-width:560px) {
+    header.top h1 { font-size:18px; }
+    .tile .v { font-size:20px; }
+    .qtitle { flex-basis:100%; }
+  }
+  @media print {
+    body { background:#fff; }
+    .note, .foot, header.top .back { display:none; }
+    .panel { box-shadow:none; break-inside:avoid; }
+    details.q { break-inside:avoid; }
+    details.q > summary::after { display:none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══ 入口:輸入房號 ═══ -->
+<div id="view-entry">
+  <main>
+    <div class="entry">
+      <div class="logo">保險知識星攻略</div>
+      <h1>賽後報告</h1>
+      <p class="lead">輸入本場房號，看那一場的完整紀錄</p>
+      <form id="room-form" autocomplete="off">
+        <input id="room-input" inputmode="numeric" maxlength="8" placeholder="房號" aria-label="房號">
+        <button class="go" type="submit" id="room-go">查詢</button>
+      </form>
+      <div class="err" id="entry-err"></div>
+      <div class="recent" id="recent-wrap" style="display:none">
+        <h3>最近查過的房號</h3>
+        <div class="slist" id="recent-list"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ═══ 場次清單 ═══ -->
+<div id="view-list" style="display:none">
+  <header class="top"><div class="wrap">
+    <button class="back" onclick="goEntry()">← 換一個房號</button>
+    <h1>場次清單</h1>
+    <div class="sub" id="list-sub"></div>
+  </div></header>
+  <main>
+    <div class="slist" id="session-list"></div>
+    <div class="foot">一場 = 一份報告 · 完整內容保留最近 5 場</div>
+  </main>
+</div>
+
+<!-- ═══ 單場報告 ═══ -->
+<div id="view-report" style="display:none">
+  <header class="top"><div class="wrap">
+    <button class="back" id="rep-back">← 回場次清單</button>
+    <h1 id="rep-title">賽後報告</h1>
+    <div class="sub" id="rep-sub"></div>
+    <div class="meta" id="rep-meta"></div>
+  </div></header>
+  <main id="rep-main"></main>
+</div>
+
+<script>
+/* ── 小工具 ─────────────────────────────────────────────── */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({
+  '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+}[c]));
+const pad = n => String(n).padStart(2, '0');
+function fmtTime(ms) {
+  if (!ms) return '—';
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}（${'日一二三四五六'[d.getDay()]}）${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function fmtHM(ms) { const d = new Date(ms); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+function durLabel(a, b) {
+  if (!a || !b) return null;
+  const m = Math.max(0, Math.round((b - a) / 60000));
+  return m >= 60 ? `${Math.floor(m/60)} 小時 ${m%60} 分` : `${m} 分`;
+}
+const RECENT_KEY = 'pgg_report_recent_rooms';
+function pushRecent(room) {
+  try {
+    const cur = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]').filter(r => r !== room);
+    cur.unshift(room);
+    localStorage.setItem(RECENT_KEY, JSON.stringify(cur.slice(0, 6)));
+  } catch (e) {}
+}
+function renderRecent() {
+  let list = [];
+  try { list = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); } catch (e) {}
+  if (!list.length) return;
+  $('recent-wrap').style.display = '';
+  $('recent-list').innerHTML = list.map(r =>
+    `<button class="scard" onclick="lookup('${esc(r)}')">
+       <span class="seq mono">${esc(r)}</span>
+       <span class="info"><span class="t1">房號 ${esc(r)}</span></span>
+       <span class="arrow">›</span>
+     </button>`).join('');
+}
+
+/* ── 檢視切換 ───────────────────────────────────────────── */
+function show(which) {
+  ['entry','list','report'].forEach(v => { $('view-' + v).style.display = (v === which) ? '' : 'none'; });
+  window.scrollTo(0, 0);
+}
+function goEntry() {
+  show('entry');
+  history.replaceState(null, '', location.pathname);
+  $('entry-err').textContent = '';
+  renderRecent();
+}
+window.goEntry = goEntry;
+
+/* ── 查房號 → 場次清單 ─────────────────────────────────── */
+let _sessions = [], _room = '';
+async function lookup(room, opts) {
+  room = String(room || '').trim();
+  if (!room) return;
+  $('entry-err').textContent = '';
+  $('room-go').disabled = true;
+  try {
+    const r = await fetch(`/api/report/sessions?room=${encodeURIComponent(room)}`, { cache: 'no-store' });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'failed');
+    if (!j.sessions.length) {
+      $('entry-err').textContent = `房號 ${room} 沒有任何場次紀錄`;
+      show('entry');
+      return;
+    }
+    _sessions = j.sessions; _room = room;
+    pushRecent(room);
+    history.replaceState(null, '', `?room=${encodeURIComponent(room)}`);
+    // 只有一場 → 直接進報告,不用多點一次
+    if (_sessions.length === 1 && !(opts && opts.forceList)) {
+      openGame(_sessions[0].game_key);
+      return;
+    }
+    renderList();
+  } catch (e) {
+    $('entry-err').textContent = '查詢失敗，請稍後再試';
+    show('entry');
+  } finally {
+    $('room-go').disabled = false;
+  }
+}
+window.lookup = lookup;
+
+function renderList() {
+  $('list-sub').textContent = `房號 ${_room} · 共 ${_sessions.length} 場`;
+  $('session-list').innerHTML = _sessions.map(s => {
+    const bits = [
+      s.mode_label ? s.mode_label + '模式' : null,
+      s.total_q ? `${s.total_q} 題` : null,
+      s.players ? `${s.players} 人` : null,
+      s.groups_n ? `${s.groups_n} 組` : null,
+      s.finished ? null : '未完成',
+      s.has_full ? null : '僅存摘要',
+    ].filter(Boolean);
+    return `<button class="scard" onclick="openGame('${esc(s.game_key)}')">
+      <span class="seq">第${s.seq}場</span>
+      <span class="info">
+        <span class="t1">${esc(fmtTime(s.started_at))}</span>
+        <span class="t2">${esc(bits.join(' · '))}</span>
+      </span>
+      <span class="arrow">›</span>
+    </button>`;
+  }).join('');
+  show('list');
+}
+
+/* ── 單場報告 ───────────────────────────────────────────── */
+async function openGame(key) {
+  try {
+    const r = await fetch(`/api/report/game?key=${encodeURIComponent(key)}`, { cache: 'no-store' });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'failed');
+    renderReport(j);
+    history.replaceState(null, '', `?room=${encodeURIComponent(j.meta.room)}&g=${encodeURIComponent(key)}`);
+  } catch (e) {
+    alert('讀取報告失敗，請稍後再試');
+  }
+}
+window.openGame = openGame;
+
+function renderReport(j) {
+  const m = j.meta, rep = j.report, sum = j.summary;
+  $('rep-title').textContent = `賽後報告 · 第 ${m.seq} 場`;
+  const dur = durLabel(m.started_at, m.ended_at);
+  $('rep-sub').textContent = `${fmtTime(m.started_at)}${m.ended_at ? ' – ' + fmtHM(m.ended_at) : ''} · 房號 ${m.room}`;
+  $('rep-meta').innerHTML = [
+    m.mode_label ? `<span class="chip hi">${esc(m.mode_label)}模式</span>` : '',
+    m.total_q ? `<span class="chip">${m.total_q} 題${m.spq ? ' · 每題 ' + m.spq + ' 分' : ''}</span>` : '',
+    m.players ? `<span class="chip">${m.players} 人 · ${m.groups_n || 0} 組</span>` : '',
+    dur ? `<span class="chip">歷時 ${esc(dur)}</span>` : '',
+    m.finished ? '' : `<span class="chip">未完成</span>`,
+  ].join('');
+  $('rep-back').style.display = _sessions.length > 1 ? '' : 'none';
+  $('rep-back').onclick = () => { if (_sessions.length > 1) renderList(); else goEntry(); };
+
+  const out = [];
+
+  if (!rep) {
+    out.push(`<div class="note">這一場的<b>完整內容已被輪替刪除</b>（只保留最近 5 場）。以下是永久保留的精簡摘要。</div>`);
+    if (sum && Array.isArray(sum.groups)) {
+      out.push(panel('各組成績（摘要）', '', `<div class="tw"><table>
+        <thead><tr><th>組別</th><th class="num">人數</th><th class="num">得分</th><th class="num">搶到</th></tr></thead>
+        <tbody>${sum.groups.map(g => `<tr class="${g.wins ? '' : 'zero'}">
+          <td>${esc(g.name)}</td><td class="num">${g.n}</td><td class="num"><b>${g.score}</b></td>
+          <td class="num">${g.wins}</td></tr>`).join('')}</tbody></table></div>`));
+    }
+    $('rep-main').innerHTML = out.join('') + foot();
+    show('report');
+    return;
+  }
+
+  const groups = [...(rep.groups || [])].sort((a, b) => (b.score || 0) - (a.score || 0));
+  const maxWins = Math.max(1, ...groups.map(g => g.wins || 0));
+  const champ = groups[0];
+
+  // 1. 本場總覽
+  out.push(panel('本場總覽', '', `<div class="tiles">
+    <div class="tile"><div class="k">參與人數</div><div class="v">${m.players || 0} <small>人</small></div></div>
+    <div class="tile"><div class="k">分組數</div><div class="v">${groups.length} <small>組</small></div></div>
+    <div class="tile"><div class="k">出題數</div><div class="v">${(rep.questions || []).length} <small>題</small></div></div>
+    <div class="tile"><div class="k">搶答輪數</div><div class="v">${(rep.rounds || []).length} <small>輪</small></div></div>
+    <div class="tile"><div class="k">冠軍</div><div class="v" style="font-size:19px">${esc(champ ? champ.name : '—')}</div></div>
+    <div class="tile"><div class="k">歷時</div><div class="v" style="font-size:19px">${esc(dur || '進行中')}</div></div>
+  </div>`));
+
+  // 2. 分組名單
+  out.push(panel('分組名單與成績', '本場成績。「搶到」= 這一組在本場搶答中拿下的輪數',
+    `<div class="tw"><table>
+      <thead><tr><th style="width:40px">名次</th><th>組別 / 成員</th><th class="num">人數</th>
+        <th class="num">得分</th><th class="num">搶到</th><th style="width:120px">搶答佔比</th></tr></thead>
+      <tbody>${groups.map((g, i) => {
+        const zero = !g.wins;
+        const mem = (g.members || []).map(n =>
+          `<span class="member${n === g.leader ? ' lead' : ''}">${n === g.leader ? '★ ' : ''}${esc(n)}</span>`).join('');
+        return `<tr class="${zero ? 'zero' : ''}">
+          <td><span class="rank${i === 0 ? ' r1' : ''}">${i + 1}</span></td>
+          <td><b>${esc(g.name)}</b> ${zero
+              ? '<span class="tag zero">本場未搶到任何一題</span>'
+              : (g.mvp ? `<span class="tag mvp">MVP ${esc(g.mvp.name)} · ${g.mvp.wins} 次</span>` : '')}
+            <div class="members">${mem || '<span class="member">（無成員）</span>'}</div></td>
+          <td class="num">${(g.members || []).length}</td>
+          <td class="num"><b>${g.score || 0}</b></td>
+          <td class="num">${g.wins || 0}</td>
+          <td><div class="bar${zero ? ' zero' : ''}"><i style="width:${zero ? 2 : Math.round((g.wins / maxWins) * 100)}%"></i></div></td>
+        </tr>`;
+      }).join('')}</tbody></table></div>`));
+
+  // 3. 搶答分布
+  const modes = Object.entries(rep.byMode || {});
+  if (modes.length) {
+    const rows = modes.map(([, v]) => {
+      const gs = Object.entries(v.byGroup || {}).sort((a, b) => b[1] - a[1]);
+      const top = gs.length ? gs[0][1] : 0;
+      const share = v.rounds ? top / v.rounds : 0;
+      const level = share >= 0.7 ? '<span class="tag zero">高度集中</span>'
+                  : share >= 0.5 ? '<span class="tag">偏集中</span>'
+                  : '<span class="tag ok">分散</span>';
+      return `<tr><td><span class="tag mode">${esc(v.label || '')}</span></td>
+        <td class="num">${v.rounds}</td>
+        <td>${gs.map(([n, c], i) => `${esc(n)} ${i === 0 ? '<b>' + c + '</b>' : c}`).join(' · ') || '—'}</td>
+        <td>${level}</td></tr>`;
+    }).join('');
+    const persons = (rep.persons || []).slice(0, 5).map((p, i) =>
+      `<tr><td><span class="rank${i === 0 ? ' r1' : ''}">${i + 1}</span></td>
+        <td>${i === 0 ? '<b>' + esc(p.name) + '</b>' : esc(p.name)}</td><td>${esc(p.team)}</td>
+        <td class="num">${p.wins}</td>
+        <td class="num mono">${p.bestMs != null ? (p.bestMs / 1000).toFixed(3) + ' 秒' : '—'}</td></tr>`).join('');
+    out.push(panel('本場搶答分布', '同一組是不是一直贏？哪種模式比較分散？多場對照就能看出趨勢',
+      `<div class="tw" style="margin-bottom:16px"><table>
+        <thead><tr><th>搶答模式</th><th class="num">輪數</th><th>各組拿下</th><th>集中度</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>
+       ${persons ? `<h2 style="margin-top:6px">個人搶答排行</h2><div class="h2sub">本場前 5 名</div>
+       <div class="tw"><table>
+        <thead><tr><th style="width:40px">#</th><th>姓名</th><th>組別</th><th class="num">搶到</th><th class="num">最快反應</th></tr></thead>
+        <tbody>${persons}</tbody></table></div>` : ''}`));
+  }
+
+  // 4. 逐題明細
+  const qs = rep.questions || [];
+  if (qs.length) {
+    const items = qs.map((q, i) => {
+      const scoreTag = q.score === null ? '<span class="tag">未計分</span>'
+        : q.score > 0 ? `<span class="tag ok">${esc(q.scoreLabel)} · +${q.score}分</span>`
+        : '<span class="tag zero">不計分</span>';
+      const who = q.winnerGroup
+        ? `<span class="tag">${esc(q.winnerGroup)}${q.winnerPerson && !q.winnerPerson.startsWith('(') ? ' · ' + esc(q.winnerPerson) : ''}</span>` : '';
+      const opts = (q.options || []).length
+        ? `<div class="row"><div class="lbl">選項</div><ul>${q.options.map(o =>
+            `<li>${esc(typeof o === 'string' ? o : (o.text || o.label || JSON.stringify(o)))}</li>`).join('')}</ul></div>` : '';
+      const kp = (q.keyPoints || []).length
+        ? `<div class="row"><div class="lbl">評分要點</div><ul>${q.keyPoints.map(k => `<li>${esc(k)}</li>`).join('')}</ul></div>` : '';
+      const extra = q.extra
+        ? `<div class="row"><div class="lbl">參考範文 / 解題步驟</div><div class="qtext">${esc(q.extra)}</div></div>` : '';
+      return `<details class="q"${i === 0 ? ' open' : ''}>
+        <summary>
+          <span class="qno mono">Q${q.n}</span>
+          <span class="qtitle">${esc(q.question)}</span>
+          ${q.rushLabel ? `<span class="tag mode">${esc(q.rushLabel)}</span>` : ''}
+          ${who}${scoreTag}
+        </summary>
+        <div class="qbody">
+          <div class="row"><div class="lbl">${esc([q.typeLabel, q.topic].filter(Boolean).join(' · '))}</div>
+            <div class="qtext">${esc(q.question)}</div></div>
+          ${opts}
+          ${q.answer ? `<div class="row"><div class="lbl">標準答案</div><div class="ans">${esc(q.answer)}</div></div>` : ''}
+          ${kp}${extra}
+          <div class="row"><div class="lbl">搶答結果</div><div>${
+            q.winnerGroup
+              ? `${esc(q.winnerGroup)}${q.winnerPerson && !q.winnerPerson.startsWith('(') ? '「' + esc(q.winnerPerson) + '」' : ''} 搶下${q.rushDetail ? ' · ' + esc(q.rushDetail) : ''} · ${
+                  q.score === null ? '尚未計分' : (q.score > 0 ? `判定 <b>${esc(q.scoreLabel)}</b> · 得 <b>${q.score} 分</b>` : '判定 <b>不計分</b>')}`
+              : '（無人搶到）'}</div></div>
+        </div>
+      </details>`;
+    }).join('');
+    out.push(panel('逐題明細', `本場 ${qs.length} 題，依出題順序 · 點開看題目與答案`, items));
+  }
+
+  // 5. 連線品質
+  const c = j.conn || { summary: {}, players: [] };
+  out.push(panel('本場連線品質', '誰的手機一直斷線 → 可能影響搶答表現',
+    `<div class="tiles" style="margin-bottom:14px">
+      <div class="tile"><div class="k">斷線次數</div><div class="v">${c.summary.disconnects || 0}</div></div>
+      <div class="tile"><div class="k">受影響人數</div><div class="v">${c.summary.affected || 0} <small>/ ${m.players || 0}</small></div></div>
+      <div class="tile"><div class="k">頁面卡住</div><div class="v">${c.summary.freezes || 0} <small>次</small></div></div>
+      <div class="tile"><div class="k">加入失敗</div><div class="v">${c.summary.join_fails || 0} <small>人</small></div></div>
+    </div>
+    ${(c.players || []).length ? `<div class="tw"><table>
+      <thead><tr><th>姓名</th><th>組別</th><th class="num">斷線</th><th class="num">重連</th><th>裝置</th></tr></thead>
+      <tbody>${c.players.map(p => `<tr><td>${esc(p.name || '—')}</td><td>${esc(p.team || '—')}</td>
+        <td class="num">${p.disconnects || 0}</td><td class="num">${p.reconnects || 0}</td>
+        <td class="mono">${esc(p.os || '—')}</td></tr>`).join('')}</tbody></table></div>`
+      : '<div class="empty">本場沒有連線問題紀錄 👍</div>'}`));
+
+  $('rep-main').innerHTML = out.join('') + foot();
+  show('report');
+}
+
+function panel(title, sub, inner) {
+  return `<section class="panel"><h2>${esc(title)}</h2>${sub ? `<div class="h2sub">${esc(sub)}</div>` : ''}${inner}</section>`;
+}
+function foot() {
+  return `<div class="foot">保險知識星攻略 · 單場賽後報告<br>一場一份 · 完整報告保留最近 5 份 · 精簡摘要永久保留</div>`;
+}
+
+/* ── 啟動 ───────────────────────────────────────────────── */
+$('room-form').addEventListener('submit', e => {
+  e.preventDefault();
+  lookup($('room-input').value);
+});
+(function boot() {
+  const qs = new URLSearchParams(location.search);
+  const room = qs.get('room'), g = qs.get('g');
+  if (room) {
+    $('room-input').value = room;
+    _room = room;
+    if (g) {
+      fetch(`/api/report/sessions?room=${encodeURIComponent(room)}`, { cache: 'no-store' })
+        .then(r => r.json()).then(j => { if (j.ok) _sessions = j.sessions; })
+        .catch(() => {})
+        .finally(() => openGame(g));
+    } else {
+      lookup(room);
+    }
+    return;
+  }
+  renderRecent();
+  show('entry');
+  setTimeout(() => { try { $('room-input').focus(); } catch (e) {} }, 120);
+})();
+</script>
+</body>
+</html>

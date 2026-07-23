@@ -24,7 +24,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
-const HTMLS = ['assistant.html', 'presenter.html', 'participant.html', 'testbed.html'];
+const HTMLS = ['assistant.html', 'presenter.html', 'participant.html', 'testbed.html', 'report.html'];
 
 // Allowlist: ids referenced by getElementById but legitimately not in
 // markup. Two categories:

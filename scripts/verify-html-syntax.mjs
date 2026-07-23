@@ -33,6 +33,7 @@ const HTMLS = [
   'presenter.html',
   'participant.html',
   'testbed.html',
+  'report.html',
 ];
 
 const SCRIPT_RE = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
