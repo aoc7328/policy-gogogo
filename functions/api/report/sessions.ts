@@ -27,22 +27,28 @@ interface Row {
   summary: string | null;
 }
 
+const COLS =
+  `game_key, room, day, seq, started_at, ended_at, mode, mode_label,
+   total_q, spq, players, groups_n, finished,
+   CASE WHEN payload IS NULL THEN 0 ELSE 1 END AS has_full,
+   summary`;
+
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const url = new URL(request.url);
   const room = cap(url.searchParams.get('room'), 40);
-  if (!room) return json({ ok: false, error: 'no_room' }, 400);
+  // 不帶 room = 跨房號列出最新幾場,給 /report 首頁直接開就看得到用。
+  // (Vincent:只有他自己在看,不想每次都先打房號。)
+  const limitRaw = parseInt(url.searchParams.get('limit') || '', 10);
+  const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 50) : 10;
 
   try {
-    const rs = await env.DB.prepare(
-      `SELECT game_key, room, day, seq, started_at, ended_at, mode, mode_label,
-              total_q, spq, players, groups_n, finished,
-              CASE WHEN payload IS NULL THEN 0 ELSE 1 END AS has_full,
-              summary
-         FROM games
-        WHERE room = ?
-        ORDER BY started_at DESC
-        LIMIT 50`,
-    ).bind(room).all<Row>();
+    const rs = room
+      ? await env.DB.prepare(
+          `SELECT ${COLS} FROM games WHERE room = ? ORDER BY started_at DESC LIMIT 50`,
+        ).bind(room).all<Row>()
+      : await env.DB.prepare(
+          `SELECT ${COLS} FROM games ORDER BY started_at DESC LIMIT ?`,
+        ).bind(limit).all<Row>();
 
     const sessions = (rs.results || []).map((r) => ({
       ...r,
@@ -55,7 +61,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       })(),
     }));
 
-    return json({ ok: true, room, sessions });
+    // room 為 null 代表「跨房號的最新幾場」,前端據此決定要不要在卡片上標房號
+    return json({ ok: true, room: room || null, sessions });
   } catch (err) {
     return json({ ok: false, error: 'db_error', detail: String(err).slice(0, 200) }, 500);
   }

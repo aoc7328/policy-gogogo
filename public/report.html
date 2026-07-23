@@ -187,32 +187,22 @@
 </head>
 <body>
 
-<!-- ═══ 入口:輸入房號 ═══ -->
-<div id="view-entry">
-  <main>
-    <div class="entry">
-      <div class="logo">保險知識星攻略</div>
-      <h1>賽後報告</h1>
-      <p class="lead">輸入本場房號，看那一場的完整紀錄</p>
-      <form id="room-form" autocomplete="off">
-        <input id="room-input" inputmode="numeric" maxlength="8" placeholder="房號" aria-label="房號">
-        <button class="go" type="submit" id="room-go">查詢</button>
-      </form>
-      <div class="err" id="entry-err"></div>
-      <div class="recent" id="recent-wrap" style="display:none">
-        <h3>最近查過的房號</h3>
-        <div class="slist" id="recent-list"></div>
-      </div>
-    </div>
-  </main>
-</div>
-
-<!-- ═══ 場次清單 ═══ -->
+<!-- ═══ 場次清單(首頁:直接列最新幾場,不必先輸入房號)═══ -->
 <div id="view-list" style="display:none">
   <header class="top"><div class="wrap">
-    <button class="back" onclick="goEntry()">← 換一個房號</button>
-    <h1>場次清單</h1>
+    <div class="hd-row">
+      <button class="back" id="list-back" style="display:none" onclick="lookupLatest()">← 回最新場次</button>
+      <div class="hd-tools">
+        <form id="list-room-form" autocomplete="off">
+          <input id="list-room-input" inputmode="numeric" maxlength="8"
+            placeholder="房號" aria-label="只看某個房號">
+          <button class="go2" type="submit">只看這房</button>
+        </form>
+      </div>
+    </div>
+    <h1 id="list-title">賽後報告</h1>
     <div class="sub" id="list-sub"></div>
+    <div class="err" id="entry-err"></div>
   </div></header>
   <main>
     <div class="slist" id="session-list"></div>
@@ -260,58 +250,56 @@ function durLabel(a, b) {
   const m = Math.max(0, Math.round((b - a) / 60000));
   return m >= 60 ? `${Math.floor(m/60)} 小時 ${m%60} 分` : `${m} 分`;
 }
-const RECENT_KEY = 'pgg_report_recent_rooms';
-function pushRecent(room) {
-  try {
-    const cur = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]').filter(r => r !== room);
-    cur.unshift(room);
-    localStorage.setItem(RECENT_KEY, JSON.stringify(cur.slice(0, 6)));
-  } catch (e) {}
-}
-function renderRecent() {
-  let list = [];
-  try { list = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); } catch (e) {}
-  if (!list.length) return;
-  $('recent-wrap').style.display = '';
-  $('recent-list').innerHTML = list.map(r =>
-    `<button class="scard" onclick="lookup('${esc(r)}')">
-       <span class="seq mono">${esc(r)}</span>
-       <span class="info"><span class="t1">房號 ${esc(r)}</span></span>
-       <span class="arrow">›</span>
-     </button>`).join('');
-}
-
 /* ── 檢視切換 ───────────────────────────────────────────── */
 function show(which) {
-  ['entry','list','report'].forEach(v => { $('view-' + v).style.display = (v === which) ? '' : 'none'; });
+  ['list','report'].forEach(v => { $('view-' + v).style.display = (v === which) ? '' : 'none'; });
   window.scrollTo(0, 0);
 }
-function goEntry() {
-  show('entry');
-  history.replaceState(null, '', location.pathname);
-  $('entry-err').textContent = '';
-  renderRecent();
-}
-window.goEntry = goEntry;
 
-/* ── 查房號 → 場次清單 ─────────────────────────────────── */
+/* ── 場次清單 ───────────────────────────────────────────────
+   首頁不再要求先輸入房號 —— 直接列出跨房號的最新 10 場(只有 Vincent
+   自己會看這頁)。想聚焦某一場活動時,才用右上角的房號欄位篩。 ── */
 let _sessions = [], _room = '';
+async function lookupLatest() {
+  $('entry-err').textContent = '';
+  try {
+    const r = await fetch('/api/report/sessions?limit=10', { cache: 'no-store' });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'failed');
+    _sessions = j.sessions || [];
+    _room = '';
+    history.replaceState(null, '', location.pathname);
+    if (!_sessions.length) {
+      $('list-title').textContent = '賽後報告';
+      $('list-sub').textContent = '';
+      $('entry-err').textContent = '還沒有任何場次紀錄';
+      $('session-list').innerHTML = '';
+      $('list-back').style.display = 'none';
+      show('list');
+      return;
+    }
+    renderList();
+  } catch (e) {
+    $('entry-err').textContent = '讀取失敗，請稍後再試';
+    show('list');
+  }
+}
+window.lookupLatest = lookupLatest;
+
 async function lookup(room, opts) {
   room = String(room || '').trim();
   if (!room) return;
   $('entry-err').textContent = '';
-  $('room-go').disabled = true;
   try {
     const r = await fetch(`/api/report/sessions?room=${encodeURIComponent(room)}`, { cache: 'no-store' });
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || 'failed');
     if (!j.sessions.length) {
       $('entry-err').textContent = `房號 ${room} 沒有任何場次紀錄`;
-      show('entry');
+      show('list');
       return;
     }
     _sessions = j.sessions; _room = room;
-    pushRecent(room);
     history.replaceState(null, '', `?room=${encodeURIComponent(room)}`);
     // 只有一場 → 直接進報告,不用多點一次
     if (_sessions.length === 1 && !(opts && opts.forceList)) {
@@ -321,17 +309,23 @@ async function lookup(room, opts) {
     renderList();
   } catch (e) {
     $('entry-err').textContent = '查詢失敗，請稍後再試';
-    show('entry');
-  } finally {
-    $('room-go').disabled = false;
+    show('list');
   }
 }
 window.lookup = lookup;
 
 function renderList() {
-  $('list-sub').textContent = `房號 ${_room} · 共 ${_sessions.length} 場`;
+  const filtered = !!_room;          // 有 _room = 只看某一房;否則是跨房號的最新場次
+  $('list-title').textContent = filtered ? `房號 ${_room}` : '賽後報告';
+  $('list-sub').textContent = filtered
+    ? `共 ${_sessions.length} 場`
+    : `最新 ${_sessions.length} 場（所有房號）`;
+  $('list-back').style.display = filtered ? '' : 'none';
+  $('list-room-input').value = filtered ? _room : '';
   $('session-list').innerHTML = _sessions.map(s => {
     const bits = [
+      // 跨房號檢視時要標出是哪一房,不然分不出來
+      filtered ? null : `房號 ${s.room}`,
       s.mode_label ? s.mode_label + '模式' : null,
       s.total_q ? `${s.total_q} 題` : null,
       s.players ? `${s.players} 人` : null,
@@ -401,8 +395,10 @@ function renderReport(j) {
     dur ? `<span class="chip">歷時 ${esc(dur)}</span>` : '',
     m.finished ? '' : `<span class="chip">未完成</span>`,
   ].join('');
-  $('rep-back').style.display = _sessions.length > 1 ? '' : 'none';
-  $('rep-back').onclick = () => { if (_sessions.length > 1) renderList(); else goEntry(); };
+  // 返回鍵一律顯示:清單就是首頁,任何時候都回得去
+  $('rep-back').style.display = '';
+  $('rep-back').textContent = _room ? '← 回場次清單' : '← 回最新場次';
+  $('rep-back').onclick = () => { if (_sessions.length) renderList(); else lookupLatest(); };
 
   const out = [];
 
@@ -554,9 +550,12 @@ function foot() {
 }
 
 /* ── 啟動 ───────────────────────────────────────────────── */
-$('room-form').addEventListener('submit', e => {
+/* 清單頁的「只看這房」:把跨房號的最新清單收斂到單一房號 */
+$('list-room-form').addEventListener('submit', e => {
   e.preventDefault();
-  lookup($('room-input').value);
+  const v = String($('list-room-input').value || '').trim();
+  if (!v) { lookupLatest(); return; }
+  lookup(v);
 });
 /* 報告頁上的「換場次」下拉 */
 $('rep-session').addEventListener('change', e => {
@@ -570,14 +569,13 @@ $('rep-room-form').addEventListener('submit', e => {
   const v = String($('rep-room-input').value || '').trim();
   if (!v) return;
   if (v === _room) { renderList(); return; }   // 同房號 → 回到它的場次清單
-  $('room-input').value = v;
   lookup(v);
 });
 (function boot() {
   const qs = new URLSearchParams(location.search);
   const room = qs.get('room'), g = qs.get('g');
+  // 帶 ?room / ?g 的舊連結照樣能開(分享出去的網址不能斷)
   if (room) {
-    $('room-input').value = room;
     _room = room;
     if (g) {
       fetch(`/api/report/sessions?room=${encodeURIComponent(room)}`, { cache: 'no-store' })
@@ -589,9 +587,8 @@ $('rep-room-form').addEventListener('submit', e => {
     }
     return;
   }
-  renderRecent();
-  show('entry');
-  setTimeout(() => { try { $('room-input').focus(); } catch (e) {} }, 120);
+  // 沒帶參數(直接開 /report)→ 直接列最新 10 場,不用先打房號
+  lookupLatest();
 })();
 </script>
 </body>
