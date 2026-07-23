@@ -455,12 +455,19 @@ input{-webkit-appearance:none;border-radius:0}
 .leader-toast .lt-star{font-size:38px;color:var(--accent);line-height:1}
 .leader-toast .lt-main{margin-top:8px;font-family:'Noto Serif TC',serif;font-size:26px;font-weight:900;color:var(--accent-b)}
 .leader-toast .lt-sub{margin-top:6px;font-size:13px;color:var(--ink-2)}
+/* 皇冠圖示:內嵌 SVG,不是 emoji。
+   👑 emoji 是彩色字型,CSS 的 color 動不了它 —— 在金色底的「你是這組的組長」
+   膠囊上會糊成一團,深色底上也只是一坨暗棕色(實戰回報「很不明顯」)。
+   改成 fill:currentColor 的向量圖:放到哪裡就跟著那裡的文字顏色走,金底變深色、
+   深底變金色,對比永遠是對的,也不受各家 OS 的 emoji 字型影響。 */
+.crown-ico{width:1em;height:1em;fill:currentColor;vertical-align:-.14em;flex-shrink:0}
+
 /* 組長徽章:只留皇冠,不放「組長」兩個字。
    原本是「★ 組長」文字徽章,在 390px 寬的 iPhone 上會把 .gs-left 撐到換行,
    整條頂部列多長一行(≈24px),下面的題目區就被擠扁。改成單一皇冠後
    寬度從 ~60px 降到 ~22px,一行放得下 —— 順便也就是想要的皇冠。
    語意不靠這顆撐:成為組長時會跳一次浮動提示,集合頁也有整行大字。 */
-.gs-leader-badge{display:inline-flex;align-items:center;justify-content:center;font-size:13px;line-height:1;padding:2px 4px;border-radius:3px;background:var(--accent-s);border:1px solid var(--accent-l)}
+.gs-leader-badge{display:inline-flex;align-items:center;justify-content:center;font-size:15px;line-height:1;padding:3px 6px;border-radius:3px;color:var(--bg);background:var(--accent);box-shadow:0 0 10px var(--accent-s)}
 /* 答題倒數(參賽端,題目上方置中) */
 .p-timer{margin:0 auto 10px;width:fit-content;font-family:"JetBrains Mono",monospace;font-weight:700;font-size:22px;letter-spacing:.06em;color:var(--accent);padding:4px 16px;border:1px solid var(--accent-l);border-radius:6px;background:var(--accent-s)}
 .p-timer.urgent{color:#EC5068;border-color:#D8344A;background:rgba(216,52,74,.1);animation:pTimerPulse 1s ease-in-out infinite}
@@ -1262,7 +1269,7 @@ body.tm-paradise .opt{border-radius:0 12px 12px 0;border-left:3px solid var(--se
     <div class="lb-me">
       <div class="lb-me-hello">你好,<span class="nm" id="lb-my-name">—</span>!你在</div>
       <div class="lb-me-team" id="lb-my-team">分組中…</div>
-      <div class="lb-me-leader" id="lb-me-leader" style="display:none">👑 你是這組的組長</div>
+      <div class="lb-me-leader" id="lb-me-leader" style="display:none"><svg class="crown-ico" viewBox="0 0 24 20" aria-hidden="true"><path d="M2 16V5l5 4.5L12 3l5 6.5L22 5v11z"/><rect x="2" y="17.2" width="20" height="2.4" rx=".5"/></svg> 你是這組的組長</div>
       <div class="lb-me-sub">開賽前可以幫你的組取個響亮的名字</div>
       <button class="lb-rename-btn" id="lb-rename-btn" onclick="lobbyStartRename()">✎ 修改組名</button>
       <input type="text" class="lb-rename-input" id="lb-rename-input" maxlength="8" style="display:none" placeholder="輸入新組名">
@@ -1296,7 +1303,7 @@ body.tm-paradise .opt{border-radius:0 12px 12px 0;border-left:3px solid var(--se
       <div class="conn-dot"></div>
       <span class="gs-name"><span class="nm" id="gs-name">—</span></span>
       <span class="gs-team" id="gs-team" onclick="openTeamModal()" role="button" tabindex="0">—</span>
-      <span class="gs-leader-badge" id="gs-leader-badge" style="display:none" title="你是這組的組長">👑</span>
+      <span class="gs-leader-badge" id="gs-leader-badge" style="display:none" title="你是這組的組長"><svg class="crown-ico" viewBox="0 0 24 20" aria-hidden="true"><path d="M2 16V5l5 4.5L12 3l5 6.5L22 5v11z"/><rect x="2" y="17.2" width="20" height="2.4" rx=".5"/></svg></span>
       <button class="gs-mini-btn" id="gs-rename-btn" onclick="startEditTeamNameInBar()" title="改組名">✎</button>
       <input type="text" class="gs-rename-input" id="gs-rename-input" maxlength="8" style="display:none" />
       <span class="gs-rename-err" id="gs-rename-err"></span>
@@ -1893,7 +1900,7 @@ function showLeaderToast() {
     el.className = 'leader-toast';
     document.body.appendChild(el);
   }
-  el.innerHTML = '<div class="lt-star">👑</div><div class="lt-main">你是組長!</div>'
+  el.innerHTML = '<div class="lt-star"><svg class="crown-ico" viewBox="0 0 24 20" aria-hidden="true"><path d="M2 16V5l5 4.5L12 3l5 6.5L22 5v11z"/><rect x="2" y="17.2" width="20" height="2.4" rx=".5"/></svg></div><div class="lt-main">你是組長!</div>'
     + '<div class="lt-sub">代表 ' + lbEsc(G.team || '你的組') + ' 上台領獎</div>';
   el.classList.add('show');
   clearTimeout(showLeaderToast._t);
@@ -2080,10 +2087,10 @@ function renderLobby() {
       const chips = members.length
         ? members.map(m => {
             const cls = [m === G.name ? 'me' : '', m === lead ? 'leader' : ''].filter(Boolean).join(' ');
-            return `<span class="lb-chip${cls ? ' ' + cls : ''}">${m === lead ? '👑 ' : ''}${lbEsc(m)}</span>`;
+            return `<span class="lb-chip${cls ? ' ' + cls : ''}">${m === lead ? '<svg class="crown-ico" viewBox="0 0 24 20" aria-hidden="true"><path d="M2 16V5l5 4.5L12 3l5 6.5L22 5v11z"/><rect x="2" y="17.2" width="20" height="2.4" rx=".5"/></svg> ' : ''}${lbEsc(m)}</span>`;
           }).join('')
         : '<span class="lb-g-empty">等夥伴加入</span>';
-      const leadTag = lead ? `<span class="lb-g-lead">👑 組長 ${lbEsc(lead)}</span>` : '';
+      const leadTag = lead ? `<span class="lb-g-lead"><svg class="crown-ico" viewBox="0 0 24 20" aria-hidden="true"><path d="M2 16V5l5 4.5L12 3l5 6.5L22 5v11z"/><rect x="2" y="17.2" width="20" height="2.4" rx=".5"/></svg> 組長 ${lbEsc(lead)}</span>` : '';
       return `<div class="lb-group${mine ? ' mine' : ''}">
         <div class="lb-g-head"><span class="lb-g-name">${lbEsc(team)}</span>
           <span class="lb-g-count">${members.length} 人</span>
@@ -2535,7 +2542,7 @@ function renderTeamList() {
     const isLead = (p.name === leader);
     const offline = p.online === false;
     const cls = [isMe ? 'me' : '', offline ? 'offline' : '', isLead ? 'leader' : ''].filter(Boolean).join(' ');
-    const crown = isLead ? `<span class="tm-crown">👑 組長</span>` : '';
+    const crown = isLead ? `<span class="tm-crown"><svg class="crown-ico" viewBox="0 0 24 20" aria-hidden="true"><path d="M2 16V5l5 4.5L12 3l5 6.5L22 5v11z"/><rect x="2" y="17.2" width="20" height="2.4" rx=".5"/></svg> 組長</span>` : '';
     return `<div class="tm-row ${cls}">
       <span class="num">${String(i+1).padStart(2,'0')}</span>
       <span class="nm">${p.name}</span>

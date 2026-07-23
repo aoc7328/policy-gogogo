@@ -45,6 +45,27 @@
   header.top h1 { margin:0; font-size:21px; font-weight:700; letter-spacing:.5px; }
   header.top .sub { margin-top:6px; color:#aeb6c8; font-size:13px; }
   header.top .meta { margin-top:12px; display:flex; flex-wrap:wrap; gap:8px; }
+  /* 報告頁頂列右側工具:直接換場次 / 換房號,不必退回入口頁再重進 */
+  header.top .hd-row { display:flex; justify-content:space-between; align-items:center;
+    gap:12px; flex-wrap:wrap; }
+  header.top .hd-tools { display:flex; align-items:center; gap:8px; margin-left:auto; }
+  header.top .hd-tools select,
+  header.top .hd-tools input {
+    background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.18);
+    color:#f4f6fb; border-radius:6px; padding:6px 9px; font-size:13px;
+    font-family:inherit; outline:none;
+  }
+  header.top .hd-tools select:focus,
+  header.top .hd-tools input:focus { border-color:#e9c46a; }
+  header.top .hd-tools select option { background:#20263a; color:#f4f6fb; }
+  header.top .hd-tools input { width:88px; }
+  header.top .hd-tools input::placeholder { color:#8891a6; }
+  header.top .hd-tools form { display:flex; gap:6px; }
+  header.top .hd-tools .go2 {
+    background:#e9c46a; border:1px solid #e9c46a; color:#20263a; border-radius:6px;
+    padding:6px 11px; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit;
+  }
+  header.top .hd-tools .go2:hover { background:#f0d68f; }
   header.top .chip { background:rgba(255,255,255,.09); border:1px solid rgba(255,255,255,.14);
     padding:4px 11px; border-radius:999px; font-size:12px; color:#dfe4ef; }
   header.top .chip.hi { background:rgba(184,134,11,.22); border-color:rgba(233,196,106,.4); color:#f0dca8; }
@@ -202,7 +223,18 @@
 <!-- ═══ 單場報告 ═══ -->
 <div id="view-report" style="display:none">
   <header class="top"><div class="wrap">
-    <button class="back" id="rep-back">← 回場次清單</button>
+    <div class="hd-row">
+      <button class="back" id="rep-back">← 回場次清單</button>
+      <div class="hd-tools">
+        <!-- 同房號有兩場以上才出現;選了直接換場,不用退回清單 -->
+        <select id="rep-session" style="display:none" aria-label="切換場次"></select>
+        <form id="rep-room-form" autocomplete="off">
+          <input id="rep-room-input" inputmode="numeric" maxlength="8"
+            placeholder="房號" aria-label="改查其他房號">
+          <button class="go2" type="submit">查詢</button>
+        </form>
+      </div>
+    </div>
     <h1 id="rep-title">賽後報告</h1>
     <div class="sub" id="rep-sub"></div>
     <div class="meta" id="rep-meta"></div>
@@ -333,8 +365,32 @@ async function openGame(key) {
 }
 window.openGame = openGame;
 
+/* 報告頁頂列的兩顆工具:場次下拉 + 換房號。
+   目的是「一天看好幾場時不用一直退回入口頁再重打房號」。
+   下拉只有在同房號兩場以上才出現(只有一場時它沒有意義,只是佔位)。 */
+function renderRepTools(currentKey) {
+  const sel = $('rep-session');
+  const inp = $('rep-room-input');
+  if (inp && _room) inp.value = _room;
+  if (!sel) return;
+  if (!Array.isArray(_sessions) || _sessions.length < 2) {
+    sel.style.display = 'none';
+    sel.innerHTML = '';
+    return;
+  }
+  sel.innerHTML = _sessions.map(s => {
+    const bits = [fmtHM(s.started_at), s.mode_label ? s.mode_label + '模式' : null,
+                  s.finished ? null : '未完成'].filter(Boolean);
+    return `<option value="${esc(s.game_key)}"${s.game_key === currentKey ? ' selected' : ''}>`
+      + `第${s.seq}場 · ${esc(bits.join(' · '))}</option>`;
+  }).join('');
+  sel.style.display = '';
+}
+
 function renderReport(j) {
   const m = j.meta, rep = j.report, sum = j.summary;
+  _room = m.room;                 // 從網址直接進來時 _room 可能還是空的
+  renderRepTools(m.game_key);
   $('rep-title').textContent = `賽後報告 · 第 ${m.seq} 場`;
   const dur = durLabel(m.started_at, m.ended_at);
   $('rep-sub').textContent = `${fmtTime(m.started_at)}${m.ended_at ? ' – ' + fmtHM(m.ended_at) : ''} · 房號 ${m.room}`;
@@ -501,6 +557,21 @@ function foot() {
 $('room-form').addEventListener('submit', e => {
   e.preventDefault();
   lookup($('room-input').value);
+});
+/* 報告頁上的「換場次」下拉 */
+$('rep-session').addEventListener('change', e => {
+  const key = e.target.value;
+  if (key) openGame(key);
+});
+/* 報告頁上的「改查其他房號」。走跟入口頁同一條 lookup:
+   那個房號只有一場就直接開報告,有多場就列清單讓人挑。 */
+$('rep-room-form').addEventListener('submit', e => {
+  e.preventDefault();
+  const v = String($('rep-room-input').value || '').trim();
+  if (!v) return;
+  if (v === _room) { renderList(); return; }   // 同房號 → 回到它的場次清單
+  $('room-input').value = v;
+  lookup(v);
 });
 (function boot() {
   const qs = new URLSearchParams(location.search);

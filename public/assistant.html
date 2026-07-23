@@ -254,6 +254,8 @@ input::placeholder{color:var(--ink-3)}
 .gc-nbtn:hover:not(:disabled){border-color:var(--accent);color:var(--accent);background:var(--accent-s)}
 .gc-nbtn:disabled{opacity:.35;cursor:not-allowed}
 .gc-nbtn.warn:hover{border-color:#D8344A;color:#EC5068;background:rgba(216,52,74,.1)}
+/* 皇冠圖示:內嵌 SVG(不是 emoji),fill 跟著 currentColor 走 —— 與參賽者端同一份 */
+.crown-ico{width:1em;height:1em;fill:currentColor;vertical-align:-.14em;flex-shrink:0}
 
 /* ===== SCORES ===== */
 .score-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px}
@@ -3519,7 +3521,7 @@ function renderGroups(){
         <div style="display:flex;flex-wrap:wrap;gap:6px">
           ${members.map(m => {
             const isLead = m === leader;
-            const star = isLead ? `<span style="margin-right:3px">👑</span>` : '';
+            const star = isLead ? `<span style="margin-right:3px;color:var(--accent)"><svg class="crown-ico" viewBox="0 0 24 20" aria-hidden="true"><path d="M2 16V5l5 4.5L12 3l5 6.5L22 5v11z"/><rect x="2" y="17.2" width="20" height="2.4" rx=".5"/></svg></span>` : '';
             const bd = isLead ? 'var(--accent)' : 'var(--line)';
             return `<span style="font-size:13px;color:var(--ink-1);background:var(--bg-deep);border:1px solid ${bd};padding:4px 10px">${star}${m}${isLead?'<span style="font-size:10px;color:var(--accent);margin-left:4px">組長</span>':''}</span>`;
           }).join('')}
