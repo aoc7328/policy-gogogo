@@ -209,6 +209,13 @@ input::placeholder{color:var(--ink-3)}
   color:#1A1410;background:#C49A5A;border-color:#C49A5A;
   font-weight:700;
 }
+/* 破壞性 chip(目前只有「重新分組」)。用紅框而不是金框,讓它一眼就跟
+   旁邊的一般設定 chip 區隔開,按之前會多想一秒。 */
+.cust-chip.danger{border-color:rgba(216,52,74,.4);color:#C97A85}
+.cust-chip.danger:hover:not(:disabled){border-color:#D8344A;color:#EC5068;background:rgba(216,52,74,.1)}
+.cust-chip.danger:disabled{opacity:.35;border-color:var(--line-s);color:var(--ink-3)}
+/* 靠右擺,跟上面的組名輸入欄拉開距離 —— 誤觸多半是手指順著欄位往下滑 */
+.regroup-row{margin-top:12px;display:flex;justify-content:flex-end}
 .cust-chip.purg{
   border-color:rgba(255,107,26,.45);color:#FF8A3D;
 }
@@ -984,7 +991,11 @@ input::placeholder{color:var(--ink-3)}
           </div>
         </div>
         <div class="group-names" id="group-names"></div>
-        <button class="cust-chip" id="regroup-btn" style="margin-top:10px;width:100%" onclick="doManualRegroup()">🔀 重新分組(全員隨機重洗)</button>
+        <!-- 破壞性操作(全員重洗),刻意不做成滿版大鈕:靠右、自然寬度,
+             離上面的組名欄位遠一點,降低誤觸。按下去仍有確認 modal 擋一層。 -->
+        <div class="regroup-row">
+          <button class="cust-chip danger" id="regroup-btn" onclick="doManualRegroup()">重新分組（全員隨機重洗）</button>
+        </div>
         <div class="fld" style="margin-top:14px">
           <span class="flbl">參賽者新手導覽</span>
           <div class="cust-chips" id="onboard-chips" style="margin-top:4px">
