@@ -1752,6 +1752,9 @@ PartyBus.on('__room_state__', (snap) => {
     });
     rebuildMyRoster();
   }
+  // 分組方式:被請出房間後的「改名並重新加入」要據此檢查名字格式
+  // (prefix 模式沒帶「-」就會再被歸到「其他」組、再被請出去一次)
+  if (snap?.groupingMode) G._groupingMode = snap.groupingMode;
   // 組長(reconnect 還原):snapshot 的 groups 帶 leader
   if (Array.isArray(snap?.groups)) {
     _leadersMap = {};
@@ -4399,8 +4402,11 @@ window.shareGameReport = shareGameReport;
    server 偵測到同 deviceId 新分頁進來,本連線會被 close,partybus.js 內部
    會收到 __kicked__ 並停止重連。這裡負責 UI 提示 — 蓋一張全螢幕半透明
    遮罩,告訴使用者「請改用新分頁」。 */
-/* 全螢幕停用遮罩(被踢/被移出用)。多次呼叫只蓋一張。 */
-function showKickedVeil(title, msgHtml) {
+/* 全螢幕停用遮罩(被踢/被移出用)。多次呼叫只蓋一張。
+   opts.rejoin = { oldName } → 多顯示一個姓名欄與「改名並重新加入」按鈕
+   (只給「改名逾時被請出房間」用;多分頁被踢那條不給 —— 那種情況正確做法
+   是切回新分頁,不是再開一個)。 */
+function showKickedVeil(title, msgHtml, opts) {
   if (document.getElementById('pgg-kicked-veil')) return;
   const veil = document.createElement('div');
   veil.id = 'pgg-kicked-veil';
@@ -4414,8 +4420,74 @@ function showKickedVeil(title, msgHtml) {
     <div style="font-size:48px">⚠</div>
     <div style="font-size:20px;font-weight:700">${title}</div>
     <div style="font-size:14px;opacity:.85;line-height:1.8;max-width:340px">${msgHtml}</div>`;
+  if (opts && opts.rejoin) {
+    const box = document.createElement('div');
+    box.style.cssText = 'display:flex;flex-direction:column;gap:10px;width:100%;max-width:300px';
+    box.innerHTML = `
+      <input type="text" id="pgg-rejoin-input" maxlength="20"
+        placeholder="例:中信1-小明"
+        style="width:100%;padding:13px 14px;font-size:16px;text-align:center;color:#fff;
+               background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.35);
+               border-radius:8px;outline:none;font-family:inherit">
+      <div id="pgg-rejoin-err" style="font-size:12px;color:#FF8A8A;min-height:16px"></div>
+      <button id="pgg-rejoin-btn"
+        style="width:100%;padding:14px;font-size:15px;font-weight:700;cursor:pointer;
+               color:#0A0E1A;background:#D4A34B;border:none;border-radius:8px;
+               font-family:inherit;letter-spacing:.05em">改名並重新加入</button>`;
+    veil.appendChild(box);
+    document.body.appendChild(veil);
+    const inp = document.getElementById('pgg-rejoin-input');
+    const btn = document.getElementById('pgg-rejoin-btn');
+    if (inp) {
+      inp.value = opts.rejoin.oldName || '';
+      setTimeout(() => { try { inp.focus(); inp.select(); } catch (e) {} }, 100);
+      inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); submitRejoin(); } };
+    }
+    if (btn) btn.onclick = submitRejoin;
+    return;
+  }
   document.body.appendChild(veil);
 }
+
+/* 全形 → 半形(與 server extractPrefixKey 同一套正規化),讓「中信１-王」
+   也算合格。 */
+function pggToHalfWidth(s) {
+  return String(s || '')
+    .replace(/[！-～]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xfee0))
+    .replace(/　/g, ' ');
+}
+/* prefix 模式的合格名字:「-」之前要有東西(中信1-小明 ✓;小明 ✗) */
+function pggHasPrefix(name) {
+  const m = pggToHalfWidth(name).match(/^([^\-–—]+)[-–—]/);
+  return !!(m && m[1].trim().length > 0);
+}
+
+const PGG_REJOIN_KEY = 'pgg_rejoin_name_v1';
+
+/* 「改名並重新加入」:存下新名字 → 重載頁面 → 自動用新名字登入。
+   為什麼要重載而不是原地重連:被請出房間時本頁的連線已被永久關閉
+   (刻意的,否則踢不掉)。重載能保證拿到乾淨狀態,現場最不容易出錯。 */
+function submitRejoin() {
+  const inp = document.getElementById('pgg-rejoin-input');
+  const err = document.getElementById('pgg-rejoin-err');
+  const btn = document.getElementById('pgg-rejoin-btn');
+  const v = (inp?.value || '').trim();
+  const setErr = m => { if (err) err.textContent = m; };
+  if (!v) { setErr('請先輸入名字'); inp?.focus(); return; }
+  if (v.length > 20) { setErr('名字太長(上限 20 字)'); return; }
+  // prefix 模式沒帶「-」→ 進去也是再被歸到「其他」組、再被請出來一次,
+  // 這裡先擋下來,直接告訴他正確格式。
+  if (G._groupingMode === 'prefix' && !pggHasPrefix(v)) {
+    setErr('要用「隊伍-姓名」的格式,例如:中信1-小明');
+    inp?.focus();
+    return;
+  }
+  setErr('');
+  if (btn) { btn.disabled = true; btn.textContent = '重新加入中…'; }
+  try { sessionStorage.setItem(PGG_REJOIN_KEY, v); } catch (e) { /* 隱私模式 */ }
+  location.reload();
+}
+window.submitRejoin = submitRejoin;
 
 PartyBus.on('__kicked__', () => {
   showKickedVeil('本分頁已停用',
@@ -4495,7 +4567,8 @@ function noticeTimeoutKick() {
   // 延遲一拍讓 leave_room 送得出去。
   setTimeout(() => { try { PartyBus.disconnect(); } catch (e) {} }, 300);
   showKickedVeil('你已被請出房間',
-    '因為未在時間內更正名稱。<br>請用正確的隊伍名稱(例:中信1-小明)重新掃碼加入。');
+    '因為未在時間內更正名稱。<br>請在下面改成正確的名字,再重新加入。',
+    { rejoin: { oldName: G.name || '' } });
 }
 
 /* 某參賽者改名(可能換組)→ 更新名單;若是我自己,更新 G.name/G.team */
@@ -4577,6 +4650,21 @@ PartyBus.on('resume_question', () => {
    注意:這要等 PartyBus 已存在 + DOM ready 才能跑。inline script 在
    body 內、ready 沒問題;PartyBus 由前面 partybus.js 載入時掛上 window。 */
 (function tryAutoRejoin() {
+  // (a) 剛按過「改名並重新加入」→ 用新名字直接登入(只用一次,馬上清掉,
+  //     否則之後每次重整都會硬套這個名字)
+  let rejoinName = null;
+  try {
+    rejoinName = sessionStorage.getItem(PGG_REJOIN_KEY);
+    if (rejoinName) sessionStorage.removeItem(PGG_REJOIN_KEY);
+  } catch (e) { /* 隱私模式 */ }
+  if (rejoinName && rejoinName.trim()) {
+    const inp0 = document.getElementById('inp-name');
+    if (inp0) inp0.value = rejoinName.trim();
+    G._autoRejoined = true;   // 不再重看一次操作說明
+    setTimeout(() => doLogin(), 0);
+    return;
+  }
+  // (b) 一般情況:同裝置重整 / 開新分頁 → 用記住的名字自動回房
   const stored = loadStoredParticipant();
   if (!stored) return;
   // team 由 server 重新分配 — 不從 localStorage 復原(server 在 player_join
