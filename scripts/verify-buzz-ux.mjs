@@ -196,18 +196,29 @@ check('5a. 重連後顯示的是當前搶答模式(狂點奪魁),不是開場時
   `G.rushMode = ${win.eval('G.rushMode')}`);
 
 // ── 6. onlineMembers:名單只算真的連著的人 ────────────────────────
-check('6a. 組員名單用 onlineMembers,不含已離開的人',
-  !/阿明/.test(stageText()),
-  stageText().slice(0, 200));
+// ⚠ 這一項一定要在「集合頁」上驗:組員 chips 與「X 位夥伴已就位」都畫在
+//   stage-lobby。之前在 stage-game 上檢查,舊版新版都綠 —— 那是假測試。
+win.eval(`goStage('lobby'); renderLobby();`);
+const lobbyText = () => (doc.getElementById('stage-lobby')?.textContent || '').replace(/\s+/g, ' ');
+check('6a. 集合頁組員名單不含已離開的人(用 onlineMembers)',
+  /王秀琴/.test(lobbyText()) && !/阿明/.test(lobbyText()),
+  lobbyText().slice(0, 200));
+check('6b. 集合頁人數只算在線的(1 人,不是 2 人)',
+  /1 ?人/.test(lobbyText()) && !/2 ?人/.test(lobbyText()),
+  lobbyText().slice(0, 200));
+win.eval(`goStage('game');`);
 
 // ── 7. 公佈答案後狀態文字不可以還寫「答題中」 ─────────────────────
+// ⚠ 先把 btn-status 真的設成「答題中」(出題時的實際狀態),否則舊版也會
+//   通過 —— 因為那個字根本沒被寫上去。
 win.eval(`
   G.currentQ = { id: 'X', type: 'multiple_choice' };
+  document.getElementById('btn-status').textContent = '答題中';
   PartyBus.__fire('reveal_answer', { id: 'X' });
 `);
-check('7a. 公佈答案後不再顯示「答題中」',
-  !/答題中/.test(stageText()),
-  stageText().slice(0, 200));
+check('7a. 公佈答案後狀態列不再寫「答題中」',
+  !/答題中/.test(statusText()),
+  `btn-status = "${statusText()}"`);
 
 // ── 結果 ──────────────────────────────────────────────────────────
 for (const p of passes) console.log(`  ✓ ${p}`);
