@@ -3371,12 +3371,29 @@ function renderGroups(){
         <span class="gc-notify">
           <button class="gc-nbtn warn" title="通知這組改名(會跳改名鈕、30 秒倒數、逾時踢出)" onclick="notifyGroup('${safe}','rename')">⚠ 通知改名</button>
           <button class="gc-nbtn" title="軟性提醒這組確認名稱(有改名鈕、不踢人)" onclick="notifyGroup('${safe}','confirm')">？確認分組</button>
+          <button class="gc-nbtn" title="重抽這組組長(組長中離不回來、或要換人領獎時用)" onclick="redrawLeader('${safe}')">★ 重抽組長</button>
         </span>
       </div>
       ${body}
     </div>`;
   }).join('');
 }
+
+/* 重抽某組組長:組長中離不回來、或現場臨時要換人代表領獎時用。
+   server 會避開現任組長(除非該組只剩一個人)並廣播 group_leaders。 */
+function redrawLeader(team) {
+  const current = S.leaders?.[team] || null;
+  cfOpen({
+    eyebrow: 'Leader · 重抽組長',
+    title: `重抽「${team}」的組長?`,
+    sub: current
+      ? `目前組長是 ${current}。重抽會換成同組的其他人(只剩一人時維持原樣)。`
+      : '這組目前沒有組長,將隨機抽一位。',
+    okText: '重抽',
+    onOk: () => PartyBus.emit('reassign_leader', { team }),
+  });
+}
+window.redrawLeader = redrawLeader;
 
 /* 對某一整組發通知。rename 種類會踢人,先跳確認;confirm 直接送。 */
 function notifyGroup(team, kind) {
@@ -3638,7 +3655,8 @@ function _doRestartImpl(emit){
   S.catPreview = null;
   S.catLocked = false;
   S.purgArmed = false;
-  S.leaders = {};   // 組長是每場重抽,重新開始先清掉舊的
+  // 組長不清:24 小時內固定同一人(server 端也不再每場重抽)。
+  // 要換人 → 分組頁的「★ 重抽組長」;組長離開 → server 自動接任。
   // 若當前在煉獄題畫面,清掉本機煉獄樣式(server 也會 broadcast purgatory_end
   // 給其他端,但本機不等 echo,直接同步清掉)
   if (typeof endPurgatory === 'function') endPurgatory();

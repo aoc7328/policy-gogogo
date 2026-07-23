@@ -53,7 +53,8 @@ import {
   pickTeamByPrefix,
   lockedTeamForDevice,
   regroupByPrefix,
-  assignLeaders,
+  ensureLeaders,
+  redrawLeader,
   tallyMvpWin,
   computeMvp,
   reshuffleParticipants,
@@ -346,6 +347,8 @@ export class PolicyGogogoServer extends Server {
         return this.onRebuzzSame(sender);
       case 'resume_question':
         return this.onResumeQuestion(sender);
+      case 'reassign_leader':
+        return this.onReassignLeader(cmd.payload, sender);
       default: {
         const _exhaustive: never = cmd;
         void _exhaustive;
@@ -360,8 +363,8 @@ export class PolicyGogogoServer extends Server {
 
   private onGameStart(config: GameConfig): void {
     stateStartGame(this.state, config);
-    // 名單已凍結 → 每組隨機抽組長
-    assignLeaders(this.state);
+    // 補齊組長(不重抽既有的 —— 玩家池顯示的人選必須延續到開賽後)
+    ensureLeaders(this.state);
     this.broadcastEvent({ type: 'game_start', payload: config });
     // Push fresh score baseline (all zeros) so clients render bars.
     this.broadcastEvent({
@@ -373,12 +376,7 @@ export class PolicyGogogoServer extends Server {
       },
     });
     // 廣播組長:參賽者標記名單 + 告知本人;投影結算頁領獎用
-    this.broadcastEvent({
-      type: 'group_leaders',
-      payload: {
-        leaders: this.state.groups.map((g) => ({ name: g.name, leader: g.leader })),
-      },
-    });
+    this.broadcastLeaders();
   }
 
   private onScoreAdjust(payload: { teamIdx: number; delta: number }): void {
@@ -903,6 +901,28 @@ export class PolicyGogogoServer extends Server {
     if (this.state.groupingMode === 'prefix') {
       this.broadcastRoster();
     }
+    // 一有組員就抽組長 → 玩家池(lobby)當下就看得到,不必等開賽
+    this.syncLeaders();
+  }
+
+  /**
+   * 補齊組長,若有變動就廣播 group_leaders。
+   * 任何會動到組員名單的地方(入房、離開、改名、重新分組、開賽)都該呼叫,
+   * 這樣「一有組員就有組長」且組長離開時立刻有人接任。
+   */
+  private syncLeaders(force = false): void {
+    const changed = ensureLeaders(this.state);
+    if (changed.length === 0 && !force) return;
+    this.broadcastLeaders();
+  }
+
+  private broadcastLeaders(): void {
+    this.broadcastEvent({
+      type: 'group_leaders',
+      payload: {
+        leaders: this.state.groups.map((g) => ({ name: g.name, leader: g.leader })),
+      },
+    });
   }
 
   /** 廣播當前完整分組(roster_reshuffled);多處共用。 */
@@ -937,6 +957,7 @@ export class PolicyGogogoServer extends Server {
       reshuffleParticipants(this.state);
     }
     this.broadcastRoster();
+    this.syncLeaders(true);
   }
 
   /** 助理對整組發通知 → 廣播 group_notice(該組參賽者畫面跳提示)。 */
@@ -971,6 +992,14 @@ export class PolicyGogogoServer extends Server {
     });
     // 換組/清空組可能改變分組結構 → 全量 roster + 分數基準重發
     this.broadcastRoster();
+    // 改名的人若是組長,名字變了要跟著更新(ensureLeaders 會發現舊名不在
+    // 名單裡而改抽);同組其他人也可能因此接任。
+    if (r.oldName && this.state.groups.some((g) => g.leader === r.oldName)) {
+      for (const g of this.state.groups) {
+        if (g.leader === r.oldName) g.leader = r.newTeam === g.name ? r.newName! : null;
+      }
+    }
+    this.syncLeaders(true);
     this.broadcastEvent({
       type: 'score_update',
       payload: {
@@ -1025,6 +1054,20 @@ export class PolicyGogogoServer extends Server {
     this.broadcastEvent({ type: 'resume_question', payload: {} });
   }
 
+  /** 助理重抽某組組長(組長中離不回來、或現場要換人代表領獎)。 */
+  private onReassignLeader(
+    payload: { team: string },
+    sender: Connection<ConnState>
+  ): void {
+    const team = (payload?.team || '').trim();
+    const next = redrawLeader(this.state, team);
+    if (!next) {
+      this.sendError(sender, 'no_members', `「${team}」找不到或組內沒有人,無法抽組長`);
+      return;
+    }
+    this.broadcastLeaders();
+  }
+
   /** 助理設定答題倒數。durationSec>0 開始/重啟;0 停止。 */
   private onSetTimer(payload: { durationSec: number }): void {
     const dur = Math.max(0, Math.min(600, Math.floor(payload?.durationSec ?? 0)));
@@ -1038,6 +1081,8 @@ export class PolicyGogogoServer extends Server {
     if (r.ok) {
       this.broadcastEvent({ type: 'player_leave', payload: { name: r.name!, team: r.team! } });
       this.broadcastRoster();
+      // 走的人若是組長 → 同組立刻有人接任(不留幽靈組長)
+      this.syncLeaders();
     }
     try { sender.close(); } catch { /* already closing */ }
   }
@@ -1072,6 +1117,8 @@ export class PolicyGogogoServer extends Server {
     setupTeams(this.state, n);
     reshuffleParticipants(this.state);
     this.broadcastRoster();
+    // 重洗後組長多半已不在原組 → 重抽並廣播
+    this.syncLeaders(true);
   }
 
   private onBuzzPress(

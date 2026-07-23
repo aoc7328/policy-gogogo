@@ -38,6 +38,7 @@ const RUNTIME_CREATED_ALLOWLIST = new Set([
   'pgg-kicked-veil',     // participant.html __kicked__ listener createElement
   'pgg-notice-veil',     // participant.html group_notice veil — createElement at runtime
   'pgg-room-in',         // participant.html 無房號 fallback 的房號輸入框 — body.innerHTML 建立
+  'leader-toast',        // participant.html showLeaderToast() createElement(「你是組長」提示)
   // (b) optional / demo leftover (callers null-guard)
   'btn-enter',           // presenter.html — defensive guards everywhere now
   'host-status',         // presenter.html — defensive guards everywhere now

@@ -256,12 +256,17 @@ export function startGame(state: RoomState, config: GameConfig): void {
   const prevMembers = new Map<string, string[]>(
     state.groups.map((g) => [g.name, [...g.members]])
   );
+  // 組長沿用同名組的既有人選(開賽不重抽 —— 玩家池上看到的組長,
+  // 按下開始遊戲後必須還是同一個人)。
+  const prevLeaders = new Map<string, string | null>(
+    state.groups.map((g) => [g.name, g.leader])
+  );
   state.groups = config.groups.map((g, i) => ({
     idx: i,
     name: g.name,
     score: 0,
     members: prevMembers.get(g.name) ?? [],
-    leader: null,
+    leader: prevLeaders.get(g.name) ?? null,
   }));
   // Re-attach existing participants to their teams (preserve roster across
   // game_start so participants who joined before pressing start aren't lost).
@@ -292,7 +297,8 @@ export function restartGame(state: RoomState): void {
     groups: state.groups.map((g) => ({
       ...g,
       score: 0,
-      leader: null,
+      // leader 保留 —— 組長 24 小時內固定(Vincent 規格),不因換一場而重抽。
+      // 要換人 → 助理端「重抽組長」;組長離開名單 → ensureLeaders 自動接任。
       members: [...g.members],
     })),
     // 裝置鎖組表同樣跨場保留(24h 內同裝置固定同組)。
@@ -500,17 +506,50 @@ export function regroupByPrefix(state: RoomState): void {
 }
 
 /**
- * 開賽凍結名單時,為每組隨機抽一位成員當組長。
- * 空組 → leader = null。已抽過(重新呼叫)會重抽。
+ * 補齊各組組長。**只填缺的,不動既有的** —— 這是 30 人實戰後的關鍵改版:
+ * 舊版 assignLeaders 每次 game_start 都重抽,導致
+ *   (a) 第一場開賽前的玩家池根本沒有組長可顯示(要按下開始才抽);
+ *   (b) 第二場玩家池顯示的是第一場的組長,一按開始又被重抽成別人,
+ *       台上台下對不起來。
+ * 現在改成:一有組員就抽、抽定就固定,只有「組長不在名單裡了」
+ * (離開/換組/被重新分組)才換人。24 小時穩定性由 server 存檔的
+ * 保存期(STATE_MAX_AGE_MS)自然涵蓋。
+ *
+ * 挑人優先序:目前在線的組員 > 任何組員(暫時斷線的人仍可續任,
+ * 他多半只是手機鎖屏)。回傳有變動的組名,呼叫端據此決定要不要廣播。
  */
-export function assignLeaders(state: RoomState): void {
+export function ensureLeaders(state: RoomState): string[] {
+  const online = new Set([...state.participants.values()].map((p) => p.name));
+  const changed: string[] = [];
   for (const g of state.groups) {
     if (g.members.length === 0) {
-      g.leader = null;
+      if (g.leader !== null) { g.leader = null; changed.push(g.name); }
       continue;
     }
-    g.leader = g.members[Math.floor(Math.random() * g.members.length)];
+    // 現任組長還在名單裡 → 留任(穩定優先)
+    if (g.leader && g.members.includes(g.leader)) continue;
+    const pool = g.members.filter((m) => online.has(m));
+    const from = pool.length > 0 ? pool : g.members;
+    g.leader = from[Math.floor(Math.random() * from.length)]!;
+    changed.push(g.name);
   }
+  return changed;
+}
+
+/**
+ * 指定某一組強制重抽組長(助理端「重抽組長」按鈕)。會避開現任組長,
+ * 除非該組只剩一個人。回傳新組長名;找不到組或空組回 null。
+ */
+export function redrawLeader(state: RoomState, teamName: string): string | null {
+  const g = state.groups.find((x) => x.name === teamName);
+  if (!g || g.members.length === 0) return null;
+  const online = new Set([...state.participants.values()].map((p) => p.name));
+  const others = g.members.filter((m) => m !== g.leader);
+  const base = others.length > 0 ? others : g.members;
+  const pool = base.filter((m) => online.has(m));
+  const from = pool.length > 0 ? pool : base;
+  g.leader = from[Math.floor(Math.random() * from.length)]!;
+  return g.leader;
 }
 
 // ──────────────────────────────────────────────────────────────────────

@@ -155,6 +155,7 @@ input{-webkit-appearance:none;border-radius:0}
 .lb-me-hello .nm{color:var(--ink-1);font-weight:700}
 .lb-me-team{font-family:'Noto Serif TC',serif;font-size:34px;font-weight:900;color:var(--accent-b);line-height:1.3;margin-top:4px}
 .lb-me-sub{font-size:12px;color:var(--ink-3);margin-top:8px}
+.lb-me-leader{margin-top:10px;display:inline-block;font-size:13px;font-weight:700;letter-spacing:.06em;color:var(--bg);background:var(--accent);padding:5px 14px;border-radius:999px;box-shadow:0 0 14px var(--accent-s)}
 .lb-rename-btn{margin-top:10px;font-size:12px;color:var(--ink-2);background:none;border:1px solid var(--line-s);border-radius:999px;padding:6px 16px;cursor:pointer}
 .lb-rename-input{margin-top:10px;font-size:16px;text-align:center;background:var(--bg-r);border:1px solid var(--accent-l);border-radius:8px;color:var(--ink-1);padding:9px 10px;width:75%;outline:none}
 .lb-rename-err{font-size:11px;color:#E06868;min-height:14px;margin-top:4px}
@@ -169,6 +170,9 @@ input{-webkit-appearance:none;border-radius:0}
 .lb-g-members{display:flex;flex-wrap:wrap;gap:6px}
 .lb-chip{font-size:12px;color:var(--ink-2);background:var(--bg-r);border:1px solid var(--line);border-radius:999px;padding:4px 11px}
 .lb-chip.me{color:var(--bg);background:var(--accent);border-color:var(--accent);font-weight:700}
+.lb-chip.leader{border-color:var(--accent);color:var(--accent-b);font-weight:700}
+.lb-chip.me.leader{color:var(--bg);background:var(--accent)}
+.lb-g-lead{display:block;margin:2px 0 6px;font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--accent-b)}
 .lb-g-empty{font-size:12px;color:var(--ink-4)}
 .lb-feed-block{background:var(--bg-s);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
 .lb-feed-title{font-size:11px;letter-spacing:.18em;color:var(--ink-3);margin-bottom:8px}
@@ -440,6 +444,15 @@ input{-webkit-appearance:none;border-radius:0}
 .tm-crown{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.1em;color:var(--accent);background:rgba(212,163,75,.12);border:1px solid var(--accent-l);padding:2px 7px;border-radius:2px;flex-shrink:0}
 .tm-empty{font-family:var(--font-serif);font-style:italic;font-size:13px;color:var(--ink-3);text-align:center;padding:32px 0}
 /* 「你是組長」頭部徽章 */
+/* 「你是組長」一次性浮動提示(updateLeaderBadge 觸發) */
+.leader-toast{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%) scale(.9);z-index:3000;
+  text-align:center;padding:24px 34px;border-radius:18px;pointer-events:none;
+  background:rgba(5,9,18,.95);border:1px solid var(--accent);box-shadow:0 0 40px var(--accent-s);
+  opacity:0;transition:opacity 260ms ease,transform 260ms cubic-bezier(.2,1.2,.3,1)}
+.leader-toast.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.leader-toast .lt-star{font-size:38px;color:var(--accent);line-height:1}
+.leader-toast .lt-main{margin-top:8px;font-family:'Noto Serif TC',serif;font-size:26px;font-weight:900;color:var(--accent-b)}
+.leader-toast .lt-sub{margin-top:6px;font-size:13px;color:var(--ink-2)}
 .gs-leader-badge{display:inline-flex;align-items:center;gap:4px;font-family:"Noto Sans TC",sans-serif;font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--bg);background:var(--accent);padding:3px 10px;border-radius:3px;margin-left:8px;box-shadow:0 0 12px var(--accent-s)}
 /* 答題倒數(參賽端,題目上方置中) */
 .p-timer{margin:0 auto 10px;width:fit-content;font-family:"JetBrains Mono",monospace;font-weight:700;font-size:22px;letter-spacing:.06em;color:var(--accent);padding:4px 16px;border:1px solid var(--accent-l);border-radius:6px;background:var(--accent-s)}
@@ -1224,6 +1237,7 @@ body.tm-paradise .opt{border-radius:0 12px 12px 0;border-left:3px solid var(--se
     <div class="lb-me">
       <div class="lb-me-hello">你好,<span class="nm" id="lb-my-name">—</span>!你在</div>
       <div class="lb-me-team" id="lb-my-team">分組中…</div>
+      <div class="lb-me-leader" id="lb-me-leader" style="display:none">★ 你是這組的組長</div>
       <div class="lb-me-sub">開賽前可以幫你的組取個響亮的名字</div>
       <button class="lb-rename-btn" id="lb-rename-btn" onclick="lobbyStartRename()">✎ 修改組名</button>
       <input type="text" class="lb-rename-input" id="lb-rename-input" maxlength="8" style="display:none" placeholder="輸入新組名">
@@ -1806,12 +1820,34 @@ function rebuildMyRoster() {
   updateTeamRoster(list);
 }
 
-/* 更新「我是組長」標示:遊戲頭部顯示徽章,讓本人知道自己是組長。 */
+/* 更新「我是組長」標示:遊戲頭部徽章 + 集合頁大字提示。
+   30 人實戰回饋:只有頂部一顆小徽章,組長本人根本沒發現自己是組長。 */
+let _wasLeader = false;
 function updateLeaderBadge() {
-  const badge = document.getElementById('gs-leader-badge');
-  if (!badge) return;
   const iAmLeader = !!(G.name && myLeader() === G.name);
-  badge.style.display = iAmLeader ? '' : 'none';
+  const badge = document.getElementById('gs-leader-badge');
+  if (badge) badge.style.display = iAmLeader ? '' : 'none';
+  const lobbyTag = document.getElementById('lb-me-leader');
+  if (lobbyTag) lobbyTag.style.display = iAmLeader ? '' : 'none';
+  // 第一次成為組長 → 跳一次明顯提示(接任的人也會看到,不會不知情)
+  if (iAmLeader && !_wasLeader) showLeaderToast();
+  _wasLeader = iAmLeader;
+}
+
+/* 「你被抽到當組長」一次性浮動提示(3.5 秒自動消失) */
+function showLeaderToast() {
+  let el = document.getElementById('leader-toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'leader-toast';
+    el.className = 'leader-toast';
+    document.body.appendChild(el);
+  }
+  el.innerHTML = '<div class="lt-star">★</div><div class="lt-main">你是組長!</div>'
+    + '<div class="lt-sub">代表 ' + lbEsc(G.team || '你的組') + ' 上台領獎</div>';
+  el.classList.add('show');
+  clearTimeout(showLeaderToast._t);
+  showLeaderToast._t = setTimeout(() => el.classList.remove('show'), 3500);
 }
 
 /* server 開賽後廣播各組組長 */
@@ -1820,6 +1856,8 @@ PartyBus.on('group_leaders', payload => {
   _leadersMap = {};
   payload.leaders.forEach(l => { if (l?.name) _leadersMap[l.name] = l.leader || null; });
   updateLeaderBadge();
+  // 集合頁的組卡要重畫才看得到 ★(server 現在一有組員就抽,會在 lobby 就送來)
+  if (typeof renderLobby === 'function') renderLobby();
   const modal = document.getElementById('team-modal');
   if (modal?.classList.contains('show')) renderTeamList();
 });
@@ -1979,13 +2017,21 @@ function renderLobby() {
   if (gEl) {
     gEl.innerHTML = [...byTeam.entries()].map(([team, members]) => {
       const mine = team === G.team;
+      // 組長在集合頁就標出來(★)。server 現在一有組員就抽組長,
+      // 不必等開賽 —— 30 人實戰時第一場整場沒人知道組長是誰。
+      const lead = _leadersMap[team] || null;
       const chips = members.length
-        ? members.map(m => `<span class="lb-chip${m === G.name ? ' me' : ''}">${lbEsc(m)}</span>`).join('')
+        ? members.map(m => {
+            const cls = [m === G.name ? 'me' : '', m === lead ? 'leader' : ''].filter(Boolean).join(' ');
+            return `<span class="lb-chip${cls ? ' ' + cls : ''}">${m === lead ? '★ ' : ''}${lbEsc(m)}</span>`;
+          }).join('')
         : '<span class="lb-g-empty">等夥伴加入</span>';
+      const leadTag = lead ? `<span class="lb-g-lead">★ 組長 ${lbEsc(lead)}</span>` : '';
       return `<div class="lb-group${mine ? ' mine' : ''}">
         <div class="lb-g-head"><span class="lb-g-name">${lbEsc(team)}</span>
           <span class="lb-g-count">${members.length} 人</span>
           ${mine ? '<span class="lb-g-tag">你在這組</span>' : ''}</div>
+        ${leadTag}
         <div class="lb-g-members">${chips}</div></div>`;
     }).join('');
   }

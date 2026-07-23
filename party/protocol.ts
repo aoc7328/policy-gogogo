@@ -309,6 +309,15 @@ export type ClaimPresenterCommand = {
 };
 
 /**
+ * 助理端「重抽組長」:指定某一組重新隨機抽組長(會避開現任,除非只剩一人)。
+ * 用於組長中離不回來、或現場臨時要換人代表領獎。server 回廣播 group_leaders。
+ */
+export type ReassignLeaderCommand = {
+  type: 'reassign_leader';
+  payload: { team: string };
+} & PrivilegedHeader;
+
+/**
  * 統一的工作人員登入(參賽者端「投影或助理登入」)。輸入的 code 決定路由:
  *   code === controlCode   → 投影端(presenter.html)
  *   code === assistantCode → 助理端(assistant.html)
@@ -351,6 +360,7 @@ export type ClientCommand =
   | SetTimerCommand
   | RebuzzSameCommand
   | ResumeQuestionCommand
+  | ReassignLeaderCommand
   | ClaimPresenterCommand
   | StaffLoginCommand;
 
@@ -810,6 +820,7 @@ export const PRIVILEGED_COMMAND_TYPES = new Set<string>([
   'set_timer',
   'rebuzz_same',
   'resume_question',
+  'reassign_leader',
 ]);
 
 export function isPrivilegedCommand(
