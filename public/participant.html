@@ -1807,6 +1807,10 @@ PartyBus.on('__room_state__', (snap) => {
     // 助理已按「重新開始」而本機漏接廣播 → 補做同一套重置(回集合頁)
     if (typeof resetToPreGame === 'function') resetToPreGame();
   }
+  // 階段對好之後,再把當前題目 / 題號 / 倒數 / 分數接回來(重載後跟上進度)。
+  // 一定要放在上面 enterGameStage() 之後 —— 那支函式會把畫面清成等待態。
+  G._lastSnap = snap;
+  if (typeof restoreProgressFromSnapshot === 'function') restoreProgressFromSnapshot(snap);
 });
 
 /* ══ 組員名單(真實資料,來源:server __room_state__ / player_join /
@@ -1934,6 +1938,11 @@ PartyBus.on('player_join', payload => {
     if (tEl) tEl.textContent = G.team;
     // 補存正確的 team 給下次 reload(同名重連時 server 會找回原組)
     if (G.name) saveStoredParticipant(G.name, G.team);
+    // 重載時 __room_state__ 常比 player_join 早到,那時 G.team 還是空的,
+    // 戰況長條會標錯自己那組。組別到手後用暫存的快照再還原一次。
+    if (G._lastSnap && typeof restoreProgressFromSnapshot === 'function') {
+      restoreProgressFromSnapshot(G._lastSnap);
+    }
   }
   rebuildMyRoster();
   // 集合頁:動態 + 重畫(遊戲中此頁隱藏,白畫無妨)
@@ -3101,6 +3110,7 @@ PartyBus.on('ping', p => console.log(`[PGG] PING from ${p.from} @ ${p.t}: ${p.ms
 function renderQuestionFromBank(q, difficulty, framework) {
   G.currentQ = q;
   G.currentBankQ = { q, difficulty, framework };
+  G._shownQId = q.id;      // 快照還原用:已經在畫這題就不要重畫(見 restoreProgressFromSnapshot)
   G.revealed = false;
   G.round++;
   document.getElementById('gs-round').textContent = G.totalQ > 0
@@ -3228,12 +3238,73 @@ function revealCurrentAnswer() {
 function resetForNextQuestion() {
   G.revealed = false;
   G.currentQ = null;
+  G._shownQId = null;    // 題目已收掉 → 快照可以重新畫
   G._buzzLockout = [];   // 換新題 → 失格名單歸零(失格是「本題」的,不跨題)
   document.getElementById('q-body').style.display = 'none';
   document.getElementById('q-body').innerHTML = '';
   document.getElementById('q-wait').style.display = 'flex';
   if (typeof resetWaitToIdle === 'function') resetWaitToIdle();
   lockBuzz();
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   重載 / 重連後接回當前進度(server 快照為權威)
+   ────────────────────────────────────────────────────────────────────
+   實戰問題:接完電話回來、或 iOS Safari 把背景分頁回收掉之後重整,過去
+   只會落在「等待下一題」的空白畫面 —— 題目看不到、題號歸 0、倒數消失、
+   分數是空的,要一路等到助理推下一題才跟得上。server 其實每次連線都推
+   了完整快照(__room_state__),只是本端從來沒讀 currentQuestion / currQ /
+   timerRemainingSec 這三個欄位。這裡把它們接起來。
+
+   刻意不還原「搶答」:重載回來的人本輪不參與,搶答鈕維持鎖定。理由是
+   還原搶答狀態需要 server 額外帶「我這輪搶過沒」,而且中途回來的人拿到
+   的反應時間跟全程在場的人不對等 —— 這是講好的取捨。
+   ════════════════════════════════════════════════════════════════════ */
+function restoreProgressFromSnapshot(snap) {
+  if (!snap || !G.name) return;
+  // 只在遊戲頁還原;集合頁 / 結算頁不適用
+  if (!document.getElementById('stage-game')?.classList.contains('active')) return;
+
+  // 1) 各組分數(戰況長條)。G.team 可能還沒到(player_join 廣播比快照晚),
+  //    此時 myIdx 退回 0;等 player_join 填好 G.team 會再呼叫本函式一次。
+  if (Array.isArray(snap.groups) && snap.groups.length > 0) {
+    const scores = snap.groups.map(g => ({ name: g.name, score: g.score || 0 }));
+    let myIdx = scores.findIndex(s => s.name === G.team);
+    if (myIdx < 0) myIdx = 0;
+    if (typeof updateScoreBar === 'function') updateScoreBar(scores, myIdx);
+  }
+
+  // 2) 當前題目。快照只帶 { id, difficulty, framework },題目本文從本機
+  //    題庫查(跟 question_pick 走同一條路徑)。已經在畫同一題就不重畫 ——
+  //    否則每次短暫斷線重連都會把已公布的答案洗掉。
+  const cq = snap.currentQuestion;
+  if (cq && cq.id && G._shownQId !== cq.id) {
+    const q = getQuestionByIdP(cq.id);
+    if (q) {
+      renderQuestionFromBank(q, cq.difficulty, cq.framework);
+    } else {
+      console.warn('快照題目不在本機題庫:', cq.id);
+    }
+  }
+
+  // 3) 題號以 server 為權威。renderQuestionFromBank 是 G.round++ 累加,
+  //    重載後本機從 0 起算會對不上,直接用快照的絕對值蓋掉。
+  if (snap.totalQ) G.totalQ = snap.totalQ;
+  if (typeof snap.currQ === 'number' && snap.currQ > 0) {
+    G.round = snap.currQ;
+    const el = document.getElementById('gs-round');
+    if (el) {
+      el.textContent = G.totalQ > 0
+        ? `${String(G.round).padStart(2,'0')} / ${String(G.totalQ).padStart(2,'0')}`
+        : String(G.round).padStart(2,'0');
+    }
+  }
+
+  // 4) 答題倒數續跑(server 已經扣掉經過的秒數才送出)。
+  //    0 表示現在沒有倒數 → 不動,免得把正在跑的計時器誤清掉。
+  if (typeof snap.timerRemainingSec === 'number' && snap.timerRemainingSec > 0) {
+    if (typeof applyTimerRemaining === 'function') applyTimerRemaining(snap.timerRemainingSec);
+  }
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -3284,6 +3355,7 @@ function enterGameStage() {
   goStage('game');
   document.getElementById('gs-round').textContent = G.totalQ > 0
     ? `00 / ${String(G.totalQ).padStart(2,'0')}` : '00';
+  G._shownQId = null;    // 進來時是空的等待畫面 → 快照要能把當前題目補上
   document.getElementById('q-wait').style.display = 'flex';
   document.getElementById('q-body').style.display = 'none';
   resetWaitToIdle();
@@ -3854,6 +3926,18 @@ PartyBus.on('question_pick', payload => {
     return;
   }
   renderQuestionFromBank(q, payload.difficulty, payload.framework);
+  // 題號以 server 的 roundQ 為準(protocol 本來就有帶,本端過去只靠 G.round++
+  // 累加)。重載回來的人本機從 0 起算,純累加會一路對不上;redraw(同一輪
+  // 換題)也不該把題號往前推。
+  if (typeof payload.roundQ === 'number' && payload.roundQ > 0) {
+    G.round = payload.roundQ;
+    const el = document.getElementById('gs-round');
+    if (el) {
+      el.textContent = G.totalQ > 0
+        ? `${String(G.round).padStart(2,'0')} / ${String(G.totalQ).padStart(2,'0')}`
+        : String(G.round).padStart(2,'0');
+    }
+  }
 });
 
 PartyBus.on('reveal_answer', () => {
@@ -4604,13 +4688,15 @@ PartyBus.on('total_q_changed', payload => {
   }
 });
 
-/* 答題倒數計時(參賽端,題目上方;歸零震動。聲音由投影端負責) */
+/* 答題倒數計時(參賽端,題目上方;歸零震動。聲音由投影端負責)。
+   抽成具名函式:除了 timer_update 廣播,「重載後由 __room_state__ 快照
+   還原倒數」也要走同一段邏輯 —— 共用才不會兩邊行為分歧。 */
 let _pTimerInt = null;
-PartyBus.on('timer_update', payload => {
+function applyTimerRemaining(remainingSec) {
   const box = document.getElementById('p-timer');
   const val = document.getElementById('p-timer-val');
   if (_pTimerInt) { clearInterval(_pTimerInt); _pTimerInt = null; }
-  let remain = Math.max(0, Math.round(payload?.remainingSec || 0));
+  let remain = Math.max(0, Math.round(remainingSec || 0));
   if (remain <= 0) { if (box) { box.style.display = 'none'; box.classList.remove('urgent','critical','done'); } return; }
   if (box) { box.style.display = ''; box.classList.remove('done'); }
   const fmt = s => s >= 60 ? `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}` : `${s}`;
@@ -4635,6 +4721,9 @@ PartyBus.on('timer_update', payload => {
     if (remain <= 5 && navigator.vibrate) navigator.vibrate(60);   // 5,4,3,2,1:短震警示
     render();
   }, 1000);
+}
+PartyBus.on('timer_update', payload => {
+  applyTimerRemaining(payload?.remainingSec);
 });
 
 /* 本輪搶答失格組名單(重新搶答時,答不出來的組不能再搶)。每次 rush 開始
