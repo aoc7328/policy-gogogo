@@ -295,9 +295,11 @@ input{-webkit-appearance:none;border-radius:0}
 /* 頂部狀態列 */
 .gs-bar{
   flex-shrink:0;display:flex;justify-content:space-between;align-items:center;
-  padding:10px 18px 8px;border-bottom:1px solid var(--line);background:var(--bg);
+  padding:7px 14px 6px;border-bottom:1px solid var(--line);background:var(--bg);
 }
-.gs-left{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0}
+/* gap 從 10 收到 7:小螢幕上這條列有 6~7 個元素,光 gap 就吃掉 60px,
+   是換行的主因之一(換行 = 整條列多一行 ≈ 24px)。 */
+.gs-left{display:flex;align-items:center;gap:7px;flex-wrap:wrap;min-width:0}
 .conn-dot{
   width:7px;height:7px;border-radius:50%;background:#3DAA5C;
   box-shadow:0 0 6px #3DAA5C;flex-shrink:0;
@@ -453,7 +455,12 @@ input{-webkit-appearance:none;border-radius:0}
 .leader-toast .lt-star{font-size:38px;color:var(--accent);line-height:1}
 .leader-toast .lt-main{margin-top:8px;font-family:'Noto Serif TC',serif;font-size:26px;font-weight:900;color:var(--accent-b)}
 .leader-toast .lt-sub{margin-top:6px;font-size:13px;color:var(--ink-2)}
-.gs-leader-badge{display:inline-flex;align-items:center;gap:4px;font-family:"Noto Sans TC",sans-serif;font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--bg);background:var(--accent);padding:3px 10px;border-radius:3px;margin-left:8px;box-shadow:0 0 12px var(--accent-s)}
+/* 組長徽章:只留皇冠,不放「組長」兩個字。
+   原本是「★ 組長」文字徽章,在 390px 寬的 iPhone 上會把 .gs-left 撐到換行,
+   整條頂部列多長一行(≈24px),下面的題目區就被擠扁。改成單一皇冠後
+   寬度從 ~60px 降到 ~22px,一行放得下 —— 順便也就是想要的皇冠。
+   語意不靠這顆撐:成為組長時會跳一次浮動提示,集合頁也有整行大字。 */
+.gs-leader-badge{display:inline-flex;align-items:center;justify-content:center;font-size:13px;line-height:1;padding:2px 4px;border-radius:3px;background:var(--accent-s);border:1px solid var(--accent-l)}
 /* 答題倒數(參賽端,題目上方置中) */
 .p-timer{margin:0 auto 10px;width:fit-content;font-family:"JetBrains Mono",monospace;font-weight:700;font-size:22px;letter-spacing:.06em;color:var(--accent);padding:4px 16px;border:1px solid var(--accent-l);border-radius:6px;background:var(--accent-s)}
 .p-timer.urgent{color:#EC5068;border-color:#D8344A;background:rgba(216,52,74,.1);animation:pTimerPulse 1s ease-in-out infinite}
@@ -487,7 +494,7 @@ input{-webkit-appearance:none;border-radius:0}
 }
 .score-bar .sb-toggle{
   width:100%;background:transparent;border:none;
-  padding:8px 18px;cursor:pointer;
+  padding:6px 14px;cursor:pointer;
   display:flex;align-items:center;justify-content:space-between;gap:12px;
   font-family:"JetBrains Mono",monospace;font-size:9px;
   letter-spacing:.22em;color:var(--ink-3);text-transform:uppercase;
@@ -689,6 +696,14 @@ input{-webkit-appearance:none;border-radius:0}
 .qwr-runnerup .qwru-line{font-family:"Noto Serif TC",serif;font-size:13px;color:var(--ink-2)}
 .qwr-runnerup .qwru-name{color:var(--ink-1);font-weight:700}
 .qwr-runnerup .qwru-count{font-family:var(--font-mono);color:var(--accent);font-weight:700}
+/* 閃電一按的淘汰名單。人數可能很多(實戰一輪十幾個),所以做成可捲的
+   晶片牆並限高,不讓它把得主卡推出畫面。 */
+.qwr-dq{margin-top:8px;padding:8px 12px;border:1px solid rgba(229,83,83,.35);background:rgba(229,83,83,.06);width:100%;max-width:320px;animation:qwrIn 600ms cubic-bezier(.2,.7,.2,1) 320ms backwards}
+.qwr-dq-eyebrow{font-family:var(--font-mono);font-size:9px;letter-spacing:.2em;color:#E55353;text-transform:uppercase;text-align:center;margin-bottom:6px}
+.qwr-dq-list{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;max-height:96px;overflow-y:auto}
+.qwr-dq-chip{font-family:"Noto Sans TC",sans-serif;font-size:11px;color:var(--ink-2);background:var(--bg-s);border:1px solid var(--line-s);padding:2px 7px;border-radius:2px;white-space:nowrap}
+.qwr-dq-chip.me{color:#E55353;border-color:rgba(229,83,83,.5);font-weight:700}
+.qwr-dq-chip .dqt{font-family:var(--font-mono);color:var(--ink-3);font-size:10px;margin-left:3px}
 
 /* 題目內容 */
 .q-body{padding-bottom:20px}
@@ -1247,7 +1262,7 @@ body.tm-paradise .opt{border-radius:0 12px 12px 0;border-left:3px solid var(--se
     <div class="lb-me">
       <div class="lb-me-hello">你好,<span class="nm" id="lb-my-name">—</span>!你在</div>
       <div class="lb-me-team" id="lb-my-team">分組中…</div>
-      <div class="lb-me-leader" id="lb-me-leader" style="display:none">★ 你是這組的組長</div>
+      <div class="lb-me-leader" id="lb-me-leader" style="display:none">👑 你是這組的組長</div>
       <div class="lb-me-sub">開賽前可以幫你的組取個響亮的名字</div>
       <button class="lb-rename-btn" id="lb-rename-btn" onclick="lobbyStartRename()">✎ 修改組名</button>
       <input type="text" class="lb-rename-input" id="lb-rename-input" maxlength="8" style="display:none" placeholder="輸入新組名">
@@ -1281,7 +1296,7 @@ body.tm-paradise .opt{border-radius:0 12px 12px 0;border-left:3px solid var(--se
       <div class="conn-dot"></div>
       <span class="gs-name"><span class="nm" id="gs-name">—</span></span>
       <span class="gs-team" id="gs-team" onclick="openTeamModal()" role="button" tabindex="0">—</span>
-      <span class="gs-leader-badge" id="gs-leader-badge" style="display:none">★ 組長</span>
+      <span class="gs-leader-badge" id="gs-leader-badge" style="display:none" title="你是這組的組長">👑</span>
       <button class="gs-mini-btn" id="gs-rename-btn" onclick="startEditTeamNameInBar()" title="改組名">✎</button>
       <input type="text" class="gs-rename-input" id="gs-rename-input" maxlength="8" style="display:none" />
       <span class="gs-rename-err" id="gs-rename-err"></span>
@@ -1332,6 +1347,11 @@ body.tm-paradise .opt{border-radius:0 12px 12px 0;border-left:3px solid var(--se
         <div class="qwr-runnerup" id="qwr-runnerup" style="display:none">
           <div class="qwru-eyebrow">本輪第二名</div>
           <div class="qwru-line"><span class="qwru-name" id="qwru-name"></span> · <span class="qwru-count" id="qwru-count"></span> 次</div>
+        </div>
+        <!-- 閃電一按:3 秒內按下而被淘汰的人。名單可能很長,這一區自己可捲。 -->
+        <div class="qwr-dq" id="qwr-dq" style="display:none">
+          <div class="qwr-dq-eyebrow">太快了 · 本輪淘汰 <span id="qwr-dq-count">0</span> 人</div>
+          <div class="qwr-dq-list" id="qwr-dq-list"></div>
         </div>
       </div>
       <!-- 狂點奪魁:即時計數面板(顯示各組點擊數 + 剩餘秒數) -->
@@ -1873,7 +1893,7 @@ function showLeaderToast() {
     el.className = 'leader-toast';
     document.body.appendChild(el);
   }
-  el.innerHTML = '<div class="lt-star">★</div><div class="lt-main">你是組長!</div>'
+  el.innerHTML = '<div class="lt-star">👑</div><div class="lt-main">你是組長!</div>'
     + '<div class="lt-sub">代表 ' + lbEsc(G.team || '你的組') + ' 上台領獎</div>';
   el.classList.add('show');
   clearTimeout(showLeaderToast._t);
@@ -1886,7 +1906,7 @@ PartyBus.on('group_leaders', payload => {
   _leadersMap = {};
   payload.leaders.forEach(l => { if (l?.name) _leadersMap[l.name] = l.leader || null; });
   updateLeaderBadge();
-  // 集合頁的組卡要重畫才看得到 ★(server 現在一有組員就抽,會在 lobby 就送來)
+  // 集合頁的組卡要重畫才看得到 👑(server 現在一有組員就抽,會在 lobby 就送來)
   if (typeof renderLobby === 'function') renderLobby();
   const modal = document.getElementById('team-modal');
   if (modal?.classList.contains('show')) renderTeamList();
@@ -2054,16 +2074,16 @@ function renderLobby() {
   if (gEl) {
     gEl.innerHTML = [...byTeam.entries()].map(([team, members]) => {
       const mine = team === G.team;
-      // 組長在集合頁就標出來(★)。server 現在一有組員就抽組長,
+      // 組長在集合頁就標出來(👑)。server 現在一有組員就抽組長,
       // 不必等開賽 —— 30 人實戰時第一場整場沒人知道組長是誰。
       const lead = _leadersMap[team] || null;
       const chips = members.length
         ? members.map(m => {
             const cls = [m === G.name ? 'me' : '', m === lead ? 'leader' : ''].filter(Boolean).join(' ');
-            return `<span class="lb-chip${cls ? ' ' + cls : ''}">${m === lead ? '★ ' : ''}${lbEsc(m)}</span>`;
+            return `<span class="lb-chip${cls ? ' ' + cls : ''}">${m === lead ? '👑 ' : ''}${lbEsc(m)}</span>`;
           }).join('')
         : '<span class="lb-g-empty">等夥伴加入</span>';
-      const leadTag = lead ? `<span class="lb-g-lead">★ 組長 ${lbEsc(lead)}</span>` : '';
+      const leadTag = lead ? `<span class="lb-g-lead">👑 組長 ${lbEsc(lead)}</span>` : '';
       return `<div class="lb-group${mine ? ' mine' : ''}">
         <div class="lb-g-head"><span class="lb-g-name">${lbEsc(team)}</span>
           <span class="lb-g-count">${members.length} 人</span>
@@ -2515,7 +2535,7 @@ function renderTeamList() {
     const isLead = (p.name === leader);
     const offline = p.online === false;
     const cls = [isMe ? 'me' : '', offline ? 'offline' : '', isLead ? 'leader' : ''].filter(Boolean).join(' ');
-    const crown = isLead ? `<span class="tm-crown">★ 組長</span>` : '';
+    const crown = isLead ? `<span class="tm-crown">👑 組長</span>` : '';
     return `<div class="tm-row ${cls}">
       <span class="num">${String(i+1).padStart(2,'0')}</span>
       <span class="nm">${p.name}</span>
@@ -3692,6 +3712,7 @@ PartyBus.on('start_rush', payload => {
       } else if (G.rushMode === 'lightning') {
         G.lightningArmedAt = Date.now();
         G.lightningEliminated = false;
+        G._lightningDq = [];     // 新一輪 → 淘汰名單歸零
         ruleEl.textContent = '3 秒前不要按!';
         status.textContent = '危險 · 暫勿按下';
         status.className = 'btn-status active-err';
@@ -3738,7 +3759,16 @@ PartyBus.on('rush_tick', payload => {
 /* 閃電一按:有人(可能是自己組或別組)被淘汰 → 簡短狀態列訊息 */
 PartyBus.on('lightning_disqualify', payload => {
   if (!payload?.name) return;
-  // 自己組的人被淘汰才顯示(避免狀態列被別組訊息洗) - 自己被淘汰已在 handleBuzz 設過 status,這裡不覆蓋
+  // 全場的淘汰都收進名單(不分組別)—— 戰報上要列出「這輪誰太快了」。
+  // 狀態列的即時提示仍然只看自己這組,否則會被別組訊息洗掉。
+  if (!Array.isArray(G._lightningDq)) G._lightningDq = [];
+  if (!G._lightningDq.some(d => d.name === payload.name && d.team === payload.team)) {
+    G._lightningDq.push({
+      name: payload.name,
+      team: payload.team || '',
+      elapsedMs: payload.elapsedMs || 0,
+    });
+  }
   if (payload.team !== G.team) return;
   if (payload.name === G.name) return;  // 自己 - 已處理
   const status = document.getElementById('btn-status');
@@ -3806,6 +3836,29 @@ PartyBus.on('rush_mode_changed', payload => {
   }
 });
 
+/* 閃電一按:把本輪 3 秒內按下、被 server 判定淘汰的人全部列在戰報上。
+   實戰回饋:一輪常有十幾個人中招,但過去只有自己(和同組)看得到,其他人
+   完全不知道發生什麼事 —— 列出來大家才有得聊,也才知道自己不孤單。
+   名單來源是 server 的 lightning_disqualify 廣播(權威),不是本機推算。 */
+function renderLightningDq() {
+  const box = document.getElementById('qwr-dq');
+  const list = document.getElementById('qwr-dq-list');
+  const countEl = document.getElementById('qwr-dq-count');
+  if (!box || !list) return;
+  const dq = Array.isArray(G._lightningDq) ? G._lightningDq : [];
+  if (dq.length === 0) { box.style.display = 'none'; return; }
+  // 按「按下的早晚」排,最快的排前面 —— 誰最手滑一目了然
+  const sorted = [...dq].sort((a, b) => (a.elapsedMs || 0) - (b.elapsedMs || 0));
+  list.innerHTML = sorted.map(d => {
+    const mine = d.name === G.name ? ' me' : '';
+    const sec = ((d.elapsedMs || 0) / 1000).toFixed(2);
+    const who = typeof lbEsc === 'function' ? lbEsc(d.name) : d.name;
+    return `<span class="qwr-dq-chip${mine}">${who}<span class="dqt">${sec}s</span></span>`;
+  }).join('');
+  if (countEl) countEl.textContent = String(sorted.length);
+  box.style.display = 'block';
+}
+
 PartyBus.on('rush_winner', payload => {
   if (!payload) return;
   lockBuzz();
@@ -3845,6 +3898,8 @@ PartyBus.on('rush_winner', payload => {
 
   groupEl.textContent = group;
   if (runnerUpEl) runnerUpEl.style.display = 'none';
+  const dqEl = document.getElementById('qwr-dq');
+  if (dqEl) dqEl.style.display = 'none';   // 只有閃電一按會用到,其餘模式一律收起
 
   const mode = payload.rushMode || 'speed';
   const person = payload.personName || '';
@@ -3857,6 +3912,7 @@ PartyBus.on('rush_winner', payload => {
     if (badge) badge.textContent = '閃電一按';
     const sec = (payload.pressedAtSec || 0).toFixed(3);
     subEl.innerHTML = `<span class="person">${person}</span> 在第<br><span class="ms">${sec}</span> 秒搶到`;
+    renderLightningDq();   // 3 秒內按下被淘汰的人,一起列出來
   } else if (mode === 'count') {
     if (badge) badge.textContent = '狂點奪魁';
     const total = payload.teamTotalClicks || 0;

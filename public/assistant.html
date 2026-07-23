@@ -2118,9 +2118,9 @@ PartyBus.on('game_start', cfg => {
   setStatus('遊戲已開始 · 按「開始搶答」進入下一輪');
 });
 
-/* 進入九宮格選分類:第一個廣播回來就把所有助理切到 picking,
-   同時取消各自 onRushWinner 排的 3.5s 自動 enter_category 計時器
-   (該計時器回呼有 `S.phase !== 'won' return` 守衛,phase 一變就早退)。 */
+/* 進入九宮格選分類:第一個廣播回來就把所有助理切到 picking。
+   (多助理場景:另一台助理點了九宮格,這台也要跟著離開 winner 卡片。
+   已無自動 enter_category 計時器 —— 戰報只由人點九宮格才切走。) */
 PartyBus.on('enter_category', () => {
   if (!S.gameStarted || S.phase === 'picking') return;
   if (S.phase === 'won') {
@@ -3274,21 +3274,17 @@ function onRushWinner(idx, _serverPayload) {
   }
   setPhase('won');
   renderScores();
-  setStatus(`${g?.name || ''} 搶答成功 · 點九宮格選分類`);
-  // 給觀眾足夠時間看 winner 頁,然後通知 server 進九宮格階段。
-  // 資訊量大的模式(狂點奪魁/全組到位有次數、第二名等)停久一點;
-  // 助理提早點九宮格可跳過等待(pickCategory 會自己送 enter_category)。
-  // 重要:本機 phase 也要 setPhase('picking'),不然之後 user 第一次點 grid
-  // 時 pickCategory 看 S.phase 還是 'won',會重複 emit 一次 enter_category,
-  // server 已在 picking → 跳 wrong_phase 錯誤。
-  const rushMode = _serverPayload?.rushMode || S.rushMode || 'speed';
-  // 30 人實戰回饋:大家按完抬起頭時畫面已經跳走,來不及看結算細項 → 加倍。
-  const winnerCardMs = (rushMode === 'count' || rushMode === 'allhands') ? 16000 : 10000;
-  S._winnerCardTimer = setTimeout(() => {
-    if (S.phase !== 'won') return;
-    PartyBus.emit('enter_category', {});
-    setPhase('picking');
-  }, winnerCardMs);
+  setStatus(`${g?.name || ''} 搶答成功 · 搶答戰報放送中 · 點九宮格才會切走`);
+  // 搶答戰報「不自動切走」——只有助理點九宮格(pickCategory 會送 enter_category)
+  // 才離開這一頁。
+  //
+  // 舊版在這裡排一個 10 秒(狂點/全組到位 16 秒)的自動 enter_category 計時器,
+  // 時間到就把三端一起推進選題階段。實戰的問題是:大家按完抬起頭、還在對照
+  // 誰搶到、幾秒、幾次的時候,畫面自己跳走了,而且主持人沒有辦法喊停 ——
+  // 節奏被計時器綁架。現在改成主持人說了算,要講評多久就停多久。
+  //
+  // 移除計時器是安全的:手動路徑本來就獨立可用(pickCategory 在 S.phase==='won'
+  // 時會自己 emit enter_category + setPhase('picking')),不依賴這個 timer。
 }
 
 function doReveal(){
@@ -3894,11 +3890,9 @@ function pickCategory(fid) {
   // 廣播給主持人投影同步預覽(無論武裝與否,主持人投影都看到正常預覽)
   PartyBus.emit('category_preview', { fid });
   // 第一次點時(從 won 進 picking),狀態切換 + 通知 server。
-  // 重要:user 若在 onRushWinner 排的 3.5s setTimeout 之前就點 grid,我們得
-  // 自己把 enter_category 命令送出去,不能只改本地 phase 就算。否則 server
-  // 永遠停在 'won' → 後續按確定會撞 wrong_phase 錯誤。
-  // (3.5s timer 還在排,但其 guard `if S.phase !== 'won' return` 會因為這裡
-  // 改成 'picking' 而早退,不會重複 emit。)
+  // 這是「離開搶答戰報」的唯一路徑(自動計時器已移除),所以一定要把
+  // enter_category 命令真的送出去,不能只改本地 phase —— 否則 server 永遠
+  // 停在 'won',後續按確定會撞 wrong_phase 錯誤。
   if (S.phase === 'won') {
     PartyBus.emit('enter_category', {});
     setPhase('picking');

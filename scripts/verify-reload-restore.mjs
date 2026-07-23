@@ -271,6 +271,46 @@ check('17. 離開結算頁 — 且已接上當前題目與題號',
     && doc.getElementById('gs-round')?.textContent.trim() === '03 / 20',
   `q-body=${doc.getElementById('q-body')?.style.display} 題號=「${doc.getElementById('gs-round')?.textContent.trim()}」`);
 
+// ══════════════════════════════════════════════════════════════════════
+// 閃電一按:被淘汰的人要列在搶答戰報上(全場,不只自己那組)
+// ══════════════════════════════════════════════════════════════════════
+win.eval(`
+  G.name = '梓瑜'; G.team = '第三組';
+  G._lightningDq = [];
+  // 三個人被淘汰,其中一個是別組的、一個是自己
+  PartyBus.__fire('lightning_disqualify', { name:'阿明', team:'第一組', elapsedMs: 1800 });
+  PartyBus.__fire('lightning_disqualify', { name:'梓瑜', team:'第三組', elapsedMs: 420  });
+  PartyBus.__fire('lightning_disqualify', { name:'小美', team:'第二組', elapsedMs: 2650 });
+  PartyBus.__fire('lightning_disqualify', { name:'阿明', team:'第一組', elapsedMs: 1800 }); // 重複廣播
+  PartyBus.__fire('rush_winner', { groupIdx:2, groupName:'第三組', rushMode:'lightning', personName:'小靜', pressedAtSec:3.4 });
+`);
+await new Promise((r) => setTimeout(r, 80));
+
+const dqBox = doc.getElementById('qwr-dq');
+const dqChips = [...doc.querySelectorAll('#qwr-dq-list .qwr-dq-chip')];
+check('18. 閃電淘汰名單有顯示出來',
+  dqBox && dqBox.style.display !== 'none',
+  `display=${dqBox?.style.display}`);
+check('19. 收全場的淘汰(不只自己那組),且重複廣播不會列兩次',
+  dqChips.length === 3,
+  `列出 ${dqChips.length} 個,預期 3`);
+check('20. 依按下時間排序,最快的在最前面',
+  (dqChips[0]?.textContent || '').includes('梓瑜'),
+  `第一個是「${dqChips[0]?.textContent}」`);
+check('21. 自己被淘汰會標記出來',
+  dqChips.some(c => c.classList.contains('me') && c.textContent.includes('梓瑜')),
+  '找不到標記為 me 的自己');
+check('22. 人數統計正確',
+  doc.getElementById('qwr-dq-count')?.textContent === '3',
+  `顯示「${doc.getElementById('qwr-dq-count')?.textContent}」`);
+
+// 非閃電模式不能出現這一區
+win.eval(`PartyBus.__fire('rush_winner', { groupIdx:0, groupName:'第一組', rushMode:'speed', personName:'阿明', elapsedMs:1234 });`);
+await new Promise((r) => setTimeout(r, 60));
+check('23. 換成電光石火模式時,淘汰名單要收起來',
+  doc.getElementById('qwr-dq')?.style.display === 'none',
+  `display=${doc.getElementById('qwr-dq')?.style.display}`);
+
 // ── 報告 ──
 console.log('\n=== 重載後接回進度 + 導覽開關 + 結算頁離開 ===');
 passes.forEach((p) => console.log(`  ✓ ${p}`));
