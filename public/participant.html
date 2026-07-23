@@ -2247,10 +2247,17 @@ function goStage(id) {
 function handleBuzz() {
   const btn = document.getElementById('btn-buzz');
   if (!btn) return;
-  // 現在按不得(倒數還沒完 / 還沒開搶 / 本題失格 / 已經有人搶到)——
-  // 不是靜靜吃掉,而是抖一下 + 跳大字說明原因。最關鍵的是 321 倒數期間:
-  // 那時按下去伺服器一律丟棄,絕對不能讓畫面假裝「已搶答」害他不再按。
-  if (btn.classList.contains('locked')) { rejectBuzz(); return; }
+  if (btn.classList.contains('locked')) {
+    // 「3、2、1、GO」倒數期間:維持原始行為 —— 完全靜默,不給任何回饋。
+    // 全場四種搶答模式都統一用同一段倒數,規則單純就是「GO 才開始」;
+    // 倒數中再跳提示只會跟投影幕上的倒數搶注意力,而且是玩家已經學會的
+    // 節奏,不該再變(Vincent 2026-07-23 決定:改回最初始狀態)。
+    if (G.rushArmAt && Date.now() < G.rushArmAt) return;
+    // 其餘按不得的情況(本題失格 / 已經有人搶到 / 還沒開搶 / 冷卻中)才
+    // 抖一下 + 說明原因 —— 這些狀態原本按下去毫無反應,長輩會以為手機壞了。
+    rejectBuzz();
+    return;
+  }
   // count 模式:可以狂點,不 lock,直接 emit 並飛快動畫
   if (G.rushMode === 'count') {
     if (navigator.vibrate) navigator.vibrate(15);
@@ -2409,17 +2416,14 @@ function syncBuzzLabel() {
 }
 
 /* 現在按不得 → 抖一下 + 震動 + 跳大字說明「為什麼不能按」。
-   順序照「最容易誤會」排:倒數搶跑擺第一。 */
+   注意:「3、2、1、GO」倒數期間**不會**走到這裡 —— handleBuzz 在倒數中
+   直接靜默 return(維持原始行為,見該處註解)。這裡只處理「已經開搶、
+   但這個人/這一組現在不能按」的情況。 */
 function rejectBuzz() {
   const now = Date.now();
   let main = '現在還不能按';
   let sub = '等主持人開始搶答';
-  let strong = false;   // 倒數搶跑要震得久一點,印象深
-  if (G.rushArmAt && now < G.rushArmAt) {
-    main = '還沒開始!';
-    sub = '等「GO」出現再按';
-    strong = true;
-  } else if (G.lightningEliminated) {
+  if (G.lightningEliminated) {
     main = '你這輪已被淘汰';
     sub = '按太快了,等下一題';
   } else if (G.buzzCooldownUntil && now < G.buzzCooldownUntil) {
@@ -2444,7 +2448,7 @@ function rejectBuzz() {
     setTimeout(() => btn.classList.remove('shake'), 420);
   }
   // 震動提醒(桌機瀏覽器沒有這個 API,optional chaining 直接跳過)
-  try { navigator.vibrate?.(strong ? 200 : 60); } catch (e) { /* 不支援就算了 */ }
+  try { navigator.vibrate?.(60); } catch (e) { /* 不支援就算了 */ }
 }
 
 /* 搶答結果卡(第幾組搶到)是不是正顯示中 */
