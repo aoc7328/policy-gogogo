@@ -1075,15 +1075,17 @@ export class PolicyGogogoServer extends Server {
     const count = { presenter: 0, assistant: 0, participant: 0 };
     for (const c of this.getConnections<ConnState>()) {
       const role = c.state?.role;
-      if (role === 'presenter' || role === 'assistant' || role === 'participant') {
-        count[role] += 1;
-      }
+      if (role === 'presenter' || role === 'assistant') count[role] += 1;
       try {
         this.send(c, { type: '__room_state__', payload: snap });
       } catch {
         /* 連線正在關閉 → 略過,它重連時自然會拿到快照 */
       }
     }
+    // 參賽者數用「已註冊的玩家」而非 raw 連線數 —— 被請出房間的人 socket
+    // 可能還連著(瀏覽器自動重連),但他已不在名單裡。助理拿這個數字點名,
+    // 必須等於「現在真的在場上的人」。
+    count.participant = this.state.participants.size;
     // 分組/分數/組長是各端分開維護的畫面,一併重推,避免只有階段對了、
     // 名單還是舊的。
     this.broadcastRoster();

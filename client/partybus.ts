@@ -209,6 +209,19 @@ class PartyBusImpl {
   /** True after server sent __kicked__; emit/init become no-ops. */
   private _kicked = false;
 
+  /**
+   * 主動永久離線:關閉連線並停止自動重連(改名逾時被請出房間時用)。
+   * 不這樣做的話 partysocket 會自動重連 —— 人雖然已被移出名單,socket
+   * 仍掛著,助理端點名會多算一個。之後 emit/init 都變成 no-op。
+   */
+  disconnect(): void {
+    this._kicked = true;
+    try { this.socket?.close(); } catch { /* already closing */ }
+    this.socket = null;
+    this._stopKeepalive();
+    this.setStatus('disconnected');
+  }
+
   emit(type: string, payload?: unknown): void {
     if (!this.socket) {
       console.warn(`PartyBus.emit('${type}') called before init() — dropped`);

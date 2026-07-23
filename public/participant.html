@@ -4491,6 +4491,9 @@ function noticeTimeoutKick() {
   G._joinedOnce = false;
   clearStoredParticipant();   // 也別讓下次開頁自動以舊名字回填登入
   PartyBus.emit('leave_room', { reason: 'rename_timeout' });
+  // 送出後永久斷線,不再自動重連(否則 socket 掛著,助理端點名會多算一個)。
+  // 延遲一拍讓 leave_room 送得出去。
+  setTimeout(() => { try { PartyBus.disconnect(); } catch (e) {} }, 300);
   showKickedVeil('你已被請出房間',
     '因為未在時間內更正名稱。<br>請用正確的隊伍名稱(例:中信1-小明)重新掃碼加入。');
 }
