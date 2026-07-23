@@ -5,6 +5,28 @@ things a future maintainer (or future-you) needs to know to not panic.
 
 ---
 
+## 需要跑著 server 才能測的驗證腳本
+
+`npm run verify:all` 是純靜態的,不需要 server。另外有兩支**要先把後端跑起來**
+才能跑的端到端腳本,涵蓋 2026-07-23 兩場實測抓到的阻斷級問題:
+
+```sh
+npx wrangler dev -c worker/wrangler.jsonc --port 1998   # 另開一個終端機
+npm run verify:live                                      # = verify:roster + verify:buzz
+```
+
+- `verify:roster`(`scripts/verify-startgame-roster.mjs`)
+  重現「玩家改過組名 + 助理端重整過頁面 → 按開始遊戲 → 全場從分組名單消失、
+  誰都搶答不了」。這是最嚴重的一個,改到 `startGame()` 一定要重跑。
+- `verify:buzz`(`scripts/verify-buzz-integrity.mjs`)
+  搶答封包的身分以 server 名冊為準(不採信 payload 的 name/team)、狂點節流
+  (每連線每秒最多計 20 次)、改名撞名要被擋。
+
+⚠ 腳本預設連 `127.0.0.1:1998`。PartyKit 時代的 1999 若被殘留的 `workerd.exe`
+佔住(會 accept 連線但不回應),換個埠比較快:`node scripts/verify-buzz-integrity.mjs 127.0.0.1:1998`。
+
+---
+
 ## Known Dev Dependencies CVE
 
 **Status as of 2026-07-23 with `wrangler@4.106.0` + `partyserver@0.5.8`:**

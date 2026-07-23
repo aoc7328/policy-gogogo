@@ -73,6 +73,7 @@ function fallback(ctx: RushCtx): void {
       rushMode: 'speed',
       personName,
       elapsedMs: SPEED_FALLBACK_MS,
+      fallback: true,
     },
   });
   ctx.state.phase = 'won';

@@ -557,12 +557,15 @@ html, body { background: #080A10; font-family: var(--font-sans); -webkit-font-sm
 .q-option.revealed-player-incorrect .opt-text { color: var(--ink-2) !important; text-decoration: line-through; text-decoration-color: rgba(216,52,74,0.6); text-decoration-thickness: 1.5px; }
 .q-option.revealed-correct .opt-badge, .q-option.revealed-player-incorrect .opt-badge { opacity: 1; }
 @keyframes incorrectShake { 0%,100%{transform:translateX(0);} 8%{transform:translateX(-10px);} 18%{transform:translateX(10px);} 28%{transform:translateX(-9px);} 38%{transform:translateX(9px);} 48%{transform:translateX(-7px);} 58%{transform:translateX(7px);} 68%{transform:translateX(-4px);} 78%{transform:translateX(4px);} 88%{transform:translateX(-2px);} }
-.q-explanation { margin-top: 18px; padding: 14px 20px 14px 22px; border-left: 2px solid var(--accent); max-width: 820px; opacity: 0; transform: translateY(8px); transition: all 500ms ease-out 300ms; }
-.q-explanation.shown { opacity: 1; transform: translateY(0); }
+/* 未公佈前:opacity:0 只是看不見,文字仍在 DOM 且可被「全選 → 複製」拿走
+   標準答案。補上 visibility:hidden 把它擋掉(transition 用 all,已涵蓋
+   visibility;hidden → visible 會立刻生效,淡入動畫維持原樣)。 */
+.q-explanation { margin-top: 18px; padding: 14px 20px 14px 22px; border-left: 2px solid var(--accent); max-width: 820px; opacity: 0; visibility: hidden; transform: translateY(8px); transition: all 500ms ease-out 300ms; }
+.q-explanation.shown { opacity: 1; visibility: visible; transform: translateY(0); }
 .q-explanation .exp-label { font-family: var(--font-mono); font-size: 10px; color: var(--accent); letter-spacing: 0.22em; margin-bottom: 6px; text-transform: uppercase; }
 .q-explanation .exp-text { font-size: 13px; line-height: 1.75; color: var(--ink-2); }
-.q-short-answer { margin-top: 4px; max-width: 860px; background: var(--bg-surface); border-left: 3px solid var(--accent); padding: 20px 24px; opacity: 0; transform: translateY(12px); transition: all 500ms var(--ease); }
-.q-short-answer.shown { opacity: 1; transform: translateY(0); }
+.q-short-answer { margin-top: 4px; max-width: 860px; background: var(--bg-surface); border-left: 3px solid var(--accent); padding: 20px 24px; opacity: 0; visibility: hidden; transform: translateY(12px); transition: all 500ms var(--ease); }
+.q-short-answer.shown { opacity: 1; visibility: visible; transform: translateY(0); }
 .q-short-answer .sa-label { font-family: var(--font-mono); font-size: 10px; color: var(--accent); letter-spacing: 0.24em; margin-bottom: 8px; text-transform: uppercase; }
 .q-short-answer .sa-text { font-size: 15px; line-height: 1.75; color: var(--ink-1); }
 .q-essay-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; flex: 1; min-height: 0; }
@@ -615,8 +618,8 @@ html, body { background: #080A10; font-family: var(--font-sans); -webkit-font-sm
 .q-word-option.revealed-player-incorrect .wo-letter { color: #EC5068 !important; font-weight: 700 !important; }
 .q-word-option.revealed-player-incorrect .wo-phonetic { color: var(--ink-2) !important; text-decoration: line-through; text-decoration-color: rgba(216,52,74,0.6); }
 @keyframes wordCorrect { 0%{transform:translateY(-4px) scale(1);} 18%{transform:translateY(-4px) scale(1.1);box-shadow:0 0 0 20px transparent, 0 0 80px var(--glow);} 50%{transform:translateY(-4px) scale(1.05);} 100%{transform:translateY(-4px) scale(1);} }
-.q-word-meaning { margin-top: 4px; opacity: 0; transform: translateY(8px); transition: all 500ms ease-out 320ms; max-width: 580px; padding: 12px 18px; background: var(--bg-surface); border-left: 2px solid var(--accent); text-align: left; }
-.q-word-meaning.shown { opacity: 1; transform: translateY(0); }
+.q-word-meaning { margin-top: 4px; opacity: 0; visibility: hidden; transform: translateY(8px); transition: all 500ms ease-out 320ms; max-width: 580px; padding: 12px 18px; background: var(--bg-surface); border-left: 2px solid var(--accent); text-align: left; }
+.q-word-meaning.shown { opacity: 1; visibility: visible; transform: translateY(0); }
 .q-word-meaning .wm-label { font-family: var(--font-mono); font-size: 10px; color: var(--accent); letter-spacing: 0.22em; margin-bottom: 4px; text-transform: uppercase; }
 .q-word-meaning .wm-text { font-size: 14px; line-height: 1.7; color: var(--ink-1); }
 .footnote { text-align: center; padding: 4px; font-family: var(--font-mono); font-size: 10px; color: #3A4160; letter-spacing: 0.2em; text-transform: uppercase; }
@@ -934,7 +937,7 @@ html, body { background: #080A10; font-family: var(--font-sans); -webkit-font-sm
           <div class="standby-stats">
             <div class="stat-item"><div class="stat-value" id="stat-remaining">261<span class="unit">題</span></div><div class="stat-label">Remaining</div></div>
             <div class="stat-item"><div class="stat-value" id="stat-round">01</div><div class="stat-label">Round</div></div>
-            <div class="stat-item"><div class="stat-value">04<span class="unit">組</span></div><div class="stat-label">Teams</div></div>
+            <div class="stat-item"><div class="stat-value" id="stat-teams">04<span class="unit">組</span></div><div class="stat-label">Teams</div></div>
           </div>
         </div>
       </div>
@@ -1335,12 +1338,31 @@ function enterFromConfirm() {
   currentMode = pendingMode;
   enterStandby();
 }
-function enterStandby() {
+/* 待機頁的模式標籤(標頭「XX模式」與大字「MODE · XX」)。
+   game_start / __room_state__ 進待命頁時不走 enterStandby,過去沒同步這兩個
+   標籤 → 第二場開地獄模式,投影幕還掛著上一場的「普通模式」(2026-07-23 實測)。
+   stat-remaining 也是同一個模式常數,一併更新以免留著上一場的題數。 */
+function updateStandbyModeLabels() {
   const cfg = modeConfig[currentMode];
-  document.getElementById('standby-mode-tag').textContent   = `MODE · ${cfg.name}`;
-  document.getElementById('standby-mode-label').textContent = `${cfg.name}模式`;
-  document.getElementById('stat-remaining').innerHTML       = `${cfg.remaining}<span class="unit">題</span>`;
-  document.getElementById('stat-round').textContent         = String(round).padStart(2, '0');
+  if (!cfg) return;
+  const tagEl   = document.getElementById('standby-mode-tag');
+  const labelEl = document.getElementById('standby-mode-label');
+  const remEl   = document.getElementById('stat-remaining');
+  if (tagEl)   tagEl.textContent   = `MODE · ${cfg.name}`;
+  if (labelEl) labelEl.textContent = `${cfg.name}模式`;
+  if (remEl)   remEl.innerHTML     = `${cfg.remaining}<span class="unit">題</span>`;
+}
+/* 待機頁「Teams」格 = 實際組數(兩位數補零)。原本寫死 04,只有 2 組的場次
+   投影幕照樣顯示 04(2026-07-23 實測)。game_start / roster_reshuffled /
+   __room_state__ 三個來源都會呼叫。 */
+function updateStandbyTeams(count) {
+  const el = document.getElementById('stat-teams');
+  if (!el || !Number.isFinite(count) || count <= 0) return;
+  el.innerHTML = `${String(count).padStart(2, '0')}<span class="unit">組</span>`;
+}
+function enterStandby() {
+  updateStandbyModeLabels();
+  document.getElementById('stat-round').textContent = String(round).padStart(2, '0');
   goto('scr-standby');
 }
 function goHome() {
@@ -1772,6 +1794,12 @@ PartyBus.on('__room_state__', snap => {
     document.querySelectorAll('.brand-suffix').forEach(el => { el.textContent = b.titleSuffix; });
     document.title = `${b.titlePrefix}${b.titleSuffix} · 投影端`;
   }
+  // 待機頁組數 + PLAYER POOL 名單:任何 phase 都要跟快照對齊
+  // (投影機中途開機/重整時,本端沒收過先前的 player_join 事件)
+  if (Array.isArray(snap?.groups)) {
+    updateStandbyTeams(snap.groups.length);
+    syncPlayerPoolFromGroups(snap.groups);
+  }
   // 多投影機:遊戲進行中/已結束時,用 server 快照還原現場畫面,
   // 讓「中途開機/重整的第 2~5 台投影」不會卡在 scr-select。
   if (snap && snap.phase && snap.phase !== 'lobby' && snap.game) {
@@ -1807,6 +1835,10 @@ function hydratePresenterFromSnapshot(snap, attempt) {
   round = Math.max(1, (snap.currQ || 0) + (inQuestion ? 0 : 1));
   const sbRound = document.getElementById('standby-round');
   if (sbRound) sbRound.textContent = `ROUND ${String(round).padStart(2, '0')}`;
+  const sbStatRound = document.getElementById('stat-round');
+  if (sbStatRound) sbStatRound.textContent = String(round).padStart(2, '0');
+  // 待機頁模式標籤(快照的 game.mode 已寫進 currentMode)
+  updateStandbyModeLabels();
   if (typeof updateStandbyRushPreview === 'function') updateStandbyRushPreview();
 
   // 組長:snapshot 的 groups 帶 leader → 還原本端 presenterLeaders
@@ -2149,8 +2181,29 @@ function removePlayerFromPool(name) {
   }
 }
 
+/* 用 __room_state__ 快照的分組重建整個 PLAYER POOL(投影機中途開機/重整用:
+   本端沒收過先前的 player_join,只靠事件的話玩家池是空的)。
+   名單與人數一律取 onlineMembers —— members 是黏著名單(只增不減,用來把斷線
+   回來的人分回原組),拿它畫名單會多出早就離開的人、人數也不對。 */
+function syncPlayerPoolFromGroups(groups) {
+  if (!Array.isArray(groups)) return;
+  const names = [];
+  const seen = new Set();
+  groups.forEach(g => {
+    (g?.onlineMembers ?? g?.members ?? []).forEach(n => {
+      if (n && !seen.has(n)) { seen.add(n); names.push(n); }
+    });
+  });
+  if (names.length === 0) return;   // 快照裡沒人 → 保留現有 chip,不要清空
+  const list = document.getElementById('pp-list');
+  if (!list) return;
+  list.innerHTML = '';
+  names.forEach(n => list.appendChild(_makeChip(n)));
+}
+
 window.addPlayerToPool = addPlayerToPool;
 window.removePlayerFromPool = removePlayerFromPool;
+window.syncPlayerPoolFromGroups = syncPlayerPoolFromGroups;
 
 /* 玩家池由真實 player_join 事件填入(見 _makeChip 的呼叫處)。
    原本的 mockPlayers()/clearPlayers() 假玩家 demo 已移除。 */
@@ -2446,8 +2499,18 @@ PartyBus.on('game_start', payload => {
   // 進待命頁
   goto('scr-standby');
   document.getElementById('standby-round').textContent = `ROUND ${String(round).padStart(2,'0')}`;
+  document.getElementById('stat-round').textContent    = String(round).padStart(2,'0');
+  // 模式標籤與組數:不更新的話會留著上一場的值
+  updateStandbyModeLabels();
+  updateStandbyTeams((payload.groups || []).length);
   updateCategoryGridPresenter();
   updateStandbyRushPreview();
+});
+
+/* 助理改分組(組數/成員重排)→ 待機頁「Teams」格跟著換 */
+PartyBus.on('roster_reshuffled', payload => {
+  if (!Array.isArray(payload?.groups)) return;
+  updateStandbyTeams(payload.groups.length);
 });
 
 /* 助理改搶答模式 → 主持人 scr-standby 預告即時更新 */
@@ -2822,8 +2885,16 @@ PartyBus.on('rush_winner', payload => {
 
   const mode = payload.rushMode || 'speed';
   const person = payload.personName || '';
+  // fallback = 時間到、全場都沒有人按,得主由系統隨機指定。此時 personName
+  // 只是該組第一個人(或「(無人按)」)、elapsedMs 固定 8000,全是假的 ——
+  // 2026-07-23 實測投影幕照樣寫「○○○ 搶答耗時 8.000 秒」,把助理跟參賽者
+  // 都騙了。這種情況一律不顯示秒數/人名/點擊次數。
+  const isFallback = payload.fallback === true;
 
-  if (mode === 'speed') {
+  if (isFallback) {
+    if (badge) badge.textContent = '⏱ 時間到 · 無人搶答';
+    sub.innerHTML = `系統指定&nbsp;<span class="person">${group}</span>&nbsp;作答`;
+  } else if (mode === 'speed') {
     if (badge) badge.textContent = '電光石火 · 搶答成功';
     const sec = ((payload.elapsedMs || 0) / 1000).toFixed(3);
     sub.innerHTML = `<span class="person">${person}</span>&nbsp;搶答耗時&nbsp;<span class="ms">${sec}</span>&nbsp;秒`;
@@ -2858,7 +2929,9 @@ PartyBus.on('rush_winner', payload => {
     sub.innerHTML = `<span class="person">${person}</span>`;
   }
 
-  lastWinner = { group, person, ms: '0.000' };  // 保留舊欄位給其他可能用到的地方
+  // 保留舊欄位給其他可能用到的地方(選題頁橫條會印 lastWinner.person;
+  // fallback 時那個人名是假的,清成空字串免得又冒出來)
+  lastWinner = { group, person: isFallback ? '' : person, ms: '0.000' };
   const f = document.getElementById('win-flash');
   if (f) { f.style.animation = 'none'; void f.offsetWidth; f.style.animation = ''; }
   goto('scr-winner');

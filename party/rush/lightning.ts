@@ -109,6 +109,7 @@ function fallback(ctx: RushCtx): void {
       rushMode: 'lightning',
       personName,
       pressedAtSec: Number((LIGHTNING_FALLBACK_MS / 1000).toFixed(2)),
+      fallback: true,
     },
   });
   ctx.state.phase = 'won';

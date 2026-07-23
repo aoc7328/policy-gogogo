@@ -15,7 +15,11 @@
     "verify:dom-refs": "node scripts/verify-dom-refs.mjs",
     "verify:reload": "node scripts/verify-reload-restore.mjs",
     "verify:restart": "node scripts/verify-assistant-restart.mjs",
-    "verify:all": "npm run typecheck && npm run verify:html && npm run verify:contract && npm run verify:dom-refs && npm run verify:reload && npm run verify:restart && npm run audit:check"
+    "verify:buzzux": "node scripts/verify-buzz-ux.mjs",
+    "verify:roster": "node scripts/verify-startgame-roster.mjs",
+    "verify:buzz": "node scripts/verify-buzz-integrity.mjs",
+    "verify:live": "npm run verify:roster && npm run verify:buzz",
+    "verify:all": "npm run typecheck && npm run verify:html && npm run verify:contract && npm run verify:dom-refs && npm run verify:reload && npm run verify:restart && npm run verify:buzzux && npm run audit:check"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260702.1",

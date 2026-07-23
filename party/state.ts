@@ -150,7 +150,10 @@ export interface RoomState {
   catLocked: boolean;
   purgArmed: boolean;                           // assistant 秘技 (Phase 0 Q4)
   usedIds: Set<string>;
-  askedQuestions: { id: string; difficulty: Difficulty; framework: string }[];
+  // replaced=true 代表這一筆是「被同範圍重抽換掉」的舊題:它在台上亮過,
+  // 所以照設計仍計入實際題數,但賽後回顧要標示出來,免得看的人以為
+  // 有一題沒人答過卻被列進去(2026-07-23 實測回饋)。
+  askedQuestions: { id: string; difficulty: Difficulty; framework: string; replaced?: boolean }[];
   // 一字千金 cap 計數:本場已抽出的 word_game 題數(含被 redraw 換掉的;
   // 換掉的題目已在台上亮過,保守起見照算)。
   wordGameAsked: number;
@@ -258,26 +261,69 @@ export function startGame(state: RoomState, config: GameConfig): void {
   // 開賽前的完整名單(含當下剛好斷線的人)。30 人實戰教訓:只從
   // participants(僅在線連線)重建名單,會把「按開始遊戲那一刻剛好
   // WS 斷線」的玩家整個踢出名單,之後他重整頁面就被當新人重新分組。
-  const prevMembers = new Map<string, string[]>(
-    state.groups.map((g) => [g.name, [...g.members]])
-  );
-  // 組長沿用同名組的既有人選(開賽不重抽 —— 玩家池上看到的組長,
-  // 按下開始遊戲後必須還是同一個人)。
-  const prevLeaders = new Map<string, string | null>(
-    state.groups.map((g) => [g.name, g.leader])
-  );
-  state.groups = config.groups.map((g, i) => ({
-    idx: i,
+  //
+  // ⚠ 2026-07-23 實測事故:名單原本是用「組名」當 key 還原的。助理端一旦
+  // 重整過頁面,本機組名欄位會退回預設值「第一組/第二組」,送過來的
+  // config.groups 就跟 server 上玩家自己取的組名(勇腳團/不老松)對不上
+  // → prevMembers.get(g.name) 取到 undefined → 全場 8 個人從名單消失、
+  // 誰都搶答不了(投影幕顯示「第一組 · (無人) 搶答耗時 8.000 秒」)。
+  // 修法:組數沒變就一律「按 idx 對位」還原,不看名字;組數變了才退回
+  // 名字比對。組名仍然可以被 config 改(助理端「分組設定」的組名欄位),
+  // 但改名不再會把人洗掉。
+  const prev = state.groups.map((g) => ({
     name: g.name,
-    score: 0,
-    members: prevMembers.get(g.name) ?? [],
-    leader: prevLeaders.get(g.name) ?? null,
+    members: [...g.members],
+    leader: g.leader,
   }));
+  const sameCount = prev.length === config.groups.length;
+  state.groups = config.groups.map((g, i) => {
+    const src = sameCount ? prev[i] : prev.find((p) => p.name === g.name);
+    return {
+      idx: i,
+      name: g.name,
+      score: 0,
+      members: src ? [...src.members] : [],
+      leader: src?.leader ?? null,
+    };
+  });
+  // 組名若被改掉,所有「以組名為鍵」的資料都要跟著搬,否則會出現
+  // 「人還在名單裡、但 participant.team 指向一個不存在的組」→ buzz_press
+  // 找不到組直接丟棄、裝置鎖(deviceTeams)也整個失效。
+  const renamed = new Map<string, string>();
+  if (sameCount) {
+    prev.forEach((p, i) => {
+      const next = state.groups[i];
+      if (next && next.name !== p.name) renamed.set(p.name, next.name);
+    });
+  }
+  if (renamed.size > 0) {
+    for (const p of state.participants.values()) {
+      const to = renamed.get(p.team);
+      if (to) p.team = to;
+    }
+    for (const lock of state.deviceTeams.values()) {
+      const to = renamed.get(lock.team);
+      if (to) lock.team = to;
+    }
+  }
   // Re-attach existing participants to their teams (preserve roster across
   // game_start so participants who joined before pressing start aren't lost).
   for (const p of state.participants.values()) {
     const team = state.groups.find((g) => g.name === p.team);
     if (team && !team.members.includes(p.name)) team.members.push(p.name);
+  }
+  // 最後一道防呆:若還原完的名單總人數比「目前在線人數」還少,代表上面
+  // 的對位邏輯出了意料外的狀況 —— 寧可用在線名單硬補回去,也不要開出一場
+  // 空的遊戲。
+  const listed = new Set(state.groups.flatMap((g) => g.members));
+  for (const p of state.participants.values()) {
+    if (listed.has(p.name)) continue;
+    const target =
+      state.groups.find((g) => g.name === p.team) ??
+      state.groups.reduce((a, b) => (a.members.length <= b.members.length ? a : b));
+    if (!target) continue;
+    target.members.push(p.name);
+    p.team = target.name;
   }
 }
 
@@ -654,6 +700,13 @@ export function renameParticipant(
   if (!newName) return { ok: false, reason: 'empty' };
   if (newName.length > 20) return { ok: false, reason: 'too_long' };
   if (newName === ref.name) return { ok: false, reason: 'unchanged' };
+  // 重名檢查(2026-07-23 加):名字是分組、計分、MVP 的鍵值,同名兩個人
+  // 會讓名單、組長標記、統計全部混在一起,現場也分不出誰是誰。
+  // 實測可以把自己改成別組某個人的名字,還會被顯示成那一組的組長。
+  const taken =
+    [...state.participants.values()].some((p) => p.connId !== connId && p.name === newName) ||
+    state.groups.some((g) => g.members.includes(newName));
+  if (taken) return { ok: false, reason: 'duplicate' };
 
   const oldName = ref.name;
   const oldTeam = ref.team;
@@ -737,10 +790,24 @@ export function renameTeam(
 // ──────────────────────────────────────────────────────────────────────
 
 export function snapshot(state: RoomState): RoomStateSnapshot {
+  // members[] 是「黏著名單」(含暫時斷線的人),用來讓他回來時分到原組 ——
+  // 這個設計要保留。但過去 snapshot 直接把整份黏著名單送給新連線,而
+  // 一直在線的端是靠 player_leave 事件把人刪掉的 → 兩邊名單永遠對不起來
+  // (實測:在線的手機顯示 4 人、中途重連的手機顯示 5 人,多出一個早就離開的)。
+  // 這裡額外附上「目前真的連著的人」,三端一律用 onlineMembers 顯示名單與人數。
+  const online = new Set([...state.participants.values()].map((p) => p.name));
   return {
     phase: state.phase,
     game: state.game,
-    groups: state.groups.map((g) => ({ idx: g.idx, name: g.name, score: g.score, leader: g.leader, mvp: computeMvp(state, g.idx), members: [...g.members] })),
+    groups: state.groups.map((g) => ({
+      idx: g.idx,
+      name: g.name,
+      score: g.score,
+      leader: g.leader,
+      mvp: computeMvp(state, g.idx),
+      members: [...g.members],
+      onlineMembers: g.members.filter((m) => online.has(m)),
+    })),
     currQ: state.currQ,
     totalQ: state.game?.totalQ ?? 0,
     rushMode: state.rushMode,

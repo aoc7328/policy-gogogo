@@ -285,6 +285,10 @@ input{-webkit-appearance:none;border-radius:0}
 .login-btn:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.3)}
 .login-btn:disabled{background:var(--bg-r);color:var(--ink-3);cursor:not-allowed;box-shadow:none}
 .login-note{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.16em;color:var(--ink-3);text-align:center;text-transform:uppercase}
+/* 按鈕下方常駐的白話提示:名字沒填時「進入遊戲」是灰的,要講清楚為什麼。
+   實測長輩看到灰按鈕按不下去,以為是系統壞了。 */
+.login-hint{font-family:"Noto Sans TC",system-ui,sans-serif;font-size:15px;line-height:1.5;text-align:center;color:var(--accent);margin-top:-4px}
+.login-hint.ok{color:var(--ink-3)}
 
 /* ═══════════════════════════════════════════════
    B. 遊戲頁（單一畫面、永遠不跳頁）
@@ -483,6 +487,8 @@ input{-webkit-appearance:none;border-radius:0}
 .pgg-notice-submit{margin:14px 22px 0;width:calc(100% - 44px);padding:13px;background:var(--accent);border:none;color:var(--bg);font-family:"Noto Sans TC",sans-serif;font-weight:700;font-size:15px;letter-spacing:.1em;cursor:pointer}
 .pgg-notice-submit:active{transform:translateY(1px)}
 .pgg-notice-count{padding:12px 22px 18px;text-align:center;font-family:"JetBrains Mono",monospace;font-size:13px;color:#EC5068;letter-spacing:.06em}
+/* 改名失敗(例如撞名)時,把 server 給的原因用大字寫在按鈕下方 */
+.pgg-notice-err{display:none;padding:12px 22px 0;font-size:15px;font-weight:700;line-height:1.6;color:#EC5068}
 .pgg-notice-dismiss{margin:10px 22px 18px;width:calc(100% - 44px);padding:10px;background:transparent;border:1px solid var(--line-s);color:var(--ink-2);font-family:"Noto Sans TC",sans-serif;font-size:13px;cursor:pointer}
 .pgg-notice-dismiss:hover{border-color:var(--ink-2);color:var(--ink-1)}
 
@@ -868,11 +874,40 @@ body.tm-paradise .opt{border-radius:0 12px 12px 0;border-left:3px solid var(--se
 
 /* flash */
 .circ-btn.flash{filter:brightness(1.6)}
-/* 鎖定 */
-.circ-btn.locked{opacity:.35;pointer-events:none;animation:none !important}
+/* 鎖定:刻意「不」關掉 pointer-events —— 長輩看到大紅鈕一定會按,按下去
+   要能回答「為什麼現在不能按」(handleBuzz 走 rejectBuzz 分支給大字說明)。
+   完全沒反應會被當成手機壞掉,實測時有人一直猛按。視覺上仍維持按不動的
+   樣子(不下沉、不變亮、不脈動)。 */
+.circ-btn.locked{opacity:.35;animation:none !important;cursor:default}
+.circ-btn.locked:active{transform:none;filter:none}
 /* 失格:本題已搶過,禁止再搶(灰階變暗,比一般 locked 更「死」,一看就知不可按) */
-.circ-btn.dq{opacity:.5;filter:grayscale(.9) brightness(.6);pointer-events:none;animation:none !important}
+.circ-btn.dq{opacity:.5;filter:grayscale(.9) brightness(.6);animation:none !important}
+.circ-btn.dq:active{transform:none;filter:grayscale(.9) brightness(.6)}
 .circ-btn.dq .bb-label{color:rgba(255,255,255,.65);font-size:16px;letter-spacing:.08em}
+
+/* 按不得的時候按下去 → 鈕左右抖一下(「有反應,但不是搶答成功」) */
+.circ-btn.shake{animation:buzz-shake 400ms cubic-bezier(.36,.07,.19,.97) !important}
+@keyframes buzz-shake{
+  10%,90%{transform:translateX(-3px)}
+  20%,80%{transform:translateX(5px)}
+  30%,50%,70%{transform:translateX(-8px)}
+  40%,60%{transform:translateX(8px)}
+}
+/* 按不得的時候跳出的大字說明(浮在按鈕區正上方,約 1.4 秒後自己消失)。
+   字要大、要白話,直接講「現在為什麼不能按 / 該做什麼」。 */
+.buzz-warn{
+  position:absolute;left:50%;bottom:calc(100% - 6px);transform:translateX(-50%);
+  z-index:60;pointer-events:none;width:max-content;max-width:86vw;
+  padding:13px 20px;border:1px solid var(--accent);
+  background:rgba(18,14,10,.96);box-shadow:0 10px 28px rgba(0,0,0,.6);
+  font-family:"Noto Sans TC",system-ui,sans-serif;font-weight:900;
+  font-size:19px;line-height:1.45;color:var(--ink-1);text-align:center;
+  animation:bwIn 180ms cubic-bezier(.2,.7,.2,1);
+}
+.buzz-warn .bw-sub{display:block;font-size:14px;font-weight:500;color:var(--ink-2);margin-top:4px}
+.buzz-warn.gone{animation:bwOut 240ms ease-in forwards}
+@keyframes bwIn{from{opacity:0;transform:translate(-50%,10px) scale(.9)}to{opacity:1;transform:translate(-50%,0) scale(1)}}
+@keyframes bwOut{to{opacity:0;transform:translate(-50%,8px)}}
 
 /* ═══════════════════════════════════════════════
    C. 結算頁
@@ -1057,6 +1092,8 @@ body.tm-paradise .opt{border-radius:0 12px 12px 0;border-left:3px solid var(--se
 .qa-num .qa-toggle{font-size:14px;color:var(--accent);transition:transform 240ms ease}
 .qa-item.expanded .qa-num .qa-toggle{transform:rotate(180deg)}
 .qa-q{font-size:14px;font-weight:500;line-height:1.6;color:var(--ink-1)}
+/* 這題亮過但被助理「同範圍重抽」換掉,沒有人作答 —— 標一下,免得以為漏答 */
+.qa-replaced{font-size:12px;font-weight:500;color:var(--ink-3);margin-left:4px;white-space:nowrap}
 .qa-answer-wrap{max-height:0;overflow:hidden;transition:max-height 360ms ease,margin-top 240ms ease,padding-top 240ms ease;margin-top:0;padding-top:0;border-top:0 solid var(--line)}
 .qa-item.expanded .qa-answer-wrap{max-height:4000px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
 .qa-meta{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.14em;color:var(--ink-3);margin-bottom:8px;text-transform:uppercase}
@@ -1253,6 +1290,8 @@ body.tm-paradise .opt{border-radius:0 12px 12px 0;border-left:3px solid var(--se
           onkeydown="if(event.key==='Enter')doLogin()">
       </div>
       <button class="login-btn" id="login-btn" onclick="doLogin()" disabled>進入遊戲 →</button>
+      <!-- 常駐提示:沒填名字時說明按鈕為什麼是灰的,填了就換成鼓勵的話 -->
+      <div class="login-hint" id="login-hint">請先在上面輸入你的名字</div>
       <div class="login-note">等待遊戲開始</div>
     </div>
   </div>
@@ -1394,6 +1433,8 @@ body.tm-paradise .opt{border-radius:0 12px 12px 0;border-left:3px solid var(--se
 
   <!-- 固定按鈕區 -->
   <div class="btn-zone">
+    <!-- 按不得的時候跳出的大字說明(rejectBuzz 填內容,約 1.4 秒後自己收掉) -->
+    <div class="buzz-warn" id="buzz-warn" style="display:none"></div>
     <div class="btn-status" id="btn-status"></div>
     <div class="btn-pair">
       <!-- 單顆紅色搶答鈕(預設 locked,助理開啟搶答後才解鎖) -->
@@ -1620,6 +1661,7 @@ const G = {
   _pendingResult: null,  // 收到 export_result 時暫存的結果 payload(等使用者按確定才 render)
   rushMode: 'speed',     // 下一輪搶答模式(由助理 game_start / rush_mode_changed 廣播,'random' 表示尚未揭曉)
   buzzCooldownUntil: 0,  // allhands 模式:個人冷卻到期時間 ts(ms)
+  rushArmAt: 0,          // 本輪「GO」出現、真正可以按的時間 ts(ms);倒數中才有值,0 = 沒在倒數
   lightningArmedAt: 0,   // lightning 模式:紅鈕 armed 的時間(ms);0~3 秒按下會被淘汰
   lightningEliminated: false,  // lightning 模式:本人是否已被淘汰
 };
@@ -1735,6 +1777,14 @@ PartyBus.on('presenter_claimed', () => {
 /* 本機送 claim 後若 server 回 __error__,_claimingNow 還沒清 → 在 modal
    顯示原因。其他 __error__(別的 command)就忽略。 */
 PartyBus.on('__error__', (err) => {
+  // 改名被擋(撞名 / 太長):server 會帶白話的 message,一定要顯示給人看,
+  // 只寫 console 等於沒講 —— 人會以為改成功了,結果還是舊名字。
+  if (err?.code === 'rename_failed') {
+    if (typeof showNoticeRenameError === 'function') {
+      showNoticeRenameError(err.message || '改名失敗,請換一個名字再試一次');
+    }
+    return;
+  }
   if (!_claimingNow) return;
   const code = err?.code || '';
   const msg = err?.message || '登入失敗';
@@ -1783,16 +1833,18 @@ PartyBus.on('__room_state__', (snap) => {
     document.querySelectorAll('.brand-suffix').forEach(el => { el.textContent = b.titleSuffix; });
     document.title = `${b.titlePrefix}${b.titleSuffix} · 參與者`;
   }
-  // 真實組員名單(幽靈組員修正):優先用 snapshot groups[].members ——
-  // 名字為準的權威名單,「暫時斷線的人也還是組員」。舊版只用 participants
-  // (在線連線名單)重建,結果任何人重連一次,斷線中的組員就從他的名單上
-  // 消失(30 人實戰的「小胖」現象)。participants 仍聯集進來,兼容
-  // 新前端先上、PartyKit 後端還沒重新部署的過渡期。
+  // 真實組員名單:用 snapshot groups[].onlineMembers ——「此刻真的連著的人」。
+  // groups[].members 是黏著名單(只增不減,server 靠它把斷線回來的人分回原組),
+  // 拿它畫名單會多出早就離開的人:實測一直在線的手機顯示「第二組 4 人」、
+  // 中途重連的手機卻顯示 5 人,底下還寫「8 位夥伴已就位」但其實只有 7 人在線。
+  // onlineMembers 是後端 2026-07-23 才加的可選欄位,舊後端沒帶就退回 members。
+  // participants 仍聯集進來當保險。
   if (Array.isArray(snap?.participants) || Array.isArray(snap?.groups)) {
     _roster.clear();
     (snap?.groups || []).forEach(g => {
-      if (g?.name && Array.isArray(g.members)) {
-        g.members.forEach(n => { if (n) _roster.set(n, g.name); });
+      const list = g?.onlineMembers ?? g?.members;
+      if (g?.name && Array.isArray(list)) {
+        list.forEach(n => { if (n) _roster.set(n, g.name); });
       }
     });
     (snap?.participants || []).forEach(p => {
@@ -1854,6 +1906,13 @@ PartyBus.on('__room_state__', (snap) => {
   } else if (snap?.phase === 'lobby' && (G._gameStarted || _onEnd)) {
     // 助理已按「重新開始」而本機漏接廣播 → 補做同一套重置(回集合頁)
     if (typeof resetToPreGame === 'function') resetToPreGame();
+  }
+  // 搶答模式(重連 / 中途進場還原):一律讀「頂層」的 rushModeActual / rushMode,
+  // 那才是當下的值。snap.game.rushMode 是開場那一刻寫死的設定,助理中途改過
+  // 就會過期 —— 實測:助理切成「狂點奪魁」之後才連線的手機,畫面還寫著
+  // 「電光石火 · 321 GO 後最快按下的組獲勝」,人就用錯的方式玩。
+  if (typeof applyRushMode === 'function') {
+    applyRushMode(snap?.rushModeActual ?? snap?.rushMode);
   }
   // 階段對好之後,再把當前題目 / 題號 / 倒數 / 分數接回來(重載後跟上進度)。
   // 一定要放在上面 enterGameStage() 之後 —— 那支函式會把畫面清成等待態。
@@ -1929,6 +1988,14 @@ function simMode(m) {
 function checkLogin() {
   const v = document.getElementById('inp-name').value.trim();
   document.getElementById('login-btn').disabled = v.length < 1;
+  // 名字沒填時「進入遊戲」是灰的,一定要講清楚原因,不然長輩會以為壞掉
+  const hint = document.getElementById('login-hint');
+  if (hint) {
+    hint.textContent = v.length < 1
+      ? '請先在上面輸入你的名字'
+      : '名字填好了,按下面的按鈕進入';
+    hint.className = v.length < 1 ? 'login-hint' : 'login-hint ok';
+  }
 }
 function doLogin() {
   const v = document.getElementById('inp-name').value.trim();
@@ -2179,7 +2246,11 @@ function goStage(id) {
 */
 function handleBuzz() {
   const btn = document.getElementById('btn-buzz');
-  if (!btn || btn.classList.contains('locked')) return;
+  if (!btn) return;
+  // 現在按不得(倒數還沒完 / 還沒開搶 / 本題失格 / 已經有人搶到)——
+  // 不是靜靜吃掉,而是抖一下 + 跳大字說明原因。最關鍵的是 321 倒數期間:
+  // 那時按下去伺服器一律丟棄,絕對不能讓畫面假裝「已搶答」害他不再按。
+  if (btn.classList.contains('locked')) { rejectBuzz(); return; }
   // count 模式:可以狂點,不 lock,直接 emit 並飛快動畫
   if (G.rushMode === 'count') {
     if (navigator.vibrate) navigator.vibrate(15);
@@ -2260,6 +2331,7 @@ function handleBuzz() {
       if (navigator.vibrate) navigator.vibrate([50, 30, 100]);  // 淘汰震動
       btn.classList.remove('armed');
       btn.classList.add('locked','flash');
+      syncBuzzLabel();
       setTimeout(() => btn.classList.remove('flash'), 500);
       const status = document.getElementById('btn-status');
       if (status) {
@@ -2275,6 +2347,8 @@ function handleBuzz() {
         btn.classList.add('flash');
         btn.classList.remove('armed');
         btn.classList.add('locked');
+        G.buzzed = true;          // 標籤要顯示「已按」(閃電模式沒走 G.buzzed 流程)
+        syncBuzzLabel();
         setTimeout(() => btn.classList.remove('flash'), 500);
       }, 90);
       const status = document.getElementById('btn-status');
@@ -2295,6 +2369,7 @@ function handleBuzz() {
     btn.classList.add('flash');
     btn.classList.remove('armed');
     btn.classList.add('locked');
+    syncBuzzLabel();
     setTimeout(() => btn.classList.remove('flash'), 500);
   }, 90);
   // 廣播搶答事件給助理(正式版由 PartyKit 後端依規則判定)
@@ -2309,6 +2384,90 @@ function handleBuzz() {
   document.getElementById('btn-status').className = 'btn-status active-mid';
 }
 
+/* 這裡曾經有一個「按了卻沒被登記到」的 watchdog(2.2 秒沒收到結果就把鈕
+   解開、叫使用者再按一次),已移除。移除理由:
+   1. 它的前提是錯的 —— server 的 onBuzzPress 是
+      `ts: Date.now()  // server-receive time, ignore client ts`,
+      判定用的是 server 自己的收到時間,手機時鐘快慢完全不影響。
+   2. 「全組到位」模式要等整組在 8 秒內按齊才會有結果,2.2 秒就跳
+      「沒收到你的搶答」是誤報,反而會把人嚇到亂按。
+   真正的搶跑問題已經由 handleBuzz() 的 locked 分支正面解掉了:倒數期間
+   根本不送出、也不寫「已搶答」,而是直接告訴他「還沒開始,等 GO」。 */
+
+/* 按鈕標籤跟著狀態走,不要永遠都寫「搶答」——
+   長輩靠這兩個字判斷「現在到底該不該按」。 */
+function syncBuzzLabel() {
+  const btn = document.getElementById('btn-buzz');
+  if (!btn) return;
+  const lb = btn.querySelector('.bb-label');
+  if (!lb) return;
+  let txt = '搶答';
+  if (btn.classList.contains('dq')) txt = '已答';
+  else if (G.lightningEliminated) txt = '淘汰';
+  else if (btn.classList.contains('locked')) txt = G.buzzed ? '已按' : '等待';
+  lb.textContent = txt;
+}
+
+/* 現在按不得 → 抖一下 + 震動 + 跳大字說明「為什麼不能按」。
+   順序照「最容易誤會」排:倒數搶跑擺第一。 */
+function rejectBuzz() {
+  const now = Date.now();
+  let main = '現在還不能按';
+  let sub = '等主持人開始搶答';
+  let strong = false;   // 倒數搶跑要震得久一點,印象深
+  if (G.rushArmAt && now < G.rushArmAt) {
+    main = '還沒開始!';
+    sub = '等「GO」出現再按';
+    strong = true;
+  } else if (G.lightningEliminated) {
+    main = '你這輪已被淘汰';
+    sub = '按太快了,等下一題';
+  } else if (G.buzzCooldownUntil && now < G.buzzCooldownUntil) {
+    main = '稍等一下';
+    sub = `${((G.buzzCooldownUntil - now) / 1000).toFixed(1)} 秒後才能再按`;
+  } else if (iAmBuzzLockedOut()) {
+    main = '本題由其他組作答';
+    sub = '你們這題已經搶答過了';
+  } else if (_rushResultShowing()) {
+    main = `這輪由 ${G.lastWinGroup || '別組'} 作答`;
+    sub = '等下一題再搶';
+  } else if (G.currentQ) {
+    main = '這題已經搶完了';
+    sub = '看題目,等主持人公佈答案';
+  }
+  showBuzzWarn(main, sub);
+  const btn = document.getElementById('btn-buzz');
+  if (btn) {
+    btn.classList.remove('shake');
+    void btn.offsetWidth;          // 重跑動畫
+    btn.classList.add('shake');
+    setTimeout(() => btn.classList.remove('shake'), 420);
+  }
+  // 震動提醒(桌機瀏覽器沒有這個 API,optional chaining 直接跳過)
+  try { navigator.vibrate?.(strong ? 200 : 60); } catch (e) { /* 不支援就算了 */ }
+}
+
+/* 搶答結果卡(第幾組搶到)是不是正顯示中 */
+function _rushResultShowing() {
+  const el = document.getElementById('qw-result');
+  return !!el && el.style.display !== 'none';
+}
+
+/* 大字說明:main 大、sub 小,1.4 秒後自己淡出收掉 */
+function showBuzzWarn(main, sub) {
+  const el = document.getElementById('buzz-warn');
+  if (!el) return;
+  clearTimeout(showBuzzWarn._hide);
+  clearTimeout(showBuzzWarn._gone);
+  el.classList.remove('gone');
+  el.innerHTML = `${lbEsc(main)}${sub ? `<span class="bw-sub">${lbEsc(sub)}</span>` : ''}`;
+  el.style.display = '';
+  showBuzzWarn._hide = setTimeout(() => {
+    el.classList.add('gone');
+    showBuzzWarn._gone = setTimeout(() => { el.style.display = 'none'; el.classList.remove('gone'); }, 240);
+  }, 1400);
+}
+
 function armBuzz() {
   const btn = document.getElementById('btn-buzz');
   if (!btn) return;
@@ -2317,9 +2476,11 @@ function armBuzz() {
   // 若晚到才在 GO 這一刻補上)。server 也會擋下 buzz。
   if (iAmBuzzLockedOut()) { showBuzzLockout(); return; }
   G.buzzed = false;
+  G.rushArmAt = 0;                      // GO 到了 → 不再算「倒數中」
   btn.classList.remove('locked','dn','flash');
   _clearBuzzDq();                       // 換新輪不再失格 → 清失格樣式、標籤復原
   btn.classList.add('armed');
+  syncBuzzLabel();
   document.getElementById('btn-status').textContent = '搶答開放中';
   document.getElementById('btn-status').className = 'btn-status active-ok';
 }
@@ -2346,7 +2507,7 @@ function showBuzzLockout() {
   if (btn) {
     btn.classList.remove('armed','dn','flash');
     btn.classList.add('locked','dq');
-    const lb = btn.querySelector('.bb-label'); if (lb) lb.textContent = '已答';
+    syncBuzzLabel();
   }
   const st = document.getElementById('btn-status');
   if (st) { st.textContent = '本題你們已搶答過 · 這輪不參與'; st.className = 'btn-status active-err'; }
@@ -2359,8 +2520,7 @@ function _clearBuzzDq() {
   const bb = document.getElementById('btn-buzz');
   if (!bb) return;
   bb.classList.remove('dq');
-  const lb = bb.querySelector('.bb-label');
-  if (lb) lb.textContent = '搶答';
+  syncBuzzLabel();
 }
 
 function lockBuzz() {
@@ -2370,6 +2530,7 @@ function lockBuzz() {
   btn.classList.add('locked');
   // 清 allhands 冷卻覆蓋層(若殘留)
   _clearBuzzCooldown();
+  syncBuzzLabel();
 }
 
 /* ══ 搶答鈕按壓回饋(pointerdown 路徑,毫秒級) ══
@@ -3631,6 +3792,7 @@ PartyBus.on('start_rush', payload => {
   G.currentQ = null;
   G.revealed = false;
   G.rushMode = payload?.rushMode || 'speed';
+  syncBuzzLabel();       // 上一輪按過留下的「已按」要復原成「等待」
   // 本題失格(上一輪已搶、答錯/答不出)→ 不跟著倒數,直接顯示醒目失格說明,
   // 讓人一看就懂「這輪換別組」,不會盯著灰按鈕以為當機。這輪當觀眾,
   // 等 rush_winner / reveal 事件切走。server 也會擋掉他們的 buzz。
@@ -3688,6 +3850,9 @@ PartyBus.on('start_rush', payload => {
   // - server ARM_COUNTDOWN_MS = 3800,從那一刻才接受 buzz_press
   // 這個 800ms GO hold 之前漏寫,造成 user-reported bug:狂點奪魁 GO
   // 期間就能按、participant 比 presenter 早 800ms 開放。
+  // 記下「GO 出現、真的可以按」的時刻:倒數期間按下去,server 一律丟棄,
+  // 所以這段時間內的按壓只能給提醒,絕不能讓畫面顯示成已搶答(見 rejectBuzz)。
+  G.rushArmAt = Date.now() + 3800;
   let count = 3;
   cdEl.textContent = count;
   const tick = setInterval(() => {
@@ -3823,11 +3988,12 @@ PartyBus.on('allhands_progress', payload => {
   }
 });
 
-/* 助理改搶答模式 → 參賽者只記下,等下一輪搶答開始時用 */
-/* 助理改搶答模式 → 立刻更新「下一輪搶答模式」預告 */
-PartyBus.on('rush_mode_changed', payload => {
-  if (!payload?.mode) return;
-  G.rushMode = payload.mode;
+/* 套用「當前搶答模式」並在等待態即時刷新預告。
+   兩個來源共用:助理改模式的 rush_mode_changed 廣播、以及重連 / 中途進場
+   收到的 __room_state__ 快照。 */
+function applyRushMode(mode) {
+  if (!mode) return;
+  G.rushMode = mode;
   // 若當前在等待態(q-wait 顯示中、未開始倒數),即時刷新預告。
   // 但九宮格鏡射(選題中)或搶答結果卡顯示中就不動 — 那些不是 idle
   // 等待畫面,reset 會把它們蓋成「等待主持人開始搶答」(user-reported:
@@ -3841,6 +4007,13 @@ PartyBus.on('rush_mode_changed', payload => {
   if (wait && wait.style.display !== 'none' && !isCountingDown && !catgridShowing && !resultShowing) {
     if (typeof resetWaitToIdle === 'function') resetWaitToIdle();
   }
+}
+window.applyRushMode = applyRushMode;
+
+/* 助理改搶答模式 → 立刻更新「下一輪搶答模式」預告 */
+PartyBus.on('rush_mode_changed', payload => {
+  if (!payload?.mode) return;
+  applyRushMode(payload.mode);
 });
 
 /* 閃電一按:把本輪 3 秒內按下、被 server 判定淘汰的人全部列在戰報上。
@@ -3911,7 +4084,13 @@ PartyBus.on('rush_winner', payload => {
   const mode = payload.rushMode || 'speed';
   const person = payload.personName || '';
 
-  if (mode === 'speed') {
+  if (payload.fallback) {
+    // 時間到、全場都沒有人按 → server 隨機指定一組作答。
+    // 這種情況沒有「誰按的、按了幾秒」,payload 帶的秒數是固定值(8000),
+    // 顯示出來就變成假的搶答紀錄,所以人名與秒數一律不顯示。
+    if (badge) badge.textContent = '無人搶答';
+    subEl.innerHTML = '⏱ 時間到 · 沒有人搶答<br>系統指定這一組作答';
+  } else if (mode === 'speed') {
     if (badge) badge.textContent = '電光石火';
     const sec = ((payload.elapsedMs || 0) / 1000).toFixed(3);
     subEl.innerHTML = `<span class="person">${person}</span> 搶答耗時<br><span class="ms">${sec}</span> 秒`;
@@ -3947,10 +4126,10 @@ PartyBus.on('rush_winner', payload => {
   const status = document.getElementById('btn-status');
   if (status) {
     if (myWin) {
-      status.textContent = '你們組搶到了!';
+      status.textContent = payload.fallback ? '沒人搶答 · 換你們作答' : '你們組搶到了!';
       status.className = 'btn-status active-ok';
     } else {
-      status.textContent = `${group} 搶到了`;
+      status.textContent = payload.fallback ? `沒人搶答 · 由 ${group} 作答` : `${group} 搶到了`;
       status.className = 'btn-status active-err';
     }
   }
@@ -4033,6 +4212,13 @@ PartyBus.on('question_pick', payload => {
 
 PartyBus.on('reveal_answer', () => {
   revealCurrentAnswer();
+  // 底下的狀態列本來一直停在「答題中」,助理都公佈答案了還這樣寫,
+  // 看的人會以為自己還要作答。
+  const status = document.getElementById('btn-status');
+  if (status) {
+    status.textContent = '已公佈答案 · 往上看解答';
+    status.className = 'btn-status active-ok';
+  }
 });
 
 PartyBus.on('next_question', () => {
@@ -4282,6 +4468,9 @@ function renderEndStage(payload) {
         id: meta.id,
         _difficulty: meta.difficulty,
         _framework: meta.framework,
+        // replaced=true:這題在台上亮過,但助理按了「同範圍重抽」把它換掉,
+        // 沒有人作答過 —— 要標出來,不然看的人會以為漏答了一題。
+        _replaced: meta.replaced === true,
       };
     });
     // 存起來給「下載回顧檔 / 複製文字 / 分享」用
@@ -4298,13 +4487,16 @@ function renderEndStage(payload) {
           getFrameworkLabelP(q._framework || q.topic),
           TYPE_LABELS_P[q.type] || q.type,
         ].filter(Boolean).join(' · ');
+        const replacedTag = q._replaced
+          ? '<span class="qa-replaced">（已重抽 · 未作答）</span>'
+          : '';
         return `
           <div class="qa-item" onclick="toggleQa(this)">
             <div class="qa-num">
               <span>Q${String(i+1).padStart(2,'0')} · ${q.id || ''}</span>
               <span class="qa-toggle">▾</span>
             </div>
-            <div class="qa-q">${stem || '—'}</div>
+            <div class="qa-q">${stem || '—'}${replacedTag}</div>
             <div class="qa-answer-wrap">
               <div class="qa-meta">${meta}</div>
               ${renderQaAnswerBody(q)}
@@ -4749,6 +4941,7 @@ function showGroupNotice(kind, deadlineMs) {
       <div class="pgg-notice-msg">${msg}</div>
       <input id="pgg-notice-input" class="pgg-notice-input" maxlength="20" value="${cur}" />
       <button id="pgg-notice-submit" class="pgg-notice-submit">確定改名</button>
+      <div id="pgg-notice-err" class="pgg-notice-err"></div>
       ${isRename
         ? `<div class="pgg-notice-count" id="pgg-notice-count"></div>`
         : `<button id="pgg-notice-dismiss" class="pgg-notice-dismiss">我的名字沒問題</button>`}
@@ -4768,15 +4961,45 @@ function showGroupNotice(kind, deadlineMs) {
 }
 function submitNoticeRename() {
   const inp = document.getElementById('pgg-notice-input');
+  const err = document.getElementById('pgg-notice-err');
+  const btn = document.getElementById('pgg-notice-submit');
   const v = (inp?.value || '').trim();
   if (!v) { inp?.focus(); return; }
   if (v === G.name) { closeGroupNotice(); return; }  // 沒改也當作已處理
+  // 撞名 / 太長時 server 會回 __error__(rename_failed),要能改回來,
+  // 所以先記住舊名字,而且這張卡片「不」在送出當下就關掉 —— 等 server 回
+  // player_renamed 確認才關。否則失敗訊息沒地方顯示,人也不知道要重打。
+  G._renameFrom = G.name;
+  if (err) { err.style.display = 'none'; err.textContent = ''; }
+  if (btn) { btn.disabled = true; btn.textContent = '送出中…'; }
   // 樂觀更新本機名字(server 回 player_renamed 會確認 + 帶新組)
   G.name = v;
   const nm = document.getElementById('gs-name'); if (nm) nm.textContent = v;
   saveStoredParticipant(v, G.team || '');
   PartyBus.emit('rename_self', { newName: v });
-  closeGroupNotice();
+}
+
+/* 改名被 server 擋下(撞名 / 太長)→ 把本機樂觀改掉的名字改回去,
+   並把 server 給的原因用大字寫在卡片上,讓人知道要換個名字再試一次。 */
+function showNoticeRenameError(message) {
+  if (G._renameFrom) {
+    G.name = G._renameFrom;
+    const nm = document.getElementById('gs-name'); if (nm) nm.textContent = G.name;
+    saveStoredParticipant(G.name, G.team || '');
+    G._renameFrom = null;
+  }
+  const card = document.getElementById('pgg-notice-veil');
+  const err = document.getElementById('pgg-notice-err');
+  const btn = document.getElementById('pgg-notice-submit');
+  if (btn) { btn.disabled = false; btn.textContent = '確定改名'; }
+  if (card && err) {
+    err.textContent = message;
+    err.style.display = 'block';
+    document.getElementById('pgg-notice-input')?.focus();
+    return;
+  }
+  // 卡片不在(例如從別的入口改名)→ 至少用最直白的方式講出來
+  alert(message);
 }
 function noticeTimeoutKick() {
   closeGroupNotice();
@@ -4805,6 +5028,10 @@ PartyBus.on('player_renamed', payload => {
     const nm = document.getElementById('gs-name'); if (nm) nm.textContent = G.name;
     const tm = document.getElementById('gs-team'); if (tm) tm.textContent = G.team;
     saveStoredParticipant(G.name, G.team);
+    // 改名真的成功了才收掉「請更正名稱」卡片(送出當下不收 —— 撞名被擋
+    // 的話還要留在卡片上顯示原因、讓人重打)
+    G._renameFrom = null;
+    if (document.getElementById('pgg-notice-veil')) closeGroupNotice();
   }
   rebuildMyRoster();
   if (typeof updateLeaderBadge === 'function') updateLeaderBadge();

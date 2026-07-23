@@ -423,8 +423,14 @@ export interface RoomStateSnapshot {
    * groups 帶 members(名字為準的權威組員名單,「暫時斷線的人也還是
    * 組員」)。30 人實戰的「幽靈組員」修正:過去 client 只能拿 participants
    * (在線連線名單)重建組員畫面,斷線中的人就從所有人的名單上消失。
+   *
+   * onlineMembers = members 之中「此刻真的連著」的子集(2026-07-23 加)。
+   * members 是黏著的、只增不減(要靠它把回來的人分回原組),所以拿它畫名單
+   * 會出現「一直在線的手機顯示 4 人、中途重連的手機顯示 5 人」的矛盾。
+   * **三端顯示名單與人數一律用 onlineMembers**;members 只給分組邏輯用。
+   * 舊版 client 沒讀這欄也不會壞。
    */
-  groups: (TeamScore & { members: string[] })[];
+  groups: (TeamScore & { members: string[]; onlineMembers?: string[] })[];
   currQ: number;                 // current question number (1-based; 0 before any pick)
   totalQ: number;
   rushMode: RushMode;
@@ -573,12 +579,19 @@ export type RushTickEvent = {
   };
 };
 
+/**
+ * fallback=true 代表「時間到、全場都沒有人按」,得主是系統隨機指定的。
+ * 2026-07-23 實測回饋:過去這種情況投影幕照樣顯示「○○○ 搶答耗時 8.000 秒」,
+ * 助理完全看不出來其實沒人按 —— 三端收到這個旗標要改口說「無人搶答」。
+ * 舊版 client 沒讀這欄也不會壞。
+ */
 export type RushWinnerSpeed = {
   groupIdx: number;
   groupName: string;
   rushMode: 'speed';
   personName: string;
   elapsedMs: number;
+  fallback?: boolean;
 };
 
 export type RushWinnerLightning = {
@@ -587,6 +600,7 @@ export type RushWinnerLightning = {
   rushMode: 'lightning';
   personName: string;
   pressedAtSec: number;
+  fallback?: boolean;
 };
 
 export type RushWinnerCount = {
@@ -601,6 +615,7 @@ export type RushWinnerCount = {
   avgClicks?: number;
   mvpClicks: number;
   runnerUp?: { name: string; count: number };
+  fallback?: boolean;
 };
 
 export type RushWinnerAllhands = {

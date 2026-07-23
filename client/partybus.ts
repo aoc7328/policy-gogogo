@@ -222,10 +222,56 @@ class PartyBusImpl {
     this.setStatus('disconnected');
   }
 
-  emit(type: string, payload?: unknown): void {
-    if (!this.socket) {
-      console.warn(`PartyBus.emit('${type}') called before init() — dropped`);
-      return;
+  /**
+   * 連線斷掉時「不可以默默丟掉」的指令。這些是助理按下去會改變全場狀態的
+   * 操作,丟掉了助理不會知道,畫面卻已經自己往前走。
+   *
+   * 2026-07-23 實測事故:助理端 socket 是 disconnected 狀態時按了「重新開始」,
+   * 助理端畫面照常回到設定頁、狀態列還寫「遊戲已重置」,但 server 完全沒收到
+   * (phase 仍是 ended、分數還在)。助理毫不知情,接著在錯誤狀態上疊操作。
+   *
+   * 這裡不做「自動補送」—— 補送一個幾分鐘前按的「下一題」比丟掉更危險。
+   * 改成:送不出去就明確讓呼叫端與使用者知道,由人決定要不要重按。
+   */
+  private static readonly MUST_DELIVER = new Set<string>([
+    'game_start', 'game_restart', 'score_adjust', 'start_rush', 'rebuzz_same',
+    'enter_category', 'category_preview', 'category_confirm', 'category_reset',
+    'reveal_answer', 'next_question', 'skip_question', 'redraw_question',
+    'arm_purgatory', 'mode_preview', 'custom_tiers_changed', 'rush_mode_changed',
+    'presenter_show_qr', 'export_result', 'team_count_changed',
+    'grouping_mode_changed', 'notify_group', 'set_timer', 'resume_question',
+    'reassign_leader', 'team_rename', 'player_join', 'rename_self',
+  ]);
+
+  /** 指令送不出去時通知外層(助理端用來跳警告)。 */
+  private undeliveredListeners: ((type: string) => void)[] = [];
+
+  onUndelivered(cb: (type: string) => void): void {
+    this.undeliveredListeners.push(cb);
+  }
+
+  private reportUndelivered(type: string): void {
+    for (const cb of this.undeliveredListeners) {
+      try { cb(type); } catch (err) { console.error('PartyBus undelivered listener error:', err); }
+    }
+  }
+
+  /**
+   * 送指令。回傳 true = 已交給 socket 送出;false = 沒送出去。
+   * 呼叫端**不應該**在拿到 false 之後還把本機 UI 當成操作成功。
+   */
+  emit(type: string, payload?: unknown): boolean {
+    const socket = this.socket;
+    // readyState 1 = OPEN。重連中(CONNECTING)送出去會直接丟例外或被吞掉,
+    // 兩種都是靜默失敗 —— 一律當成沒送出。
+    const usable = !!socket && socket.readyState === 1;
+    if (!usable) {
+      if (PartyBusImpl.MUST_DELIVER.has(type)) {
+        console.warn(`PartyBus.emit('${type}') 沒有送出 — 連線不可用(readyState=${socket ? socket.readyState : 'no socket'})`);
+        this.reportUndelivered(type);
+      }
+      // ping / buzz_press 這類高頻無狀態指令:丟掉就丟掉,不吵使用者。
+      return false;
     }
     const env: Record<string, unknown> = { type, payload };
     // Auto-attach controlCode for assistant-issued commands. Server only
@@ -235,7 +281,14 @@ class PartyBusImpl {
     if (this.role === 'assistant' && this.controlCode) {
       env.controlCode = this.controlCode;
     }
-    this.socket.send(JSON.stringify(env));
+    try {
+      socket.send(JSON.stringify(env));
+      return true;
+    } catch (err) {
+      console.warn(`PartyBus.emit('${type}') send 失敗:`, err);
+      if (PartyBusImpl.MUST_DELIVER.has(type)) this.reportUndelivered(type);
+      return false;
+    }
   }
 
   on(type: string, cb: Listener): void {

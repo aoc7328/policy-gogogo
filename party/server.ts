@@ -100,6 +100,13 @@ export class PolicyGogogoServer extends Server {
   // roomId 在建構時還拿不到(this.name 由 routePartykitRequest 解析),onStart 補填。
   state: RoomState = createInitialState('', generateControlCode(), generateControlCode());
 
+  // buzz_press 節流:connId → { 視窗起點, 這個視窗內已計入的次數 }。
+  // 2026-07-23 實測:狂點奪魁模式下,一支腳本 5 秒內送進 7,440 次點擊、
+  // 人均 1860 次,對面整組真人猛點只有 48 次 —— 勝負完全被輾壓。
+  // 人類極限大約每秒 10~12 下,這裡放寬到 20 下/秒:真人絕對打不到上限,
+  // 連點器與腳本則被壓回人類量級。純記憶體、不進存檔。
+  private buzzRate = new Map<string, { windowStart: number; count: number }>();
+
   // ────────────────────────────────────────────────────────────
   // Lifecycle
   // ────────────────────────────────────────────────────────────
@@ -791,6 +798,9 @@ export class PolicyGogogoServer extends Server {
     // currQ 不變(還是同一輪),所以 actualQ(askedQuestions.length)會 > currQ。
     this.state.usedIds.add(result.question.id);
     if (result.question.type === 'word_game') this.state.wordGameAsked++;
+    // 把「被換掉的那一筆」標成 replaced,回顧頁才分得出哪些是重抽掉的舊題。
+    const superseded = this.state.askedQuestions[this.state.askedQuestions.length - 1];
+    if (superseded) superseded.replaced = true;
     this.state.askedQuestions.push({
       id: result.question.id,
       difficulty: result.question.difficulty,
@@ -993,7 +1003,13 @@ export class PolicyGogogoServer extends Server {
   ): void {
     const r = renameParticipant(this.state, sender.id, payload?.newName ?? '');
     if (!r.ok) {
-      this.sendError(sender, 'rename_failed', r.reason === 'too_long' ? '名字太長(上限 20 字)' : '改名失敗');
+      const msg =
+        r.reason === 'too_long'
+          ? '名字太長(上限 20 字)'
+          : r.reason === 'duplicate'
+            ? '這個名字已經有人用了,請換一個(例如加上姓氏或後兩碼)'
+            : '改名失敗';
+      this.sendError(sender, 'rename_failed', msg);
       return;
     }
     sender.setState({
@@ -1225,22 +1241,47 @@ export class PolicyGogogoServer extends Server {
     this.syncLeaders(true);
   }
 
+  /** 每個連線每秒最多計入幾次 buzz_press(超過的靜默丟棄)。 */
+  private static readonly BUZZ_MAX_PER_SEC = 20;
+
+  private buzzRateAllows(connId: string): boolean {
+    const now = Date.now();
+    const slot = this.buzzRate.get(connId);
+    if (!slot || now - slot.windowStart >= 1000) {
+      this.buzzRate.set(connId, { windowStart: now, count: 1 });
+      return true;
+    }
+    if (slot.count >= PolicyGogogoServer.BUZZ_MAX_PER_SEC) return false;
+    slot.count++;
+    return true;
+  }
+
   private onBuzzPress(
     payload: { name: string; team: string; ts: number },
     sender: Connection<ConnState>
   ): void {
+    // 節流(見 buzzRate 欄位說明)。放在最前面,連解析都不用做。
+    if (!this.buzzRateAllows(sender.id)) return;
+    // 身分一律以 server 這邊的名冊為準,不看封包內容。
+    // 2026-07-23 實測:payload.name / payload.team 過去是直接採信的,
+    // 結果 A 組的人可以送出 team:"B組"、name:"隨便打的字" 幫別組搶答,
+    // 投影幕還照著顯示、甚至讓他變成 B 組的搶答 MVP。
+    const me = this.state.participants.get(sender.id);
+    const name = me?.name ?? payload.name;
+    const teamName = me?.team ?? payload.team;
+    // 沒登記過(還沒 player_join,或根本是投影端連線)→ 不得搶答。
+    if (!me && sender.state?.role !== 'participant') return;
     // Resolve the presser's team idx authoritatively.
-    const team = this.state.groups.find((g) => g.name === payload.team);
+    const team = this.state.groups.find((g) => g.name === teamName);
     if (!team) return;
     // 本題已失格的組(答不出來被重新搶答)→ 丟棄其 buzz,不得參與。
     if (this.state.excludedTeams.includes(team.idx)) return;
     const record: BuzzRecord = {
-      name: payload.name,
-      team: payload.team,
+      name,
+      team: teamName,
       teamIdx: team.idx,
       ts: Date.now(), // Phase 0 Q3: server-receive time, ignore client ts
     };
-    void sender;
     rushHandleBuzz(this.state, this.rushBroadcast, record);
   }
 

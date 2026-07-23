@@ -121,6 +121,7 @@ function lockWinner(ctx: RushCtx): void {
         personName: '(無人按)',
         teamTotalClicks: 0,
         mvpClicks: 0,
+        fallback: true,
       },
     });
     ctx.state.phase = 'won';
