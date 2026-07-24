@@ -1414,6 +1414,9 @@ const PGGSound = (() => {
       } catch (e) { return null; }
     }
     if (ctx.state === 'suspended') ctx.resume();
+    const t = ctx.currentTime;
+    master.gain.cancelScheduledValues(t);
+    master.gain.setValueAtTime(0.5, t);
     return ctx;
   }
   /* 單音 helper:type 波形,f0→f1 滑音,t0 起始,dur 長度,peak 音量 */
@@ -1505,6 +1508,12 @@ const PGGSound = (() => {
         note('square', 880, null, t, 0.16, 0.42);
         note('square', 1175, null, t + 0.2, 0.16, 0.42);
       }
+    },
+    stop() {
+      if (!ctx || !master) return;
+      const t = ctx.currentTime;
+      master.gain.cancelScheduledValues(t);
+      master.gain.setValueAtTime(0.0001, t);
     },
   };
 })();
@@ -1830,9 +1839,8 @@ function hydratePresenterFromSnapshot(snap, attempt) {
   document.getElementById('bg-' + currentMode)?.classList.add('active');
   document.getElementById('paradise-particles')?.classList.toggle('active', currentMode === 'paradise');
   if (typeof updateCategoryGridPresenter === 'function') updateCategoryGridPresenter();
-  // round:answering/revealed 時 currQ 即本輪;其餘階段是「準備第 currQ+1 輪」
-  const inQuestion = (snap.phase === 'answering' || snap.phase === 'revealed');
-  round = Math.max(1, (snap.currQ || 0) + (inQuestion ? 0 : 1));
+  // currQ = 已完成得分回合數；目前/下一輪一律顯示 currQ + 1。
+  round = Math.max(1, (snap.currQ || 0) + 1);
   const sbRound = document.getElementById('standby-round');
   if (sbRound) sbRound.textContent = `ROUND ${String(round).padStart(2, '0')}`;
   const sbStatRound = document.getElementById('stat-round');
@@ -2319,14 +2327,13 @@ function previewCategory(fid) {
   // 確保在分類頁
   const scr = document.getElementById('scr-category');
   if (!scr.classList.contains('active')) goto('scr-category');
-  // 清除其他預覽,但保留鎖定態
-  document.querySelectorAll('.cat-card').forEach(c => {
-    if (!c.classList.contains('locked')) c.classList.remove('preview');
-  });
+  // 任何新的預覽都是目前唯一有效的選擇。先清掉舊輪殘留的 preview / locked，
+  // 避免漏接 next_question 或重連接快照時，同時亮出上一題鎖定格與本輪預覽格。
+  document.querySelectorAll('.cat-card').forEach(c => c.classList.remove('preview', 'locked'));
   scr.classList.remove('has-locked');
   // 標記目標
   const card = document.querySelector(`.cat-card[data-fid="${fid}"]`);
-  if (card && !card.classList.contains('locked')) card.classList.add('preview');
+  if (card) card.classList.add('preview');
 }
 function lockCategory(fid) {
   console.log('[PGG/presenter] lockCategory called, fid=', fid);
@@ -2335,8 +2342,8 @@ function lockCategory(fid) {
     console.log('[PGG/presenter] scr-category not active, goto first');
     goto('scr-category');
   }
-  // 清預覽
-  document.querySelectorAll('.cat-card').forEach(c => c.classList.remove('preview'));
+  // 只允許本次拍板的一格保持高亮；舊輪殘留一併清掉。
+  document.querySelectorAll('.cat-card').forEach(c => c.classList.remove('preview', 'locked'));
   // 鎖定
   const card = document.querySelector(`.cat-card[data-fid="${fid}"]`);
   if (card) card.classList.add('locked');
@@ -2966,6 +2973,8 @@ PartyBus.on('team_rename', payload => {
 PartyBus.on('export_result', payload => {
   console.log('[PGG/presenter] received export_result', payload);
   if (!payload) return;
+  if (_presTimerInt) { clearInterval(_presTimerInt); _presTimerInt = null; }
+  try { PGGSound.stop(); } catch (e) {}
   renderEndScreen(payload);
   goto('scr-end');
 });

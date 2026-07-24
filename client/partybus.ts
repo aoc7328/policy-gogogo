@@ -234,7 +234,7 @@ class PartyBusImpl {
    * 改成:送不出去就明確讓呼叫端與使用者知道,由人決定要不要重按。
    */
   private static readonly MUST_DELIVER = new Set<string>([
-    'game_start', 'game_restart', 'score_adjust', 'start_rush', 'rebuzz_same',
+    'game_start', 'game_restart', 'score_adjust', 'start_rush', 'rebuzz_same', 'fresh_rush',
     'enter_category', 'category_preview', 'category_confirm', 'category_reset',
     'reveal_answer', 'next_question', 'skip_question', 'redraw_question',
     'arm_purgatory', 'mode_preview', 'custom_tiers_changed', 'rush_mode_changed',

@@ -171,13 +171,13 @@ const notify = doc.querySelector('.gc-hd .gc-notify');
 check('12. 組卡標頭第一行只有組號與組名',
   !!hdTop && !hdTop.querySelector('.gc-nbtn'),
   hdTop ? '第一行裡還有按鈕' : '找不到 .gc-hd-top');
-check('13. 三顆操作鈕在標頭的第二行',
+check('13. 隨機平均時只保留重抽組長操作鈕',
   !!notify && notify.parentElement?.classList.contains('gc-hd')
-    && notify.querySelectorAll('.gc-nbtn').length === 3,
+    && notify.querySelectorAll('.gc-nbtn').length === 1,
   `找到 ${notify?.querySelectorAll('.gc-nbtn').length ?? 0} 顆`);
 const btnTexts = [...(notify?.querySelectorAll('.gc-nbtn') ?? [])].map(b => b.textContent.trim());
-check('14. 按鈕文字不帶前置符號',
-  btnTexts.length === 3 && btnTexts.every(t => !/^[⚠？?★]/.test(t)),
+check('14. 隨機平均的操作鈕文字正確',
+  btnTexts.length === 1 && btnTexts[0] === '重抽組長',
   `文字=${JSON.stringify(btnTexts)}`);
 
 // ══════════════════════════════════════════════════════════════════════

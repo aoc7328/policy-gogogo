@@ -343,7 +343,7 @@ export class PolicyGogogoServer extends Server {
       case 'grouping_mode_changed':
         return this.onGroupingModeChanged(cmd.payload, sender);
       case 'notify_group':
-        return this.onNotifyGroup(cmd.payload);
+        return this.onNotifyGroup(cmd.payload, sender);
       case 'rename_self':
         return this.onRenameSelf(cmd.payload, sender);
       case 'leave_room':
@@ -352,6 +352,8 @@ export class PolicyGogogoServer extends Server {
         return this.onSetTimer(cmd.payload);
       case 'rebuzz_same':
         return this.onRebuzzSame(sender);
+      case 'fresh_rush':
+        return this.onFreshRush(sender);
       case 'resume_question':
         return this.onResumeQuestion(sender);
       case 'reassign_leader':
@@ -403,9 +405,14 @@ export class PolicyGogogoServer extends Server {
     this.broadcastLeaders();
   }
 
-  private onScoreAdjust(payload: { teamIdx: number; delta: number }): void {
+  private onScoreAdjust(payload: { teamIdx: number; delta: number; completeRound?: boolean }): void {
     const result = adjustScore(this.state, payload.teamIdx, payload.delta);
     if (!result.ok) return;
+    // 題數代表「已完成且有得分判定的回合」，不是抽題或答錯的次數。
+    // 只有揭曉後的 25% / 50% / 100% 計分會帶 completeRound=true。
+    if (payload.completeRound === true && this.state.phase === 'revealed') {
+      this.state.currQ = (this.state.currQ ?? 0) + 1;
+    }
     this.broadcastEvent({
       type: 'score_update',
       payload: {
@@ -430,8 +437,10 @@ export class PolicyGogogoServer extends Server {
       return;
     }
     // 一般「開始搶答 / 重新搶答(重抽)」= 新一輪,清掉本題失格名單
-    this.state.excludedTeams = [];
-    this.state.lastBuzzWinnerTeam = null;
+    if (!rerush) {
+      this.state.excludedTeams = [];
+      this.state.lastBuzzWinnerTeam = null;
+    }
     this.broadcastBuzzLockout();
     rushStart(this.state, this.rushBroadcast, { rerush });
   }
@@ -463,6 +472,29 @@ export class PolicyGogogoServer extends Server {
   }
 
   private onEnterCategory(sender: Connection<ConnState>): void {
+    // A sole remaining eligible team bypasses the next rush after a pass.
+    // Commit the just-failed team and make that remaining team the current
+    // answerer so a subsequent pass is attributed to the correct team.
+    if (this.state.phase === 'revealed') {
+      const failed = this.state.lastBuzzWinnerTeam;
+      const excluded = new Set(this.state.excludedTeams);
+      if (failed !== null) excluded.add(failed);
+      const eligible = this.state.groups.filter((g) => !excluded.has(g.idx));
+      if (eligible.length !== 1) {
+        this.sendError(sender, 'wrong_phase', 'Direct category selection requires exactly one eligible team');
+        return;
+      }
+      const remaining = eligible[0]!;
+      this.state.excludedTeams = [...excluded];
+      this.state.currentQuestion = null;
+      this.state.currentCat = null;
+      this.state.catLocked = false;
+      this.state.lastBuzzWinnerTeam = remaining.idx;
+      this.state.phase = 'picking';
+      this.broadcastBuzzLockout();
+      this.broadcastEvent({ type: 'enter_category', payload: {} });
+      return;
+    }
     // 冪等:多助理協作時,每位助理 onRushWinner 都排了 3.5s 計時器送
     // enter_category。第一個把 won→picking 後,其餘的若還沒被自己的
     // 廣播鏡射取消,會再送一次 — 此時 server 已在 picking,視為成功 no-op
@@ -575,7 +607,6 @@ export class PolicyGogogoServer extends Server {
       difficulty: result.question.difficulty,
       framework: result.question.framework,
     };
-    this.state.currQ = (this.state.currQ ?? 0) + 1;
     this.state.phase = 'answering';
 
     this.broadcastEvent({ type: 'category_confirm', payload });
@@ -588,7 +619,8 @@ export class PolicyGogogoServer extends Server {
         id: result.question.id,
         difficulty: result.question.difficulty,
         framework: result.question.framework,
-        roundQ: this.state.currQ,
+        // currQ 是已完成的得分回合數；目前抽到的是下一回合。
+        roundQ: (this.state.currQ ?? 0) + 1,
       },
     });
   }
@@ -824,7 +856,7 @@ export class PolicyGogogoServer extends Server {
         id: result.question.id,
         difficulty: result.question.difficulty,
         framework: result.question.framework,
-        roundQ: this.state.currQ,   // 重抽不增 currQ,送同一輪數
+        roundQ: (this.state.currQ ?? 0) + 1, // 重抽不增 currQ,送同一輪數
         redraw: true,
       },
     });
@@ -844,6 +876,8 @@ export class PolicyGogogoServer extends Server {
     // rushSession,pending callback 讀到 null 就 bail),再把 server phase
     // 設成 ended,與三端結束畫面一致。
     rushAbort(this.state);
+    this.state.timerDeadline = null;
+    this.broadcastEvent({ type: 'timer_update', payload: { remainingSec: 0 } });
     if (this.state.currentQuestion?.difficulty === 'purgatory') {
       this.broadcastEvent({ type: 'purgatory_end', payload: {} });
     }
@@ -987,8 +1021,15 @@ export class PolicyGogogoServer extends Server {
     this.syncLeaders(true);
   }
 
-  /** 助理對整組發通知 → 廣播 group_notice(該組參賽者畫面跳提示)。 */
-  private onNotifyGroup(payload: { team: string; kind: import('./protocol').GroupNoticeKind }): void {
+  /** 前綴分組時，助理對整組發通知 → 廣播 group_notice(該組參賽者畫面跳提示)。 */
+  private onNotifyGroup(
+    payload: { team: string; kind: import('./protocol').GroupNoticeKind },
+    sender: Connection<ConnState>
+  ): void {
+    if (this.state.groupingMode !== 'prefix') {
+      this.sendError(sender, 'wrong_grouping_mode', '通知改名／確認前綴只適用於前綴分組');
+      return;
+    }
     const kind = payload.kind === 'rename' ? 'rename' : 'confirm';
     this.broadcastEvent({
       type: 'group_notice',
@@ -1074,6 +1115,28 @@ export class PolicyGogogoServer extends Server {
     this.broadcastEvent({ type: 'timer_update', payload: { remainingSec: 0 } });
     // 跑一輪 rush(phase → rushing,走 rushBroadcast 才會累計 MVP)。
     rushStart(this.state, this.rushBroadcast, { rerush: true });
+  }
+
+  /** All teams passed: end the revealed question and start a new all-team rush. */
+  private onFreshRush(sender: Connection<ConnState>): void {
+    if (this.state.phase !== 'revealed') {
+      this.sendError(sender, 'wrong_phase', '全員重新搶答只能在公布答案後啟動');
+      return;
+    }
+    if (this.state.currentQuestion?.difficulty === 'purgatory') {
+      this.broadcastEvent({ type: 'purgatory_end', payload: {} });
+    }
+    this.state.currentQuestion = null;
+    this.state.currentCat = null;
+    this.state.catLocked = false;
+    this.state.rebuzzPending = false;
+    this.state.excludedTeams = [];
+    this.state.lastBuzzWinnerTeam = null;
+    this.state.timerDeadline = null;
+    this.broadcastEvent({ type: 'timer_update', payload: { remainingSec: 0 } });
+    this.broadcastBuzzLockout();
+    this.broadcastEvent({ type: 'next_question', payload: {} });
+    rushStart(this.state, this.rushBroadcast, { rerush: false });
   }
 
   /** 重新搶答後回到同一題作答(phase: won → answering)。 */

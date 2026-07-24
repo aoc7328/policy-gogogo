@@ -257,8 +257,9 @@ input::placeholder{color:var(--ink-3)}
 .cust-chip.danger{border-color:rgba(216,52,74,.4);color:#C97A85}
 .cust-chip.danger:hover:not(:disabled){border-color:#D8344A;color:#EC5068;background:rgba(216,52,74,.1)}
 .cust-chip.danger:disabled{opacity:.35;border-color:var(--line-s);color:var(--ink-3)}
-/* 靠右擺,跟上面的組名輸入欄拉開距離 —— 誤觸多半是手指順著欄位往下滑 */
-.regroup-row{margin-top:12px;display:flex;justify-content:flex-end}
+/* 全域重新分組只放在分組表上方，與各組的個別操作明確分開。 */
+.regroup-row{margin:0 0 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.regroup-hint{font-size:11px;color:var(--ink-3);line-height:1.55}
 .cust-chip.purg{
   border-color:rgba(255,107,26,.45);color:#FF8A3D;
 }
@@ -318,11 +319,9 @@ input::placeholder{color:var(--ink-3)}
 .sc{background:var(--bg-surface);border:1px solid var(--line);padding:10px 12px;position:relative;overflow:hidden;transition:border-color 400ms,background 400ms;isolation:isolate}
 .sc.lead{border-color:var(--accent);background:var(--bg-raised)}
 .sc.lead::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at top right,var(--accent-s) 0%,transparent 65%);pointer-events:none;z-index:-1}
-.sc.picking{border-color:#8BAAD8;box-shadow:0 0 0 1px rgba(139,170,216,.45);cursor:pointer}
+.sc.picking{border-color:#8BAAD8;box-shadow:0 0 0 1px rgba(139,170,216,.45)}
 .sc.picking .sc-name{color:#8BAAD8}
 .sc-pick-badge{position:absolute;top:10px;right:12px;font-family:var(--font-mono);font-size:9px;letter-spacing:.18em;color:#8BAAD8;text-transform:uppercase}
-.sc:not(.picking):not(.lead){cursor:pointer}
-.sc:not(.picking):not(.lead):hover{border-color:var(--line-s);background:var(--bg-raised)}
 .rank-bdg{position:absolute;top:10px;right:12px;font-family:var(--font-mono);font-size:9px;color:var(--accent);letter-spacing:.2em}
 .sc-id{font-family:var(--font-mono);font-size:10px;color:var(--ink-3);letter-spacing:.2em;text-transform:uppercase}
 .sc-name{font-family:var(--font-serif);font-weight:700;font-size:14px;color:var(--ink-2);margin:2px 0 6px}
@@ -493,13 +492,15 @@ input::placeholder{color:var(--ink-3)}
 .cb.primary{background:var(--accent);border-color:var(--accent);color:var(--bg-void);font-weight:700;font-size:12px;box-shadow:0 0 12px var(--accent-s)}
 .cb.primary:hover:not(:disabled){background:var(--accent-b);border-color:var(--accent-b);box-shadow:0 0 24px var(--accent-s)}
 /* 開始搶答主鈕(綠色,醒目;只在 phase=idle 啟用) */
-.cb.rush{background:#3DAA5C;border-color:#3DAA5C;color:#fff;font-weight:700;font-size:12px;box-shadow:0 0 12px rgba(61,170,92,.35)}
-.cb.rush:hover:not(:disabled){background:#48C66A;border-color:#48C66A;box-shadow:0 0 24px rgba(61,170,92,.5)}
-.cb.rush:disabled{background:transparent;color:rgba(61,170,92,.35);border-color:rgba(61,170,92,.25);box-shadow:none}
+.cb.rush{background:#357EDD;border-color:#357EDD;color:#fff;font-weight:700;font-size:12px;box-shadow:0 0 12px rgba(53,126,221,.35)}
+.cb.rush:hover:not(:disabled){background:#4A90E2;border-color:#4A90E2;box-shadow:0 0 24px rgba(53,126,221,.5)}
+.cb.rush:disabled{background:transparent;color:rgba(53,126,221,.35);border-color:rgba(53,126,221,.25);box-shadow:none}
+.cb.recovery{background:#357EDD;border-color:#357EDD;color:#fff;box-shadow:0 0 12px rgba(53,126,221,.35)}
+.cb.recovery:hover:not(:disabled){background:#4A90E2;border-color:#4A90E2;box-shadow:0 0 24px rgba(53,126,221,.5)}
 /* 下一題鈕(綠色,亮起時跟「開始搶答」同色,讓助理一眼看到該按下一題) */
-.cb.next{background:#3DAA5C;border-color:#3DAA5C;color:#fff;font-weight:700;font-size:12px;box-shadow:0 0 12px rgba(61,170,92,.35)}
-.cb.next:hover:not(:disabled){background:#48C66A;border-color:#48C66A;box-shadow:0 0 24px rgba(61,170,92,.5)}
-.cb.next:disabled{background:transparent;color:rgba(61,170,92,.35);border-color:rgba(61,170,92,.25);box-shadow:none}
+.cb.next{background:#357EDD;border-color:#357EDD;color:#fff;font-weight:700;font-size:12px;box-shadow:0 0 12px rgba(53,126,221,.35)}
+.cb.next:hover:not(:disabled){background:#4A90E2;border-color:#4A90E2;box-shadow:0 0 24px rgba(53,126,221,.5)}
+.cb.next:disabled{background:transparent;color:rgba(53,126,221,.35);border-color:rgba(53,126,221,.25);box-shadow:none}
 /* 重新搶答(橙色,提示性;搶答中或已搶到時可用) */
 .cb.warn{border-color:rgba(255,138,61,.45);color:#FF8A3D}
 .cb.warn:hover:not(:disabled){border-color:#FF8A3D;color:#FFB347;background:rgba(255,138,61,.08)}
@@ -843,8 +844,8 @@ input::placeholder{color:var(--ink-3)}
   <div class="tab-bar" id="tab-bar">
     <button class="tab-btn active" id="tb-room" onclick="sw('room')">房間</button>
     <button class="tab-btn" id="tb-setup" onclick="sw('setup')">設定</button>
-    <button class="tab-btn" id="tb-group" onclick="sw('group')">分組表</button>
     <button class="tab-btn disabled" id="tb-score" onclick="sw('score')">計分表</button>
+    <button class="tab-btn" id="tb-group" onclick="sw('group')">分組表</button>
     <button class="tab-btn" id="tb-qa" onclick="sw('qa')">題目</button>
     <button class="tab-btn" id="tb-bank" onclick="sw('bank')">題庫</button>
   </div>
@@ -1042,7 +1043,7 @@ input::placeholder{color:var(--ink-3)}
           <span class="flbl">分組方式</span>
           <div class="cust-chips" id="grouping-mode-chips" style="margin-top:4px">
             <button class="cust-chip active" data-gmode="random" onclick="setGroupingMode(this)">隨機平均</button>
-            <button class="cust-chip"        data-gmode="prefix" onclick="setGroupingMode(this)">依名稱前綴</button>
+            <button class="cust-chip"        data-gmode="prefix" onclick="setGroupingMode(this)">前綴分組</button>
           </div>
           <div class="hint" id="grouping-mode-hint" style="margin-top:6px;font-size:11px;color:var(--ink-3)">依當下加入人數隨機平均分組,人數均衡。</div>
         </div>
@@ -1057,11 +1058,6 @@ input::placeholder{color:var(--ink-3)}
           </div>
         </div>
         <div class="group-names" id="group-names"></div>
-        <!-- 破壞性操作(全員重洗),刻意不做成滿版大鈕:靠右、自然寬度,
-             離上面的組名欄位遠一點,降低誤觸。按下去仍有確認 modal 擋一層。 -->
-        <div class="regroup-row">
-          <button class="cust-chip danger" id="regroup-btn" onclick="doManualRegroup()">重新分組（全員隨機重洗）</button>
-        </div>
         <div class="fld" style="margin-top:14px">
           <span class="flbl">參賽者新手導覽</span>
           <div class="cust-chips" id="onboard-chips" style="margin-top:4px">
@@ -1094,6 +1090,10 @@ input::placeholder{color:var(--ink-3)}
   <!-- ===== GROUPS ===== -->
   <div class="page" id="pg-group">
     <div class="sec-label">分組名單</div>
+    <div class="regroup-row">
+      <div class="regroup-hint" id="regroup-hint">隨機平均時可將全員隨機重洗。</div>
+      <button class="cust-chip danger" id="regroup-btn" onclick="doManualRegroup()">重新分組（全員隨機重洗）</button>
+    </div>
     <div class="group-grid" id="group-grid"></div>
   </div>
 
@@ -1186,12 +1186,8 @@ input::placeholder{color:var(--ink-3)}
 
       <div class="ctrl-row">
         <button class="cb rush"     id="btn-rush"   onclick="doStartRush()" disabled>開始搶答</button>
-        <button class="cb warn"     id="btn-rerush" onclick="doReRush()"    disabled>重新搶答</button>
-        <button class="cb warn"     id="btn-rebuzz" onclick="doRebuzzSame()" disabled title="保留當前題目、重新開放搶答(答題者答不出來時用,不換題)">同一題重新搶答</button>
-        <button class="cb"          id="btn-skip"   onclick="doSkip()"      disabled>跳題</button>
-        <button class="cb"          id="btn-redraw" onclick="doRedraw()"    disabled>同範圍重抽</button>
         <button class="cb primary"  id="btn-reveal" onclick="doReveal()"    disabled>公佈答案</button>
-        <button class="cb next"     id="btn-next"   onclick="doNext()"      disabled>下一題</button>
+        <button class="cb next"     id="btn-next"   onclick="doPrimaryAction()" disabled>下一題</button>
       </div>
       <div class="ctrl-row" style="align-items:center">
         <span style="font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;color:var(--ink-3);text-transform:uppercase">答題倒數</span>
@@ -1582,9 +1578,13 @@ function hydrateFromSnapshot(snap){
   S.totalQ = g.totalQ;
   S.spq = g.spq;
   S.rushMode = snap.rushMode || g.rushMode || S.rushMode;
+  S.excludedTeams = Array.isArray(snap.excludedTeams) ? [...snap.excludedTeams] : [];
+  S.lastBuzzWinnerTeam = Number.isInteger(snap.lastBuzzWinnerTeam) ? snap.lastBuzzWinnerTeam : null;
   S.wordGameCap = (g.wordGameCap === undefined ? null : g.wordGameCap);
   applyTimerDefaultsFromConfig(g.timerDefaults);   // 重連端共用同一份倒數預設 + 鎖輸入
-  S.currQ = snap.currQ || 0;
+  // server currQ = 已完成得分回合數；正在作答/揭曉時，畫面顯示下一回合。
+  const snapInQuestion = snap.phase === 'answering' || snap.phase === 'revealed';
+  S.currQ = (snap.currQ || 0) + (snapInQuestion ? 1 : 0);
   S.usedIds = new Set(Array.isArray(snap.askedIds) ? snap.askedIds : []);
   S.currentCat = snap.currentCat || null;
   S.catLocked = !!snap.catLocked;
@@ -2079,12 +2079,31 @@ PartyBus.on('lightning_disqualify', payload => {
   S.rushSession.disqualified[payload.teamIdx].add(payload.name);
 });
 
+PartyBus.on('buzz_lockout', payload => {
+  const locked = new Set(Array.isArray(payload?.teams) ? payload.teams : []);
+  S.excludedTeams = (S.groups || [])
+    .map((group, idx) => locked.has(group.name) ? idx : -1)
+    .filter(idx => idx >= 0);
+});
+
 /* server 推贏家;鎖定 mirror 並觸發助理 UI */
 PartyBus.on('rush_winner', payload => {
   if (S.rushSession) S.rushSession.winnerLocked = true;
   if (!payload || typeof payload.groupIdx !== 'number') return;
   if (typeof recRound === 'function') recRound(payload);   // 賽後報告:記這一輪
   onRushWinner(payload.groupIdx, payload);
+});
+
+PartyBus.on('rush_no_winner', payload => {
+  S._rebuzzPending = false;
+  S.lastBuzzWinnerTeam = null;
+  S._recoveryPending = true;
+  setPhase('idle');
+  const next = document.getElementById('btn-next');
+  if (next) { next.textContent = '下一題'; next.disabled = true; }
+  const reason = payload?.reason === 'all_disqualified' ? '全員淘汰'
+    : (payload?.reason === 'tie' ? '平手' : '逾時');
+  setStatus(`${reason} · 按左側「重新搶答」只重置這次搶答`);
 });
 
 /* server 推 score_update(由 score_adjust / team_rename / game_start 觸發)
@@ -2912,10 +2931,13 @@ function setGroupingMode(el) {
   // server 只在 lobby 接受 grouping_mode_changed。開賽後若放行,本機會先把
   // UI 與 S.groupingMode 改掉、server 卻拒絕 → 畫面顯示前綴模式但實際還是
   // 隨機模式的「無聲不同步」。這裡直接擋下,不動任何本機狀態。
-  if (S.gameStarted) {
+  if (S.gameStarted && S.phase !== 'ended') {
     setStatus('⚠ 遊戲已開始,無法切換分組方式(要換請先按「重新開始」)');
     return;
   }
+  // 賽後和「分幾組」的行為一致：先將 server/投影/參賽者安全帶回 lobby，
+  // 再送新的分組方式。否則 server 仍停在 ended，會拒絕設定而只剩畫面假象。
+  if (S.phase === 'ended') _doRestartImpl(true);
   const mode = el.dataset.gmode === 'prefix' ? 'prefix' : 'random';
   S.groupingMode = mode;
   document.querySelectorAll('#grouping-mode-chips .cust-chip').forEach(c => {
@@ -3332,14 +3354,23 @@ window.doManualRegroup = doManualRegroup;
    原則:server 會拒絕的操作,按鈕就要是暗的,不能讓人按了才發現沒用
    (更不能像舊版那樣本機先改、server 拒絕,造成兩邊狀態不同步)。 */
 function updateLobbyOnlyControls(){
-  const locked = !!S.gameStarted;   // 開賽後(含已結束)server 都不在 lobby
+  // 賽後允許改下一場設定；實際變更時由各控制項先送 game_restart 回 lobby。
+  const locked = !!S.gameStarted && S.phase !== 'ended';
   const reason = locked ? '遊戲已開始 · 要調整請先按「重新開始」' : '';
   // 重新分組:開賽後鎖;prefix 模式本來就不吃組數,也鎖
   const b = document.getElementById('regroup-btn');
+  const regroupHint = document.getElementById('regroup-hint');
   if (b) {
     b.disabled = locked || S.groupingMode === 'prefix';
     b.title = locked ? reason
       : (S.groupingMode === 'prefix' ? '依名稱前綴模式的分組由名字決定,不需重洗' : '');
+  }
+  if (regroupHint) {
+    regroupHint.textContent = locked
+      ? '遊戲已開始；請先按「重新開始」才可重新分組。'
+      : (S.groupingMode === 'prefix'
+        ? '前綴分組由名稱決定；此操作已關閉。'
+        : '隨機平均時可將全員隨機重洗。');
   }
   // 分組方式 chips
   document.querySelectorAll('#grouping-mode-chips .cust-chip').forEach(c => {
@@ -3594,21 +3625,18 @@ function setPhase(p) {
   // 下一題:即使在 revealed 也保持 disabled,要等助理按了「加分 / 不計分」
   // 後 afterScore() 才會手動把它打開,避免漏記分。
   const en = {
-    idle:      { rush:1, rerush:0, rebuzz:0, skip:0, redraw:0, reveal:0, next:0 },
-    rushing:   { rush:0, rerush:1, rebuzz:0, skip:0, redraw:0, reveal:0, next:0 },
-    won:       { rush:0, rerush:1, rebuzz:0, skip:0, redraw:0, reveal:0, next:0 },
-    picking:   { rush:0, rerush:1, rebuzz:0, skip:0, redraw:0, reveal:0, next:0 },
-    answering: { rush:0, rerush:0, rebuzz:1, skip:1, redraw:1, reveal:1, next:0 },
-    revealed:  { rush:0, rerush:0, rebuzz:0, skip:0, redraw:0, reveal:0, next:0 },
-    ended:     { rush:0, rerush:0, rebuzz:0, skip:0, redraw:0, reveal:0, next:0 },
+    idle:      { rush:1, reveal:0, next:0 },
+    rushing:   { rush:0, reveal:0, next:0 },
+    won:       { rush:0, reveal:0, next:0 },
+    picking:   { rush:0, reveal:0, next:0 },
+    answering: { rush:0, reveal:1, next:0 },
+    revealed:  { rush:0, reveal:0, next:0 },
+    ended:     { rush:0, reveal:0, next:0 },
   }[p] || {};
   set('btn-rush',   !!en.rush);
-  set('btn-rerush', !!en.rerush);
-  set('btn-rebuzz', !!en.rebuzz);
-  set('btn-skip',   !!en.skip);
-  set('btn-redraw', !!en.redraw);
   set('btn-reveal', !!en.reveal);
   set('btn-next',   !!en.next);
+  if (p === 'idle') setRoundControl(!!S._recoveryPending);
 
   // 答題倒數 6 個按鈕(關閉/-10/-5/+5/+10/重新計時):只有 answering 階段可按。
   // 公佈答案後(revealed)鎖住,避免誤觸調整已結束的倒數(防呆)。
@@ -3648,6 +3676,15 @@ function setPhase(p) {
 /* 開始搶答(從 idle 進 rushing) */
 function doStartRush() {
   if (S.phase !== 'idle') return;
+  if (S._recoveryPending) {
+    _clearLocalRushUITimers();
+    S._recoveryPending = false;
+    setRoundControl(false);
+    setPhase('rushing');
+    setStatus('恢復本次回合 · 僅重新啟動搶答，不恢復已失格隊伍');
+    PartyBus.emit('start_rush', { rerush: true });
+    return;
+  }
   S.selectedIdx = null;
   S.pendingIdx = null;
   S.currentQuestion = null;
@@ -3699,6 +3736,19 @@ function doRebuzzSame() {
 }
 window.doRebuzzSame = doRebuzzSame;
 
+function doFreshRush() {
+  if (S.phase !== 'revealed') return;
+  _clearLocalRushUITimers();
+  _stopTimerSafe();
+  document.getElementById('rev-acts')?.classList.remove('show');
+  S.selectedIdx = null;
+  S.pendingIdx = null;
+  renderScores();
+  setStatus('全員重新搶答 · 舊題已結束，勝者將重新選九宮格抽題');
+  PartyBus.emit('fresh_rush', {});
+}
+window.doFreshRush = doFreshRush;
+
 /* 清前端 UI 計時器(原 _clearRushTimers,Phase 3 改名:server 接手仲裁
    timer 後,本機只剩 winner 卡片動畫的 setTimeout 需要清掉)。 */
 function _clearLocalRushUITimers() {
@@ -3715,6 +3765,7 @@ function _clearLocalRushUITimers() {
    「搶答成功」也不能顯示秒數,否則現場會以為真的有人搶到。 */
 function onRushWinner(idx, payload) {
   S.selectedIdx = idx;
+  S.lastBuzzWinnerTeam = idx;
   const noRush = !!payload?.fallback;
   S._rushFallback = noRush;   // 供 renderQaHostBar 的文案判斷用(要在渲染之前設好)
   if (typeof renderQaHostBar === 'function') renderQaHostBar();   // 題目分頁即時顯示「誰搶到」
@@ -3777,14 +3828,14 @@ function doReveal(){
 function scorePartial(pct){
   if(S.pendingIdx===null)return;
   const pts = Math.round((S.spq || 0) * pct);
-  if (pts > 0) adj(S.pendingIdx, pts);
+  adj(S.pendingIdx, pts, { completeRound: true });
   if (typeof recScore === 'function') recScore(pts, `${Math.round(pct*100)}%`);
-  afterScore();
+  afterScore('scored');
 }
 function scoreOk(){scorePartial(1);}
 function scorePass(){
   if (typeof recScore === 'function') recScore(0, '不計分');
-  afterScore();
+  afterScore('pass');
 }
 
 /* 揭曉後把三顆給分鈕的字樣換成實際分數(如 25% · +5分) */
@@ -3797,19 +3848,71 @@ function updateRevActLabels(){
                    `<span class="rb-pts">+${Math.round((S.spq || 0) * pct)}分</span>`;
   });
 }
+function setPrimaryAction(kind){
+  S._primaryAction = kind;
+  const btn = document.getElementById('btn-next');
+  if (!btn) return;
+  const labels = { next:'下一題', rebuzz:'同一題重新搶答', category:'進入九宮格', rerush:'重新搶答', fresh_rush:'全員重新搶答' };
+  btn.textContent = labels[kind] || labels.next;
+  btn.disabled = false;
+}
+
+function setRoundControl(recovery){
+  const btn = document.getElementById('btn-rush');
+  if (!btn) return;
+  btn.textContent = recovery ? '重新搶答' : '開始搶答';
+  btn.classList.toggle('recovery', recovery);
+}
+
+function doPrimaryAction(){
+  const action = S._primaryAction || 'next';
+  if (action === 'next') return doNext();
+  if (action === 'rebuzz') return doRebuzzSame();
+  if (action === 'category') return enterCategoryForLastEligible();
+  if (action === 'rerush') return doReRush();
+  if (action === 'fresh_rush') return doFreshRush();
+}
+
+function enterCategoryForLastEligible(){
+  if (S.phase !== 'revealed') return;
+  const failed = S.lastBuzzWinnerTeam;
+  const excluded = new Set(S.excludedTeams || []);
+  if (Number.isInteger(failed)) excluded.add(failed);
+  const lastIdx = (S.groups || []).findIndex((_, idx) => !excluded.has(idx));
+  if (lastIdx < 0) return doRebuzzSame();
+  S.selectedIdx = lastIdx;
+  S.pendingIdx = lastIdx;
+  S.lastBuzzWinnerTeam = lastIdx;
+  S.currentQuestion = null;
+  S.currentDifficulty = null;
+  S.currentFramework = null;
+  resetCategoryPicker(false);
+  PartyBus.emit('enter_category', {});
+  setPhase('picking');
+  setStatus(`${S.groups[lastIdx]?.name || '最後一隊'} 直接答題 · 請選九宮格`);
+}
+
 function afterScore(){
+  const result = arguments[0];
   document.getElementById('rev-acts').classList.remove('show');
-  S.selectedIdx=null;
-  S.pendingIdx=null;
+  S.selectedIdx = null;
+  S.pendingIdx = null;
   renderScores();
-  // 計分結束才把「下一題」打開(setPhase('revealed') 把它鎖死,避免漏記分)。
-  const next = document.getElementById('btn-next');
-  if (next) next.disabled = false;
-  // 「同一題重新搶答」也一起開:答題組答錯不計分後,可讓其他組再挑戰
-  // 同一題(答案已公開,申論/計算題仍可比誰講得完整,用部分給分裁量)。
-  const rebuzz = document.getElementById('btn-rebuzz');
-  if (rebuzz) rebuzz.disabled = false;
-  setStatus('揭曉完成 · 按「下一題」繼續,或「同一題重新搶答」讓其他組挑戰');
+  if (result !== 'pass') {
+    setPrimaryAction('next');
+    setStatus('判分完成 · 按「下一題」繼續');
+    return;
+  }
+  const failed = S.lastBuzzWinnerTeam;
+  const excluded = new Set(S.excludedTeams || []);
+  if (Number.isInteger(failed)) excluded.add(failed);
+  const remaining = (S.groups || []).length - excluded.size;
+  setPrimaryAction(remaining === 0 ? 'fresh_rush' : (remaining === 1 ? 'category' : 'rebuzz'));
+  setStatus(remaining === 0
+    ? '全員均不計分 · 舊題已結束，按「全員重新搶答」後由勝者重新選九宮格抽題'
+    : remaining === 1
+    ? '不計分 · 最後一隊直接答題，按「進入九宮格」抽新題'
+    : '不計分 · 按「同一題重新搶答」讓其餘隊伍搶答');
 }
 
 function doNext(){
@@ -3849,7 +3952,7 @@ function askEndOrAddQuestion() {
     okText: '結束本場',
     okClass: 'danger',
     onOk: _doEndImpl,
-    altText: '＋ 再加一題',
+    altText: '再加一題',
     onAlt: doAddQuestion,
   });
 }
@@ -3955,6 +4058,7 @@ function applyTabLock() {
 window.applyTabLock = applyTabLock;
 
 function renderGroups(){
+  const prefixControls = S.groupingMode === 'prefix';
   document.getElementById('group-grid').innerHTML=S.groups.map(g=>{
     // 名單與人數一律用「此刻真的連著」的名單,避免列出早就離開的人
     const members = displayMembers(g);
@@ -3983,8 +4087,8 @@ function renderGroups(){
           <span class="gc-name">${g.name}</span>
         </div>
         <span class="gc-notify">
-          <button class="gc-nbtn warn" title="通知這組改名(會跳改名鈕、30 秒倒數、逾時踢出)" onclick="notifyGroup('${safe}','rename')">通知改名</button>
-          <button class="gc-nbtn" title="軟性提醒這組確認名稱(有改名鈕、不踢人)" onclick="notifyGroup('${safe}','confirm')">確認分組</button>
+          ${prefixControls ? `<button class="gc-nbtn warn" title="通知這組更正前綴(30 秒倒數；逾時未改名者會被請出房間)" onclick="notifyGroup('${safe}','rename')">通知改名</button>
+          <button class="gc-nbtn" title="軟性提醒這組確認前綴與名稱（可略過，不會踢人）" onclick="notifyGroup('${safe}','confirm')">確認前綴</button>` : ''}
           <button class="gc-nbtn" ${members.length === 0 ? 'disabled title="這組還沒有人,無法抽組長"' : 'title="重抽這組組長(組長中離不回來、或要換人領獎時用)"'} onclick="redrawLeader('${safe}')">重抽組長</button>
         </span>
       </div>
@@ -4241,8 +4345,12 @@ function recSave(finished) {
 }
 window.PGGRec = REC;
 
-/* 對某一整組發通知。rename 種類會踢人,先跳確認;confirm 直接送。 */
+/* 前綴分組專用：rename 會踢人、confirm 只提醒。 */
 function notifyGroup(team, kind) {
+  if (S.groupingMode !== 'prefix') {
+    setStatus('只有前綴分組可通知組員確認或更正名稱');
+    return;
+  }
   if (kind === 'rename') {
     cfOpen({
       eyebrow: 'Notify · 通知改名',
@@ -4254,22 +4362,10 @@ function notifyGroup(team, kind) {
     });
   } else {
     PartyBus.emit('notify_group', { team, kind: 'confirm' });
-    setStatus(`已軟性提醒「${team}」確認名稱`);
+    setStatus(`已軟性提醒「${team}」確認前綴`);
   }
 }
 window.notifyGroup = notifyGroup;
-
-function selectTeam(i){
-  // 點同一組 → 取消選中；點其他組 → 切換
-  // 注意:搶答結果由系統自動判定(onRushWinner),這裡是「人工覆寫」用
-  S.selectedIdx = (S.selectedIdx === i) ? null : i;
-  renderScores();
-  if(S.selectedIdx !== null){
-    setStatus(`${S.groups[S.selectedIdx].name} 搶答中 · 流程繼續`);
-  } else {
-    setStatus('未選組別');
-  }
-}
 
 /* 計分卡上「被選中那一組」的階段徽章。
    舊版寫死「▶ 搶答中」,搶答結束進到選題/答題/揭曉後文字還停在原地,
@@ -4294,7 +4390,7 @@ function renderScores(){
     const isPick=S.selectedIdx===i;
     const classes=['sc', isLead?'lead':'', isPick?'picking':''].filter(Boolean).join(' ');
     return `
-    <div class="${classes}" id="sc-${i}" onclick="selectTeam(${i})">
+    <div class="${classes}" id="sc-${i}">
       <div class="sf" id="sf-${i}"></div>
       <div class="dp" id="dp-${i}"></div>
       ${isPick ? `<div class="sc-pick-badge">${pickBadgeText()}</div>` : (isLead ? '<div class="rank-bdg">1ST</div>' : '')}
@@ -4309,14 +4405,14 @@ function renderScores(){
   renderRank();
 }
 
-function adj(i,d){
+function adj(i,d, options={}){
   // Optimistic local update — UI 立即反應(<200ms 手感要求,避免等 server 來回)
   S.groups[i].score = Math.max(0, S.groups[i].score + d);
   renderScores();
   if (typeof renderQaHostBar === 'function') renderQaHostBar();   // 題目分頁控場列即時同步
   flash(i, d > 0 ? 'gold' : 'red', d);
   // 送 score_adjust 命令給 server;server 會回 score_update 全組廣播
-  PartyBus.emit('score_adjust', { teamIdx: i, delta: d });
+  PartyBus.emit('score_adjust', { teamIdx: i, delta: d, completeRound: options.completeRound === true });
 }
 
 function flash(i,cls,d){

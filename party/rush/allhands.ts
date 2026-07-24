@@ -21,6 +21,7 @@
 
 import type { BuzzRecord } from '../state';
 import type { RushCtx } from './types';
+import { noWinner } from './index';
 import {
   ALLHANDS_DURATION_MS,
   ALLHANDS_TICK_MS,
@@ -151,22 +152,13 @@ function lockWinner(ctx: RushCtx): void {
 
   // Edge case: nobody pressed.
   if (winnerIdx < 0) {
-    const fallback =
-      ctx.state.groups.find((g) => !ctx.state.excludedTeams.includes(g.idx)) ??
-      ctx.state.groups[0];
-    if (!fallback) return;
-    ctx.broadcast({
-      type: 'rush_winner',
-      payload: {
-        groupIdx: fallback.idx,
-        groupName: fallback.name,
-        rushMode: 'allhands',
-        clusterCount: 0,
-        totalCount: fallback.members.length,
-        endAtSec: ALLHANDS_DURATION_MS / 1000,
-      },
-    });
-    ctx.state.phase = 'won';
+    noWinner(ctx.state, ctx.broadcast, 'timeout');
+    return;
+  }
+
+  const tiedTeams = ctx.state.groups.filter((g) => data.bestCluster.get(g.idx)?.count === bestCount);
+  if (tiedTeams.length > 1) {
+    noWinner(ctx.state, ctx.broadcast, 'tie');
     return;
   }
 

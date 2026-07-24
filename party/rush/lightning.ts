@@ -15,6 +15,7 @@
 import type { BuzzRecord } from '../state';
 import type { RushCtx } from './types';
 import { LIGHTNING_DISQUAL_MS, LIGHTNING_FALLBACK_MS } from './types';
+import { noWinner } from './index';
 
 export function arm(ctx: RushCtx): void {
   const session = ctx.state.rushSession;
@@ -85,32 +86,5 @@ function lockWinner(ctx: RushCtx, winning: BuzzRecord): void {
 function fallback(ctx: RushCtx): void {
   const session = ctx.state.rushSession;
   if (!session || session.mode !== 'lightning' || session.winnerLocked) return;
-  session.winnerLocked = true;
-  // Pick a random non-empty team. (Disqualified players still count as
-  // members of their team — this is just "nobody pressed in time" recovery.)
-  const eligible = ctx.state.groups.filter((g) => g.members.length > 0 && !ctx.state.excludedTeams.includes(g.idx));
-  const pool = eligible.length > 0 ? eligible : ctx.state.groups;
-  if (pool.length === 0) return;
-  const team = pool[Math.floor(Math.random() * pool.length)]!;
-  // Pick a member who was NOT disqualified.
-  const data = session.data.lightning!;
-  const disq = data.disqualified.get(team.idx) ?? new Set<string>();
-  const cleanMembers = team.members.filter((m) => !disq.has(m));
-  const personName =
-    (cleanMembers.length > 0
-      ? cleanMembers[Math.floor(Math.random() * cleanMembers.length)]
-      : team.members[0]) ?? '(無人)';
-
-  ctx.broadcast({
-    type: 'rush_winner',
-    payload: {
-      groupIdx: team.idx,
-      groupName: team.name,
-      rushMode: 'lightning',
-      personName,
-      pressedAtSec: Number((LIGHTNING_FALLBACK_MS / 1000).toFixed(2)),
-      fallback: true,
-    },
-  });
-  ctx.state.phase = 'won';
+  noWinner(ctx.state, ctx.broadcast, 'all_disqualified');
 }

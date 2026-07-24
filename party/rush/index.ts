@@ -49,6 +49,19 @@ export function abort(state: RoomState): void {
   state.rushSession = null;
 }
 
+/** End a rush without assigning a winner. Eligibility lockouts are kept so a
+ * manual retry cannot revive a team already marked "不計分" this round. */
+export function noWinner(
+  state: RoomState,
+  broadcast: (event: ServerEvent) => void,
+  reason: 'timeout' | 'tie' | 'all_disqualified'
+): void {
+  if (!state.rushSession || state.rushSession.winnerLocked) return;
+  state.rushSession.winnerLocked = true;
+  state.phase = 'idle';
+  broadcast({ type: 'rush_no_winner', payload: { rushMode: state.rushSession.mode, reason } });
+}
+
 /**
  * Entry point for `start_rush` command. Resolves random → actual mode,
  * emits start_rush (and rush_reveal first if random), arms the chosen

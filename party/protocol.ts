@@ -105,7 +105,8 @@ export type GameStartCommand = {
 
 export type ScoreAdjustCommand = {
   type: 'score_adjust';
-  payload: { teamIdx: number; delta: number };
+  /** completeRound 僅由 25% / 50% / 100% 判定送出；人工 +/- 不會消耗題數。 */
+  payload: { teamIdx: number; delta: number; completeRound?: boolean };
 } & PrivilegedHeader;
 
 export type StartRushCommand = {
@@ -283,6 +284,11 @@ export type RebuzzSameCommand = {
   type: 'rebuzz_same';
 } & PrivilegedHeader;
 
+/** Ends an exhausted, revealed question and starts a fresh all-team rush. */
+export type FreshRushCommand = {
+  type: 'fresh_rush';
+} & PrivilegedHeader;
+
 /**
  * 重新搶答後回到同一題作答(助理在 winner 卡片後送)。server 把 phase
  * 拉回 answering(rush 模組會把它設成 won),並廣播 resume_question。
@@ -389,6 +395,7 @@ export type ClientCommand =
   | LeaveRoomCommand
   | SetTimerCommand
   | RebuzzSameCommand
+  | FreshRushCommand
   | ResumeQuestionCommand
   | ReassignLeaderCommand
   | ResyncAllCommand
@@ -636,6 +643,12 @@ export type RushWinnerEvent = {
     | RushWinnerAllhands;
 };
 
+/** A rush ended without an effective winner; the assistant may retry it. */
+export type RushNoWinnerEvent = {
+  type: 'rush_no_winner';
+  payload: { rushMode: ActualRushMode; reason: 'timeout' | 'tie' | 'all_disqualified' };
+};
+
 export type LightningDisqualifyEvent = {
   type: 'lightning_disqualify';
   payload: { name: string; team: string; teamIdx: number; elapsedMs: number };
@@ -845,6 +858,7 @@ export type ServerEvent =
   | RushRevealEvent
   | RushTickEvent
   | RushWinnerEvent
+  | RushNoWinnerEvent
   | LightningDisqualifyEvent
   | AllhandsProgressEvent
   | EnterCategoryEvent
@@ -901,6 +915,7 @@ export const PRIVILEGED_COMMAND_TYPES = new Set<string>([
   'notify_group',
   'set_timer',
   'rebuzz_same',
+  'fresh_rush',
   'resume_question',
   'reassign_leader',
   'resync_all',

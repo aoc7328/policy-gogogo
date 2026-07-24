@@ -12,6 +12,7 @@
 
 import type { BuzzRecord } from '../state';
 import type { RushCtx } from './types';
+import { noWinner } from './index';
 import { COUNT_DURATION_MS, COUNT_TICK_MS } from './types';
 
 export function arm(ctx: RushCtx): void {
@@ -108,23 +109,7 @@ function lockWinner(ctx: RushCtx): void {
   }
   // Edge case: nobody pressed at all.
   if (maxCount <= 0) {
-    const fallback =
-      ctx.state.groups.find((g) => !ctx.state.excludedTeams.includes(g.idx)) ??
-      ctx.state.groups[0];
-    if (!fallback) return;
-    ctx.broadcast({
-      type: 'rush_winner',
-      payload: {
-        groupIdx: fallback.idx,
-        groupName: fallback.name,
-        rushMode: 'count',
-        personName: '(無人按)',
-        teamTotalClicks: 0,
-        mvpClicks: 0,
-        fallback: true,
-      },
-    });
-    ctx.state.phase = 'won';
+    noWinner(ctx.state, ctx.broadcast, 'timeout');
     return;
   }
 
@@ -141,6 +126,10 @@ function lockWinner(ctx: RushCtx): void {
   const tiedIdxs: number[] = [];
   for (const [idx, count] of data.teamCounts.entries()) {
     if (Math.abs(avgOf(idx, count) - bestAvg) < EPS) tiedIdxs.push(idx);
+  }
+  if (tiedIdxs.length > 1) {
+    noWinner(ctx.state, ctx.broadcast, 'tie');
+    return;
   }
   let winnerIdx = tiedIdxs[0]!;
   let earliestTs =

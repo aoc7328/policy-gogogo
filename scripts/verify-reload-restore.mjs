@@ -155,8 +155,8 @@ check('5. 等待畫面收起來',
   qWait && qWait.style.display === 'none',
   `q-wait display=${qWait?.style.display}`);
 
-check('6. 題號用 server 的絕對值 03 / 20(不是本機從 0 累加的 01)',
-  doc.getElementById('gs-round')?.textContent.trim() === '03 / 20',
+check('6. 進行中的題目顯示為下一個完成回合 04 / 20',
+  doc.getElementById('gs-round')?.textContent.trim() === '04 / 20',
   `實際=「${doc.getElementById('gs-round')?.textContent.trim()}」`);
 
 const timerBox = doc.getElementById('p-timer');
@@ -268,7 +268,7 @@ check('16. 離開結算頁 — server 已開新場 → 進遊戲頁',
   `目前 active=${doc.querySelector('.stage.active')?.id}`);
 check('17. 離開結算頁 — 且已接上當前題目與題號',
   doc.getElementById('q-body')?.style.display === 'block'
-    && doc.getElementById('gs-round')?.textContent.trim() === '03 / 20',
+    && doc.getElementById('gs-round')?.textContent.trim() === '04 / 20',
   `q-body=${doc.getElementById('q-body')?.style.display} 題號=「${doc.getElementById('gs-round')?.textContent.trim()}」`);
 
 // ══════════════════════════════════════════════════════════════════════

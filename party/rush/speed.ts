@@ -12,6 +12,7 @@
 import type { BuzzRecord } from '../state';
 import type { RushCtx } from './types';
 import { SPEED_FALLBACK_MS } from './types';
+import { noWinner } from './index';
 
 export function arm(ctx: RushCtx): void {
   const session = ctx.state.rushSession;
@@ -57,24 +58,5 @@ function lockWinner(ctx: RushCtx, winning: BuzzRecord): void {
 function fallback(ctx: RushCtx): void {
   const session = ctx.state.rushSession;
   if (!session || session.winnerLocked) return;
-  // Pick a random team that has at least one current participant.
-  const eligible = ctx.state.groups.filter((g) => g.members.length > 0 && !ctx.state.excludedTeams.includes(g.idx));
-  const pool = eligible.length > 0 ? eligible : ctx.state.groups;
-  if (pool.length === 0) return;
-  const team = pool[Math.floor(Math.random() * pool.length)]!;
-  const personName = team.members[0] ?? '(無人)';
-  session.winnerLocked = true;
-
-  ctx.broadcast({
-    type: 'rush_winner',
-    payload: {
-      groupIdx: team.idx,
-      groupName: team.name,
-      rushMode: 'speed',
-      personName,
-      elapsedMs: SPEED_FALLBACK_MS,
-      fallback: true,
-    },
-  });
-  ctx.state.phase = 'won';
+  noWinner(ctx.state, ctx.broadcast, 'timeout');
 }
