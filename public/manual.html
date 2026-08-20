@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>三端登入說明書 · 保險知識星攻略</title>
+<!--
+  三端(助理/投影/參賽者)登入流程說明書。2026-08-20 現場事故後建立:
+  流程步驟、每一步的「完整網址」、成功標誌與失敗排查,全部寫死講清楚。
+  部署後網址:policy-gogogo.pages.dev/manual
+-->
+<style>
+  :root{
+    --bg:#050912; --panel:#0D1322; --panel2:#141B2E; --line:#232D4A;
+    --ink:#F2EDE1; --sub:#9BA3B5; --gold:#D4A34B; --green:#3DAA5C; --red:#E55353;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font-family:'Noto Sans TC',system-ui,sans-serif;line-height:1.85;
+       padding:32px 16px 80px}
+  .wrap{max-width:760px;margin:0 auto}
+  h1{font-size:26px;margin:0 0 4px}
+  .lede{color:var(--sub);font-size:14px;margin-bottom:28px}
+  h1 .v{font-size:12px;color:var(--sub);font-weight:400;margin-left:8px}
+
+  /* 三端關係圖 */
+  .arch{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0 30px}
+  .arch .node{flex:1;min-width:180px;background:var(--panel);border:1px solid var(--line);
+    border-radius:12px;padding:14px 16px}
+  .arch .node b{display:block;font-size:15px;color:var(--gold)}
+  .arch .node span{font-size:13px;color:var(--sub)}
+
+  /* 房號代入器 */
+  .roombox{background:var(--panel2);border:1px solid var(--gold);border-radius:12px;
+    padding:16px 18px;margin:0 0 30px}
+  .roombox label{font-size:14px;font-weight:700}
+  .roombox input{width:120px;margin-left:10px;padding:8px 12px;font-size:20px;
+    letter-spacing:.3em;text-align:center;background:var(--bg);color:var(--ink);
+    border:1px solid var(--line);border-radius:8px;outline:none;
+    font-family:'JetBrains Mono',Consolas,monospace}
+  .roombox .hint{font-size:12.5px;color:var(--sub);margin-top:6px}
+
+  /* 步驟卡 */
+  .step{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:20px 22px;margin-bottom:22px;position:relative}
+  .step .no{position:absolute;top:-14px;left:18px;background:var(--gold);color:#050912;
+    font-weight:900;font-size:15px;border-radius:999px;padding:2px 14px}
+  .step h2{font-size:18px;margin:6px 0 2px}
+  .step .dev{font-size:13px;color:var(--sub);margin-bottom:12px}
+  .url{display:flex;align-items:center;gap:10px;background:#080C16;border:1px solid var(--line);
+    border-radius:10px;padding:12px 14px;margin:10px 0;
+    font-family:'JetBrains Mono',Consolas,monospace;font-size:15.5px;overflow-x:auto}
+  .url .rs{color:var(--gold);font-weight:700}
+  .url button{margin-left:auto;flex:none;background:var(--panel2);color:var(--ink);
+    border:1px solid var(--line);border-radius:8px;padding:5px 12px;font-size:12.5px;cursor:pointer}
+  .url button:active{background:var(--gold);color:#050912}
+  ol{padding-left:22px;margin:10px 0}
+  ol li{margin-bottom:6px}
+  .ok{color:var(--green);font-weight:700}
+  .warn{color:var(--red);font-weight:700}
+  .note{background:var(--panel2);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;
+    padding:10px 14px;font-size:13.5px;color:var(--sub);margin:12px 0}
+  .note b{color:var(--ink)}
+
+  /* 檢查清單與排解表 */
+  .check li{margin-bottom:8px}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:10px}
+  th,td{border:1px solid var(--line);padding:9px 12px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);white-space:nowrap}
+  td:first-child{white-space:normal;font-weight:700}
+  .foot{margin-top:36px;font-size:12.5px;color:var(--sub);border-top:1px solid var(--line);padding-top:14px}
+  @media (max-width:560px){ .url{font-size:13px} h1{font-size:22px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>三端登入流程說明書<span class="v">保險知識星攻略 · 2026-08-20 版</span></h1>
+<div class="lede">照著 1 → 2 → 3 的順序做,每一步都有「完整網址 + 成功標誌 + 失敗排查」。所有裝置都要能連上網路。</div>
+
+<div class="arch">
+  <div class="node"><b>① 助理端</b><span>控場的平板或筆電。開房、產生房號與控制碼、控制整場遊戲。</span></div>
+  <div class="node"><b>② 投影端</b><span>接投影機/大電視的電腦。純顯示,靠「投影端控制碼」登入。</span></div>
+  <div class="node"><b>③ 參賽者</b><span>學員手機。掃 QR 或打短網址進場。</span></div>
+</div>
+
+<div class="roombox">
+  <label>你的房號:<input id="room-in" inputmode="numeric" maxlength="8" placeholder="0000"
+    oninput="applyRoom(this.value)"></label>
+  <div class="hint">第一步拿到房號後填在這裡,下面所有網址會自動代入,就能直接照著打或按「複製」。</div>
+</div>
+
+<!-- 第一步 -->
+<div class="step">
+  <div class="no">第一步</div>
+  <h2>登入助理端(開房)</h2>
+  <div class="dev">裝置:控場的平板或筆電 · 用 Chrome / Safari 開啟</div>
+  <div class="url"><span>https://policy-gogogo.pages.dev/<b>ass</b></span><button onclick="copyText('https://policy-gogogo.pages.dev/ass')">複製</button></div>
+  <ol>
+    <li>開啟後系統<b>自動產生一組 4 位數房號</b>(每次全新開啟都是新房間)。</li>
+    <li>確認頂部狀態是 <span class="ok">已連線</span>。若顯示斷線,先檢查這台裝置的網路。</li>
+    <li>切到「<b>房間</b>」分頁,記下三樣東西:
+      <b>房號</b>(4 位數字)、
+      <b>投影端控制碼</b>(4 位英文)、
+      <b>助理端控制碼</b>(4 位英文)。</li>
+    <li>把房號填進本頁上方的「你的房號」,下面步驟的網址就完整了。</li>
+  </ol>
+  <div class="note"><b>房號規則:</b>房間還沒有人進來時,可在「房間」分頁自訂房號(3–8 位數字);一旦有人加入或投影端就緒就自動鎖住。<b>「重新生成」= 開一個全新房間</b>,兩組控制碼全部換新,投影端和參賽者都要重新進場——正式活動中不要按。單純重新整理頁面「不會」換房。</div>
+</div>
+
+<!-- 第二步 -->
+<div class="step">
+  <div class="no">第二步</div>
+  <h2>登入投影端(大螢幕)</h2>
+  <div class="dev">裝置:接投影機或大電視的電腦</div>
+  <div class="url"><span>https://policy-gogogo.pages.dev/gamer/<span class="rs">房號</span></span><button onclick="copyRoomUrl('https://policy-gogogo.pages.dev/gamer/')">複製</button></div>
+  <ol>
+    <li>在瀏覽器輸入上面的網址(把<span class="rs">房號</span>換成第一步的 4 位數)。<br>
+        打開後網址列會自動變成 <code>…/participant?room=房號</code>,這是正常的。</li>
+    <li>畫面會是「參賽者登入頁」。<b>先核對一件事:網址列 room= 後面的數字 = 助理端顯示的房號。</b></li>
+    <li>點<b>右下角的人形按鈕「投影或助理登入」</b>。</li>
+    <li>輸入第一步記下的「<b>投影端控制碼</b>」(4 位英文,大小寫都可以)→ 按「登入」。</li>
+    <li><span class="ok">成功標誌:</span>整個畫面轉為投影端,大字顯示 <b>JOIN ROOM + QR Code + 房號</b>。</li>
+  </ol>
+  <div class="note"><b>失敗排查:</b>出現「控制碼錯誤,請向助理確認」→ 九成是<b>房號不一致</b>(你在別的房間裡輸對的碼也是錯),回到第 2 點核對網址列;確定房號一致再重輸控制碼。出現「連線逾時」→ 這台電腦的網路問題,換網路或開手機熱點。<br>大場地要多台投影電腦:每一台都重複本步驟即可,支援同時多台。</div>
+</div>
+
+<!-- 第三步 -->
+<div class="step">
+  <div class="no">第三步</div>
+  <h2>參賽者進場(學員手機)</h2>
+  <div class="dev">裝置:每位學員自己的手機</div>
+  <ol>
+    <li>首選:<b>掃投影幕上的 QR Code</b>(投影端就緒後,助理端可按「在投影端顯示 QR Code」)。</li>
+    <li>沒辦法掃的人,手動輸入短網址:</li>
+  </ol>
+  <div class="url"><span>https://policy-gogogo.pages.dev/r/<span class="rs">房號</span></span><button onclick="copyRoomUrl('https://policy-gogogo.pages.dev/r/')">複製</button></div>
+  <ol start="3">
+    <li>進入登入頁 → 輸入姓名 → 「進入遊戲」→ 等待分組。</li>
+    <li><span class="ok">成功標誌:</span>學員名字即時出現在<b>助理端的名單</b>上。名字沒出現 = 他進錯房間,請他核對網址裡的房號。</li>
+  </ol>
+  <div class="note">QR Code 在遊戲開始後永久消失;遲到的學員一律用上面的短網址進場。也可以請學員直接開 <code>policy-gogogo.pages.dev/gamer</code>,頁面會請他手動輸入房號。</div>
+</div>
+
+<!-- 第四步 -->
+<div class="step">
+  <div class="no">第四步(可選)</div>
+  <h2>第二、三位助理登入</h2>
+  <div class="dev">裝置:其他工作人員的平板或手機</div>
+  <ol>
+    <li>入口與第二步完全相同(<code>…/gamer/房號</code> → 右下角「投影或助理登入」)。</li>
+    <li>差別:輸入的是「<b>助理端控制碼</b>」→ 自動轉為助理介面,可協助計分控場。</li>
+  </ol>
+  <div class="note"><b>分碼原則:</b>投影人員只給「投影端控制碼」——拿投影碼進不了計分控制,避免誤操作。</div>
+</div>
+
+<!-- 檢查清單 -->
+<div class="step">
+  <div class="no">賽前 60 秒</div>
+  <h2>開賽前檢查清單</h2>
+  <ol class="check">
+    <li>三端<b>房號一致</b>:平板顯示的房號 = 投影電腦網址列的 room= = 學員手機網址裡的房號。</li>
+    <li>助理端頂部是 <span class="ok">已連線</span>。</li>
+    <li>投影幕顯示 QR Code 與房號。</li>
+    <li>用一支真手機<b>實際掃 QR 進場</b>,名字出現在助理端名單 → 全通。</li>
+    <li class="warn">正式彩排請用「真的多台裝置」照本說明書走一次。testbed 測試台(三視窗)會自動把三端放進同一房,「網址打錯、房號不一致」這類現場問題在那裡測不出來——它只適合測遊戲流程,不能取代進場彩排。</li>
+  </ol>
+</div>
+
+<!-- 疑難排解 -->
+<div class="step">
+  <div class="no">出事再看</div>
+  <h2>疑難排解</h2>
+  <table>
+    <tr><th>症狀</th><th>原因</th><th>解法</th></tr>
+    <tr><td>控制碼怎麼輸都「錯誤」</td><td>你所在的房間 ≠ 助理端的房間(碼是對的,房錯了)</td><td>核對網址列 room= 與助理端房號;重新用 <code>…/gamer/正確房號</code> 進入再輸碼</td></tr>
+    <tr><td>參賽者「加入成功」,助理端名單卻沒有他</td><td>同上,他進了別的房</td><td>請他核對網址裡的房號,重掃 QR 最保險</td></tr>
+    <tr><td>一直斷線、轉圈</td><td>場地 WiFi 對長連線(WebSocket)不友善</td><td>改用手機熱點;助理端有「↻ 重新同步」可把狀態重推給所有端</td></tr>
+    <tr><td>房號改不了</td><td>已有人加入或投影端就緒,自動鎖定</td><td>正常保護。真要換房用「重新生成」,但所有人要重進</td></tr>
+    <tr><td>投影電腦不小心關掉頁面</td><td>—</td><td>重走第二步即可,同一組投影端控制碼可重複登入</td></tr>
+  </table>
+</div>
+
+<div class="foot">
+  本頁網址:policy-gogogo.pages.dev/manual · 助理端 /ass · 參賽者 /gamer · 測試台 /testbed(僅測遊戲流程)<br>
+  2026-08-20 依現場事故經驗整理;流程或文案與實際畫面不符時,以實際畫面為準並回報修正本頁。
+</div>
+
+</div>
+<script>
+/* 房號代入:把所有 .rs 佔位換成輸入的房號;複製鈕給完整網址 */
+var ROOM = '';
+function applyRoom(v) {
+  ROOM = (v || '').replace(/[^0-9A-Za-z_-]/g, '');
+  document.querySelectorAll('.rs').forEach(function (el) {
+    el.textContent = ROOM || '房號';
+  });
+}
+function copyText(t) {
+  try { navigator.clipboard.writeText(t); } catch (e) {}
+}
+function copyRoomUrl(prefix) {
+  copyText(prefix + (ROOM || '房號'));
+}
+</script>
+</body>
+</html>

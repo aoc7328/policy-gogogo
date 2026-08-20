@@ -99,6 +99,19 @@ html,body{height:100%;background:#050912;color:#F2EDE1;font-family:"Noto Sans TC
   transform:none;
 }
 
+/* 各視窗「實際網址」列:顯示 iframe 目前真實落地的 URL(redirect 鏈跑完
+   之後的那個),點擊複製完整網址。2026-08-20 教訓:testbed 以前不顯示
+   網址,三視窗又永遠自動同房,「網址打錯 / 房號亂打」在這裡完全隱形。 */
+.tb-url{
+  display:flex;align-items:center;gap:6px;
+  padding:3px 10px;background:#0A0E18;border-bottom:1px solid #1A2138;
+  font-family:"JetBrains Mono",monospace;font-size:10px;color:#7B849E;
+  white-space:nowrap;overflow:hidden;cursor:copy;
+}
+.tb-url .u{overflow:hidden;text-overflow:ellipsis}
+.tb-url.mismatch{color:#FF6B6B;background:#1A0D10}
+.tb-url.mismatch::before{content:"⚠ ";font-weight:700}
+
 /* loading 占位 */
 .tb-loading{
   position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
@@ -141,12 +154,13 @@ html,body{height:100%;background:#050912;color:#F2EDE1;font-family:"Noto Sans TC
   <div class="tb-col" data-role="presenter">
     <div class="tb-col-hd">
       <span class="role">Presenter</span>
-      <span class="desc">主持人 · 投影</span>
+      <span class="desc">主持人 · 投影(直連載入,略過控制碼登入)</span>
       <div class="actions">
         <button class="icon-btn" onclick="reloadFrame('presenter')" title="重整">↻</button>
         <button class="icon-btn" onclick="popout('presenter')" title="獨立視窗">↗</button>
       </div>
     </div>
+    <div class="tb-url" id="url-presenter" onclick="copyFrameUrl('presenter')" title="點擊複製完整網址"><span class="u">…</span></div>
     <div class="tb-col-body">
       <div class="tb-loading">Loading presenter...</div>
       <iframe id="if-presenter" data-src="presenter" allow="autoplay"></iframe>
@@ -163,6 +177,7 @@ html,body{height:100%;background:#050912;color:#F2EDE1;font-family:"Noto Sans TC
         <button class="icon-btn" onclick="popout('assistant')" title="獨立視窗">↗</button>
       </div>
     </div>
+    <div class="tb-url" id="url-assistant" onclick="copyFrameUrl('assistant')" title="點擊複製完整網址"><span class="u">…</span></div>
     <div class="tb-col-body">
       <div class="tb-loading">Loading assistant...</div>
       <iframe id="if-assistant" data-src="assistant"></iframe>
@@ -173,12 +188,13 @@ html,body{height:100%;background:#050912;color:#F2EDE1;font-family:"Noto Sans TC
   <div class="tb-col participant" data-role="participant">
     <div class="tb-col-hd">
       <span class="role">Participant</span>
-      <span class="desc">參賽者 · 手機</span>
+      <span class="desc">參賽者 · 手機(正式站走 /gamer/房號 真實進場)</span>
       <div class="actions">
         <button class="icon-btn" onclick="reloadFrame('participant')" title="重整">↻</button>
         <button class="icon-btn" onclick="popout('participant')" title="獨立視窗">↗</button>
       </div>
     </div>
+    <div class="tb-url" id="url-participant" onclick="copyFrameUrl('participant')" title="點擊複製完整網址"><span class="u">…</span></div>
     <div class="tb-col-body">
       <div class="frame-wrap">
         <div class="tb-loading">Loading participant...</div>
@@ -200,12 +216,22 @@ html,body{height:100%;background:#050912;color:#F2EDE1;font-family:"Noto Sans TC
   const room = qs.get('room') || String(Math.floor(Math.random() * 10000)).padStart(4, '0');
   // ?host=127.0.0.1:1999 一併轉發給三個 iframe,本機 npm run dev 測試用
   const host = qs.get('host');
+  window.TB_ROOM = room;   // 給網址列比對房號用
   try { localStorage.setItem('pgg_last_room', room); } catch {}
   ['presenter', 'assistant', 'participant'].forEach(role => {
     const f = document.getElementById('if-' + role);
     if (!f) return;
     const base = f.getAttribute('data-src');
-    if (base) f.src = base + '?room=' + encodeURIComponent(room)
+    if (!base) return;
+    // 參賽者視窗在正式站走「真實進場路徑」/gamer/房號(跟 QR 的 /r/ 同一條
+    // Functions + 404.html 保底鏈)——短連結壞掉時這格會直接顯示錯房號或
+    // 輸入房號畫面,一眼看穿。本機模式(?host=)沒有 Pages Functions,維持
+    // 直連。2026-08-20 事故教訓:以前三格都直塞 ?room=,進場路徑零覆蓋。
+    if (role === 'participant' && !host) {
+      f.src = '/gamer/' + encodeURIComponent(room);
+      return;
+    }
+    f.src = base + '?room=' + encodeURIComponent(room)
       + (host ? '&host=' + encodeURIComponent(host) : '');
   });
   // 順手把房號顯示在頂部 zoom 旁邊,方便除錯時對房號
@@ -217,6 +243,39 @@ html,body{height:100%;background:#050912;color:#F2EDE1;font-family:"Noto Sans TC
     bar.insertBefore(tag, bar.lastElementChild);
   }
 })();
+
+/* 各視窗「實際網址」列:iframe 每次 load 完就讀它真實落地的 URL(同
+   origin 可讀)。並比對落地 URL 的 ?room= 與 testbed 房號,不一致時整條
+   變紅 —— 「房號亂打還是進得去」從此在這裡現形。 */
+function updateUrlBar(role) {
+  const f = document.getElementById('if-' + role);
+  const bar = document.getElementById('url-' + role);
+  if (!f || !bar) return;
+  let href = '';
+  try { href = f.contentWindow.location.href; } catch (e) { href = '(無法讀取)'; }
+  if (!href || href === 'about:blank') return;
+  bar.dataset.full = href;
+  let short = href, frameRoom = null;
+  try {
+    const u = new URL(href);
+    short = u.pathname + u.search;
+    frameRoom = u.searchParams.get('room');
+  } catch (e) { /* keep raw */ }
+  const mismatch = frameRoom !== null && window.TB_ROOM && frameRoom !== window.TB_ROOM;
+  bar.classList.toggle('mismatch', mismatch);
+  bar.querySelector('.u').textContent =
+    (mismatch ? '房號 ' + frameRoom + ' ≠ ' + window.TB_ROOM + ' · ' : '') + short;
+}
+['presenter', 'assistant', 'participant'].forEach(role => {
+  const f = document.getElementById('if-' + role);
+  if (f) f.addEventListener('load', () => updateUrlBar(role));
+});
+function copyFrameUrl(role) {
+  const bar = document.getElementById('url-' + role);
+  const full = bar?.dataset?.full;
+  if (!full) return;
+  try { navigator.clipboard.writeText(full); } catch (e) {}
+}
 
 /* 縮放:用 transform scale 縮 iframe,讓畫面更舒服
    參賽者欄不縮放(已是手機尺寸) */
