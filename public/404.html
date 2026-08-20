@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>保險知識星攻略</title>
+<!--
+  自訂 404 頁,身兼「參賽者短連結」的靜態保底。
+
+  背景(2026-08-20):/r/:房號 與 /gamer/:房號 由 Pages Functions 302 到
+  /gamer?room=房號,但「新的 Functions 路由模式」部署後要一段時間才在所有
+  邊緣節點生效,而且每次重新部署都可能重開這個不一致窗口 —— 冷節點會把
+  短連結直接 404。Pages 對任何沒中的路徑一律回這個 404.html(純靜態、
+  所有節點永遠一致),所以在這裡用 JS 讀路徑做同樣的跳轉:
+  熱節點走 Function 302(根本不會進到這頁),冷節點靠這頁,殊途同歸。
+-->
+<style>
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+       background:#050912;color:#F2EDE1;font-family:'Noto Sans TC',system-ui,sans-serif;
+       text-align:center;padding:40px 24px;line-height:1.8}
+  .box{max-width:320px}
+  .t{font-size:19px;font-weight:700;margin-bottom:8px}
+  .d{font-size:14px;color:#9BA3B5}
+  a{color:#D4A34B}
+</style>
+</head>
+<body>
+<div class="box" id="msg">
+  <div class="t">正在進入房間…</div>
+  <div class="d">若沒有自動跳轉,請<a href="/gamer">點此手動輸入房號</a></div>
+</div>
+<script>
+(function () {
+  // 與 functions/_shared.ts 的 roomRedirect、participant.html 的 _validRoom
+  // 同一套房號白名單。
+  var m = location.pathname.match(/^\/(?:r|gamer)\/([A-Za-z0-9_-]{1,32})\/?$/);
+  if (m) {
+    location.replace('/gamer?room=' + encodeURIComponent(m[1]));
+    return;
+  }
+  document.getElementById('msg').innerHTML =
+    '<div class="t">找不到這個頁面</div>'
+    + '<div class="d">參賽者請由主持人提供的 QR Code 或短網址進入,<br>'
+    + '或<a href="/gamer">點此手動輸入房號</a>。</div>';
+})();
+</script>
+</body>
+</html>

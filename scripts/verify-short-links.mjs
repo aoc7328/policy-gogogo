@@ -57,9 +57,15 @@ for (const [name, html] of [['participant', participant], ['presenter', presente
     && html.includes('/^[A-Za-z0-9_-]{1,32}$/'));
 }
 
-// (曾試過明確的 public/_routes.json 與 /api/r/:code 保底繞道 —— 實測證明
-//  兩者對「新路由模式的邊緣暖機延遲」都沒有幫助,已移除。新路由模式部署
-//  後 ~30-45 分鐘全網生效,詳見 public/_redirects 的「坑二」註解。)
+// 4. 靜態保底:Functions 路由在邊緣節點間生效不保證一致(部署後同一
+//    分鐘時而 302 時而 404,且每次重新部署都可能重開不一致窗口),
+//    404.html 必須能把 /r/:code、/gamer/:code 用 JS 跳轉到 /gamer?room=。
+//    (曾試過明確的 public/_routes.json 與 /api/r/:code 繞道,實測皆無效,
+//     已移除;404.html 是唯一所有節點永遠一致的保底。)
+const notFound = readFileSync(resolve(root, 'public', '404.html'), 'utf8');
+check('404.html 靜態保底:解析 /r|/gamer 路徑並跳轉 /gamer?room=',
+  notFound.includes('/^\\/(?:r|gamer)\\/([A-Za-z0-9_-]{1,32})\\/?$/')
+  && notFound.includes("location.replace('/gamer?room=' + encodeURIComponent(m[1]))"));
 
 if (failures.length) {
   console.error(`\n${failures.length} regression check(s) failed:`);
