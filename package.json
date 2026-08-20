@@ -26,12 +26,17 @@
     "verify:postgame-grouping": "node scripts/verify-postgame-grouping.mjs",
     "verify:end-cleanup": "node scripts/verify-end-cleanup.mjs",
     "verify:short-links": "node scripts/verify-short-links.mjs",
+    "verify:undef": "node scripts/verify-no-undefined-globals.mjs",
+    "verify:bank": "node scripts/verify-bank-coverage.mjs",
+    "verify:rushmodes": "node scripts/verify-rush-modes.mjs",
+    "verify:liveops": "node scripts/verify-live-ops.mjs",
     "verify:roster": "node scripts/verify-startgame-roster.mjs",
     "verify:buzz": "node scripts/verify-buzz-integrity.mjs",
     "verify:regroup": "node scripts/verify-regroup-names.mjs",
     "verify:fullgame": "node scripts/verify-full-game.mjs",
     "verify:live": "npm run verify:roster && npm run verify:buzz && npm run verify:regroup",
-    "verify:all": "npm run typecheck && npm run verify:html && npm run verify:contract && npm run verify:dom-refs && npm run verify:reload && npm run verify:restart && npm run verify:buzzux && npm run verify:round-eligibility && npm run verify:round-progress && npm run verify:postgame-grouping && npm run verify:end-cleanup && npm run verify:rush-recovery-ui && npm run verify:team-lock-restart && npm run verify:group-controls-ui && npm run verify:category-highlight && npm run verify:score-card-lock && npm run verify:short-links && npm run audit:check"
+    "verify:live-all": "npm run verify:fullgame -- policy-gogogo-party.aoc7328.workers.dev && npm run verify:rushmodes -- policy-gogogo-party.aoc7328.workers.dev && npm run verify:liveops -- policy-gogogo-party.aoc7328.workers.dev",
+    "verify:all": "npm run typecheck && npm run verify:html && npm run verify:contract && npm run verify:dom-refs && npm run verify:reload && npm run verify:restart && npm run verify:buzzux && npm run verify:round-eligibility && npm run verify:round-progress && npm run verify:postgame-grouping && npm run verify:end-cleanup && npm run verify:rush-recovery-ui && npm run verify:team-lock-restart && npm run verify:group-controls-ui && npm run verify:category-highlight && npm run verify:score-card-lock && npm run verify:short-links && npm run verify:undef && npm run verify:bank && npm run audit:check"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260702.1",

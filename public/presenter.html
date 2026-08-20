@@ -1870,6 +1870,11 @@ function hydratePresenterFromSnapshot(snap, attempt) {
     goto('scr-end');
     return;
   }
+  // 作答中/已揭曉 = 畫面應該停在題目頁(與 assistant.html 的 snapInQuestion
+  // 同一套判定)。2026-08-20:這個變數原本漏了宣告,整個還原函式一進到這行
+  // 就丟 ReferenceError —— 中途開機/重整的投影機因此卡在待機頁,題目、
+  // 分類、結算全都還原不出來。
+  const inQuestion = snap.phase === 'answering' || snap.phase === 'revealed';
   if (inQuestion && needQ) {
     currentQuestion = getQuestionById(snap.currentQuestion.id);
     currentDifficulty = snap.currentQuestion.difficulty;
