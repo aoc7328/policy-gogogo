@@ -57,6 +57,10 @@ for (const [name, html] of [['participant', participant], ['presenter', presente
     && html.includes('/^[A-Za-z0-9_-]{1,32}$/'));
 }
 
+// (曾試過明確的 public/_routes.json 與 /api/r/:code 保底繞道 —— 實測證明
+//  兩者對「新路由模式的邊緣暖機延遲」都沒有幫助,已移除。新路由模式部署
+//  後 ~30-45 分鐘全網生效,詳見 public/_redirects 的「坑二」註解。)
+
 if (failures.length) {
   console.error(`\n${failures.length} regression check(s) failed:`);
   failures.forEach((failure) => console.error(`- ${failure}`));

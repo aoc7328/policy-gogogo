@@ -11,7 +11,17 @@
 
 # 參賽者加入短連結(帶房號)→ /gamer?room=房號。兩種寫法:/r/房號(QR 用、
 # 最短)與 /gamer/房號(語意化、好記)。由 functions/r/[code].ts 與
-# functions/gamer/[code].ts 處理,「不能」寫在這裡:_redirects 的 :placeholder
-# 只代換目的地的路徑段,放進 query string 不代換 —— `/r/:code /gamer?room=:code`
-# 會把所有人 302 到字面值 "/gamer?room=:code",全部進到同一個幽靈房、
-# 跟助理端的房間永遠對不上(2026-08-20 現場事故,踩過的坑)。
+# functions/gamer/[code].ts 處理,「不能」寫在這裡,兩個坑(2026-08-20):
+#
+# 坑一(現場事故):_redirects 的 :placeholder 只代換目的地的「路徑」段,
+# 放進 query string 不代換 —— 舊規則 `/r/:code /gamer?room=:code` 會把
+# 所有人 302 到字面值 "/gamer?room=:code",全部進到同一個叫 ":code" 的
+# 幽靈房,跟助理端的真房間永遠對不上(控制碼一直錯、名單看不到人)。
+# 查詢字串的代換只能交給 Pages Functions。
+#
+# 坑二(修復當下):「新的」Functions 路由模式(例如第一次出現的
+# /r/:code)部署後要 ~30-45 分鐘才在所有邊緣節點生效,期間同一網址
+# 時而 302 時而 404;/api/* 老路由不受影響是因為模式早已生效,不是
+# 前綴特權(在 /api/ 下新加路由一樣要重新暖機)。既有模式的重新部署
+# 不會重暖。結論:動到 functions/ 的路由「結構」要提早部署,並用
+# curl -sI 連打確認收斂,不要賽前才上。
