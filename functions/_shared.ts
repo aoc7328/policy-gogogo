@@ -49,6 +49,19 @@ export function cap(v: unknown, n: number): string | null {
   return t ? t.slice(0, n) : null;
 }
 
+/** 房號格式:英數/底線/連字號 1-32 字(正常房號 3-8 位數字;testbed 用
+ *  e2e5560 這類英數房名)。 */
+const ROOM_RE = /^[A-Za-z0-9_-]{1,32}$/;
+
+/** 參賽者短連結(/r/:房號、/gamer/:房號)共用的 302 產生器。
+ *  房號合法 → /gamer?room=房號;不合法 → /gamer(手動輸入房號畫面),
+ *  絕不把垃圾值當房號傳下去。背景見 functions/r/[code].ts。 */
+export function roomRedirect(code: unknown): Response {
+  const raw = typeof code === 'string' ? code : '';
+  const dest = ROOM_RE.test(raw) ? `/gamer?room=${encodeURIComponent(raw)}` : '/gamer';
+  return new Response(null, { status: 302, headers: { Location: dest } });
+}
+
 /**
  * 把「可有可無的數字 query 參數」安全解析成 number | null。
  * ⚠ 不要用 `Number(raw)` 當有無判斷:Number(null) 與 Number('') 都是 0(不是

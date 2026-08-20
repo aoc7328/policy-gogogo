@@ -1137,7 +1137,10 @@ const _PGG_QS = new URLSearchParams(window.location.search);
 function _readLastRoomHint() {
   try { return localStorage.getItem('pgg_last_room'); } catch { return null; }
 }
-const PGG_ROOM_CODE = _PGG_QS.get('room') || _readLastRoomHint() || null;
+// 房號白名單(與 participant.html 同一套):壞值一律當沒帶房號 → 顯示錯誤,
+// 不連進幽靈房。背景:_redirects placeholder 事故,見 functions/r/[code].ts。
+function _validRoom(r) { return (r && /^[A-Za-z0-9_-]{1,32}$/.test(r)) ? r : null; }
+const PGG_ROOM_CODE = _validRoom(_PGG_QS.get('room')) || _validRoom(_readLastRoomHint()) || null;
 if (!PGG_ROOM_CODE) {
   document.addEventListener('DOMContentLoaded', () => {
     document.body.innerHTML =

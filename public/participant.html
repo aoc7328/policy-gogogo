@@ -1556,7 +1556,11 @@ const _PGG_QS = new URLSearchParams(window.location.search);
 function _readLastRoomHint() {
   try { return localStorage.getItem('pgg_last_room'); } catch { return null; }
 }
-const PGG_ROOM_CODE = _PGG_QS.get('room') || _readLastRoomHint() || null;
+// 房號白名單:英數/底線/連字號 1-32 字。壞值(例:redirect placeholder 沒
+// 代換留下的字面值 ":code",2026-08-20 現場事故)一律當「沒帶房號」處理,
+// 走下面的輸入房號畫面 —— 絕不拿垃圾值連進一個幽靈房。
+function _validRoom(r) { return (r && /^[A-Za-z0-9_-]{1,32}$/.test(r)) ? r : null; }
+const PGG_ROOM_CODE = _validRoom(_PGG_QS.get('room')) || _validRoom(_readLastRoomHint()) || null;
 if (!PGG_ROOM_CODE) {
   // 沒帶房號(例:直接開 /gamer 而非掃 QR / 開 /gamer/房號)→ 不再只報錯,
   // 顯示一個「輸入房號」欄位,輸入後導到 /gamer?room=房號 正常進場。

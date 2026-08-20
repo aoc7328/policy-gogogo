@@ -9,7 +9,9 @@
 # 反而會跟 clean-URL 打架變成 /admin -> /admin 無限迴圈(踩過的坑)。
 # /api/* 則由 functions/ 動態處理,本來就不經過 _redirects。
 
-# 參賽者加入短連結(帶房號)→ 遊戲者頁(/gamer?room=房號)。
-# 兩種寫法都通:/r/房號(QR 用、最短)與 /gamer/房號(語意化、好記)。
-/r/:code     /gamer?room=:code  302
-/gamer/:code /gamer?room=:code  302
+# 參賽者加入短連結(帶房號)→ /gamer?room=房號。兩種寫法:/r/房號(QR 用、
+# 最短)與 /gamer/房號(語意化、好記)。由 functions/r/[code].ts 與
+# functions/gamer/[code].ts 處理,「不能」寫在這裡:_redirects 的 :placeholder
+# 只代換目的地的路徑段,放進 query string 不代換 —— `/r/:code /gamer?room=:code`
+# 會把所有人 302 到字面值 "/gamer?room=:code",全部進到同一個幽靈房、
+# 跟助理端的房間永遠對不上(2026-08-20 現場事故,踩過的坑)。
