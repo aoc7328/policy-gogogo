@@ -362,6 +362,8 @@ export class PolicyGogogoServer extends Server {
         return this.onResyncAll(sender);
       case 'add_question':
         return this.onAddQuestion(cmd.payload, sender);
+      case 'clear_prior_asked':
+        return this.onClearPriorAsked();
       case 'set_onboarding':
         return this.onSetOnboarding(cmd.payload);
       default: {
@@ -391,7 +393,18 @@ export class PolicyGogogoServer extends Server {
     stateStartGame(this.state, config);
     // 補齊組長(不重抽既有的 —— 玩家池顯示的人選必須延續到開賽後)
     ensureLeaders(this.state);
-    this.broadcastEvent({ type: 'game_start', payload: config });
+    // 廣播帶兩個 server 補欄位:startedAt(REC 對 key 用)與 excludedIds
+    // (此刻 usedIds = 剛種好的排除聯集,還沒抽任何題)。excludeIds 原始
+    // 清單不重播 —— 已解析完畢。
+    this.broadcastEvent({
+      type: 'game_start',
+      payload: {
+        ...config,
+        excludeIds: undefined,
+        startedAt: this.state.gameStartedAt ?? Date.now(),
+        excludedIds: [...this.state.usedIds],
+      },
+    });
     // Push fresh score baseline (all zeros) so clients render bars.
     this.broadcastEvent({
       type: 'score_update',
@@ -631,6 +644,7 @@ export class PolicyGogogoServer extends Server {
     this.state.currentCat = payload.fid;
     this.state.catLocked = true;
     this.state.usedIds.add(result.question.id);
+    this.state.roomAskedIds.add(result.question.id);   // 本房實抽累積(跨場防重複)
     if (result.question.type === 'word_game') this.state.wordGameAsked++;
     this.state.askedQuestions.push({
       id: result.question.id,
@@ -864,6 +878,7 @@ export class PolicyGogogoServer extends Server {
     // 仍留在 askedQuestions(照抽題順序列出「第一題第一次/第二次/第三次」)。
     // currQ 不變(還是同一輪),所以 actualQ(askedQuestions.length)會 > currQ。
     this.state.usedIds.add(result.question.id);
+    this.state.roomAskedIds.add(result.question.id);   // 重抽的新題同樣累積
     if (result.question.type === 'word_game') this.state.wordGameAsked++;
     // 把「被換掉的那一筆」標成 replaced,回顧頁才分得出哪些是重抽掉的舊題。
     const superseded = this.state.askedQuestions[this.state.askedQuestions.length - 1];
@@ -1278,6 +1293,18 @@ export class PolicyGogogoServer extends Server {
       type: 'total_q_changed',
       payload: { totalQ: this.state.game.totalQ },
     });
+  }
+
+  /** 清空本房實抽累積(roomAskedIds)。同房要對新一批學員重用舊題時按;
+   *  清完把快照重推給所有端,設定頁的累計數字即時歸零。 */
+  private onClearPriorAsked(): void {
+    this.state.roomAskedIds.clear();
+    const snap = snapshot(this.state);
+    for (const c of this.getConnections<ConnState>()) {
+      try {
+        this.send(c, { type: '__room_state__', payload: snap });
+      } catch { /* 連線關閉中 */ }
+    }
   }
 
   /** 助理重抽某組組長(組長中離不回來、或現場要換人代表領獎)。 */

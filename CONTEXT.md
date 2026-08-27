@@ -1,5 +1,30 @@
 # policy-gogogo — 測試前專案脈絡
 
+## Implementation record — 2026-08-27 第二批（抽題防重複 · 報告韌性 · 刪題）
+
+1. **刪題**：X-CA-018（王先生 1,000 萬壽險核保計算題,題目與解題邏輯不符）
+   自 `public/data/insurance-quiz-bank-hell.json` 移除(101→100 題)。
+   `quiz-bank-metadata.json` 的統計數字自 4 月起即與實際題庫不符、程式不讀,
+   未更動。
+2. **抽題防重複**(同日兩場重複抽題的實戰回饋):設定頁新增「排除已抽過的
+   題」——賽後報告場次勾選(同房今日自動勾選、預設開啟)+ 本房 24h 實抽
+   累積(`roomAskedIds`,跨重新開始保留,報告掛掉也不漏)雙來源聯集,開賽
+   種進 `usedIds`;九宮格三端剩餘題數自動反映。附「清空累計」
+   (`clear_prior_asked`)。設計討論定案:排除優於加題(重複率歸零 vs 稀釋)。
+3. **第二場報告全空的修正**:根因 = 助理端比賽中重整,REC(頁面記憶體)
+   歸零,之後整場靜默不記、結束本場也存不進去。修正三層:(a) REC 檢查點
+   寫 localStorage,重整後憑快照 `gameStartedAt` 對場接回;(b) REC 的
+   game_key 改用 server 權威時間戳(廣播 `game_start.startedAt`);
+   (c) 結算補建——REC 仍中斷時,由 `export_result` payload + 本機題庫拼
+   降級報告(`degraded:true`)上傳,`/api/game` 有「降級不得覆蓋完整」防護。
+4. **報告呈現**:`/report` 逐題明細顯示題庫編號;降級報告有告示。
+
+驗證:`verify:all` 全綠(新增 `verify:exclusion` 18 項、`verify:rec` 9 項);
+live 端到端 `verify:exclflow` 12 項全過(整池抽乾、指定排除唯一剩題、
+excludePrior 排空、清空復活);`verify:roundflow`/`verify:fullgame`/
+`verify:rushmodes` 迴歸皆過;真瀏覽器對正式站報告資料實測排除 UI。
+**尚未部署**(與上一批一起):Worker + Pages 均有改動。
+
 ## Implementation record — 2026-08-27 現場事故修正（四項）
 
 當日實戰回報的四個問題與處置：

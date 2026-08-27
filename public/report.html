@@ -424,6 +424,13 @@ function renderReport(j) {
 
   const out = [];
 
+  // 降級報告(結算補建):控場端紀錄中斷時由結束畫面資料自動拼出來的,
+  // 有題目/答案與最終分數,但沒有每輪搶答明細與逐題計分 —— 講清楚,
+  // 免得被當成「這場沒人搶到任何一題」。
+  if (rep && rep.degraded) {
+    out.push(`<div class="note">⚠ 本場報告為<b>結算時自動補建</b>（控場端紀錄中斷，例如比賽中重整了助理端）。題目、答案與最終分數完整；<b>每輪搶答明細與逐題計分無法還原</b>。</div>`);
+  }
+
   if (!rep) {
     out.push(`<div class="note">這一場的<b>完整內容已被輪替刪除</b>（只保留最近 10 場）。以下是永久保留的精簡摘要。</div>`);
     if (sum && Array.isArray(sum.groups)) {
@@ -523,12 +530,13 @@ function renderReport(j) {
       return `<details class="q"${i === 0 ? ' open' : ''}>
         <summary>
           <span class="qno mono">Q${q.n}</span>
+          ${q.id ? `<span class="tag mode mono" title="題庫編號 · 要改題/刪題時報這個編號">${esc(q.id)}</span>` : ''}
           <span class="qtitle">${esc(q.question)}</span>
           ${q.rushLabel ? `<span class="tag mode">${esc(q.rushLabel)}</span>` : ''}
           ${who}${scoreTag}
         </summary>
         <div class="qbody">
-          <div class="row"><div class="lbl">${esc([q.typeLabel, q.topic].filter(Boolean).join(' · '))}</div>
+          <div class="row"><div class="lbl">${esc([q.id, q.typeLabel, q.topic].filter(Boolean).join(' · '))}</div>
             <div class="qtext">${esc(q.question)}</div></div>
           ${opts}
           ${q.answer ? `<div class="row"><div class="lbl">標準答案</div><div class="ans">${esc(q.answer)}</div></div>` : ''}

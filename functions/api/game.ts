@@ -77,6 +77,28 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       `SELECT id, seq FROM games WHERE game_key = ?`,
     ).bind(gameKey).first<{ id: number; seq: number }>();
 
+    // degraded = 助理端「結算補建」的降級報告(控場端 REC 中斷時,從結算
+    // 廣播 + 題庫拼出來的;缺逐輪明細)。防護:既有列若已有「真的有內容、
+    // 非降級」的完整報告,降級版不得覆蓋它 —— 只補 finished / ended_at。
+    // (多助理場景:控場機存完整版後廣播結算,其他鏡射助理的補建上傳
+    // 會晚一步到,沒這道防護就把完整版蓋掉了。)
+    if (body.degraded === true && existing) {
+      const row = await env.DB.prepare(
+        `SELECT payload FROM games WHERE game_key = ?`,
+      ).bind(gameKey).first<{ payload: string | null }>();
+      if (row?.payload) {
+        try {
+          const p = JSON.parse(row.payload) as { degraded?: boolean; questions?: unknown[]; rounds?: unknown[] };
+          const hasContent = (Array.isArray(p?.questions) && p.questions.length > 0)
+            || (Array.isArray(p?.rounds) && p.rounds.length > 0);
+          if (!p?.degraded && hasContent) {
+            payload = null;   // COALESCE → 保留既有完整報告
+            summary = null;
+          }
+        } catch { /* 既有 payload 壞掉 → 視同無資料,讓降級版補上 */ }
+      }
+    }
+
     let seq = existing?.seq ?? 1;
     if (!existing) {
       const cnt = await env.DB.prepare(

@@ -290,6 +290,23 @@ input::placeholder{color:var(--ink-3)}
 .start-btn:hover:not(:disabled){background:var(--accent-b);box-shadow:0 0 24px var(--accent-s)}
 .start-btn:disabled{background:var(--bg-raised);color:var(--ink-3);cursor:not-allowed}
 
+/* ===== 排除已抽過的題(2026-08-27 抽題防重複) ===== */
+.excl-master{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg-surface);border:1px solid var(--line);cursor:pointer;font-size:13px}
+.excl-master input{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
+.excl-room{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:var(--ink-2)}
+.excl-room b{color:var(--accent);font-family:var(--font-mono)}
+.excl-sessions{margin-top:8px;display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto}
+.excl-sess{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg-surface);border:1px solid var(--line);font-size:12px;cursor:pointer}
+.excl-sess input{width:14px;height:14px;accent-color:var(--accent);cursor:pointer;flex:none}
+.excl-sess .es-meta{color:var(--ink-2)}
+.excl-sess .es-count{margin-left:auto;font-family:var(--font-mono);font-size:11px;color:var(--ink-3);white-space:nowrap}
+.excl-sess.mine .es-meta{color:var(--ink-1)}
+.excl-sess.err .es-count{color:#e07070}
+.excl-empty{padding:8px 10px;font-size:12px;color:var(--ink-3)}
+.excl-summary{margin-top:8px;font-size:12px;color:var(--ink-2)}
+.excl-summary b{color:var(--accent);font-family:var(--font-mono)}
+.excl-disabled{opacity:.45;pointer-events:none}
+
 /* ===== GROUPS ===== */
 .group-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .gc{background:var(--bg-surface);border:1px solid var(--line);padding:18px 20px}
@@ -1069,6 +1086,23 @@ input::placeholder{color:var(--ink-3)}
         <div class="hint" style="margin-top:6px;font-size:11px;color:var(--ink-3)">分組只會在按這顆按鈕、或改「分幾組」數字時重洗。玩家中途加入只會補進人數最少的組,不會動到其他人;同一支手機 24 小時內固定同組。</div>
       </div>
 
+      <div class="setup-block" id="excl-block">
+        <div class="sec-label">排除已抽過的題</div>
+        <label class="excl-master">
+          <input type="checkbox" id="excl-toggle" onchange="exclToggleChanged()">
+          <span>開賽時排除已抽過的題（避免第二場重複抽到大家看過答案的題目）</span>
+        </label>
+        <div class="excl-room" id="excl-room-line" style="display:none">
+          本房已實際抽過 <b id="excl-room-count">0</b> 題（開啟時自動一併排除，報告掛了也不漏）
+          <button class="cust-chip" id="excl-clear-btn" onclick="exclClearRoom()" title="清空本房累計(同房要對新一批學員重用舊題時按;房間 24 小時過期也會自動歸零)">清空累計</button>
+        </div>
+        <div id="excl-body">
+          <div class="hint" style="margin-top:8px">從賽後報告勾選要排除的場次（同房、今天的場次會自動勾選）：</div>
+          <div id="excl-sessions" class="excl-sessions"><div class="excl-empty">場次清單載入中…</div></div>
+          <div class="excl-summary" id="excl-summary"></div>
+        </div>
+      </div>
+
       <button class="start-btn" id="start-btn" onclick="startGame()" disabled>確定、開始遊戲 →</button>
       <!-- 按鈕變灰的原因寫在畫面上。原本只放在 button 的 title,要 hover 才看得到 ——
            助理端常在手機/平板上操作,等於完全看不到,只會覺得「按鈕壞了」。 -->
@@ -1493,6 +1527,17 @@ PartyBus.on('__welcome__', payload => {
 PartyBus.on('__room_state__', snap => {
   // 房號鎖:server 是權威,每份快照都重算一次(含重連後)
   if (typeof syncRoomLockFromSnapshot === 'function') syncRoomLockFromSnapshot(snap);
+  // 排除已抽過的題:同步本房累計數 + 第一份快照到手才載場次清單
+  if (snap && typeof snap.roomAskedCount === 'number' && typeof EXCL !== 'undefined') {
+    EXCL.roomCount = snap.roomAskedCount;
+    if (typeof exclAutoDefault === 'function') exclAutoDefault();
+    if (typeof exclRender === 'function') exclRender();
+  }
+  if (typeof exclInit === 'function') exclInit();
+  // server 權威的本場開賽時間戳(REC 對 key / 結算補建報告用)
+  if (snap && typeof snap.gameStartedAt === 'number') S.gameStartedAt = snap.gameStartedAt;
+  // 重整後接回本場賽後紀錄(REC):localStorage 檢查點 + gameStartedAt 對場
+  if (typeof recTryRestore === 'function') recTryRestore(snap);
   const fa = snap?.frameworks?.A;
   const fb = snap?.frameworks?.B;
   if (Array.isArray(fa) && fa.length > 0) {
@@ -2325,7 +2370,19 @@ PartyBus.on('game_start', cfg => {
   S.wordGameCap = (cfg.wordGameCap === undefined ? null : cfg.wordGameCap);
   applyTimerDefaultsFromConfig(cfg.timerDefaults);   // 多助理共用同一份倒數預設 + 鎖輸入
   S.currQ = 0;
-  S.usedIds = new Set();
+  // server 廣播帶最終排除結果(報告勾選 ∪ 房間累計)→ 種進本機鏡射,
+  // 九宮格「每格剩幾題」開場就是扣掉排除後的數字。
+  S.usedIds = new Set(Array.isArray(cfg.excludedIds) ? cfg.excludedIds : []);
+  if (typeof cfg.startedAt === 'number') S.gameStartedAt = cfg.startedAt;
+  // REC 對 key:賽後紀錄的 game_key 改用 server 權威時間戳,重整後才能
+  // 憑快照的 gameStartedAt 精準接回同一場(2026-08-27 報告全空修正)。
+  if (REC._pendingKey) {
+    REC._pendingKey = false;
+    const ts = (typeof cfg.startedAt === 'number') ? cfg.startedAt : REC.startedAt;
+    REC.startedAt = ts;
+    REC.key = `${PGG_ROOM_CODE}-${ts}`;
+    recSave(false);   // 第一筆存檔(骨架)在拿到正式 key 後才送
+  }
   S.askedQuestions = [];
   S.currentQuestion = null; S.currentDifficulty = null; S.currentFramework = null;
   if (typeof renderQaView === 'function') renderQaView();
@@ -2454,7 +2511,16 @@ PartyBus.on('game_restart', () => {
 });
 
 /* 結束本場:別位助理按了結束 → 本機也切到 ended(只在尚未 ended 時) */
-PartyBus.on('export_result', () => {
+PartyBus.on('export_result', (payload) => {
+  // 結算補建:本頁沒有 REC(重整接不回/鏡射助理)→ 用結算資料補一份降級
+  // 報告,至少留下題目/答案與最終分數。控場端有完整紀錄時,API 端的防護
+  // 會保住完整版不被降級版覆蓋。
+  if (typeof recFallbackFromExport === 'function') recFallbackFromExport(payload);
+  // 場次清單重抓:剛收檔的這一場要立刻出現在「排除已抽過的題」清單裡
+  // (同房今天 → 會被自動勾選)。晚 2 秒抓,等 recSave 的上傳先落地。
+  if (typeof EXCL !== 'undefined') {
+    setTimeout(() => { EXCL._fetched = false; exclInit(); }, 2000);
+  }
   if (S.phase === 'ended') return;
   setPhase('ended');
   if (typeof applyTabLock === 'function') applyTabLock();
@@ -3547,6 +3613,158 @@ function chk(){
   if (hint) hint.style.display = inProgress ? '' : 'none';
 }
 
+/* ══ 排除已抽過的題(2026-08-27 抽題防重複)══
+   兩個來源取聯集,開賽時種進 server 的 usedIds:
+   1. 賽後報告勾選的場次(這裡抓 /api/report 的題號清單)
+   2. 本房 24h 實抽累積(server 端 roomAskedIds;報告掛掉也不漏的保險網)
+   預設:房內有累計或有「同房今天」的場次 → 自動開啟並預先勾選。 */
+const EXCL = {
+  toggle: false,
+  _userTouched: false,   // 使用者手動動過開關後,不再自動改預設
+  sessions: null,        // null=載入中/失敗;[]=載入成功
+  ids: new Map(),        // game_key → string[](已載)| 'loading' | 'error'
+  checked: new Set(),    // 已勾選的 game_key
+  roomCount: 0,          // server 快照的 roomAskedCount
+  _fetched: false,
+};
+
+function exclTodayTaipei() {
+  try {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(new Date());
+  } catch (e) { return new Date().toISOString().slice(0, 10); }
+}
+
+async function exclInit() {
+  if (EXCL._fetched) return;
+  EXCL._fetched = true;
+  try {
+    const r = await fetch('/api/report/sessions', { cache: 'no-store' });
+    const j = await r.json();
+    // 只列還留有完整題目清單的場次(較舊場次只剩總分摘要,沒有題號可排除)
+    EXCL.sessions = (j.sessions || []).filter(s => s && s.has_full && s.game_key);
+    const today = exclTodayTaipei();
+    EXCL.sessions.forEach(s => {
+      if (s.room === PGG_ROOM_CODE && s.day === today) {
+        EXCL.checked.add(s.game_key);
+        exclFetchIds(s.game_key);
+      }
+    });
+  } catch (e) {
+    EXCL.sessions = null;   // 離線/報告站掛了:清單留空,房間累計照樣可用
+  }
+  exclAutoDefault();
+  exclRender();
+}
+
+/* 房內有累計或有預勾場次 → 預設開啟(使用者動過開關就尊重使用者)。 */
+function exclAutoDefault() {
+  if (EXCL._userTouched) return;
+  EXCL.toggle = (EXCL.checked.size > 0 || EXCL.roomCount > 0);
+}
+
+async function exclFetchIds(key) {
+  if (EXCL.ids.has(key) && EXCL.ids.get(key) !== 'error') return;
+  EXCL.ids.set(key, 'loading');
+  exclRender();
+  try {
+    const r = await fetch(`/api/report/game?key=${encodeURIComponent(key)}`, { cache: 'no-store' });
+    const j = await r.json();
+    const ids = ((j.report && j.report.questions) || [])
+      .map(q => q && q.id).filter(id => typeof id === 'string');
+    EXCL.ids.set(key, ids);
+  } catch (e) {
+    EXCL.ids.set(key, 'error');
+  }
+  exclRender();
+}
+
+/* 勾選場次的題號聯集(只算已載入完成的)。 */
+function exclSelectedIds() {
+  const out = new Set();
+  EXCL.checked.forEach(key => {
+    const ids = EXCL.ids.get(key);
+    if (Array.isArray(ids)) ids.forEach(id => out.add(id));
+  });
+  return [...out];
+}
+
+function exclToggleChanged() {
+  EXCL._userTouched = true;
+  EXCL.toggle = !!document.getElementById('excl-toggle')?.checked;
+  exclRender();
+}
+
+function exclSessChanged(key, checked) {
+  if (checked) { EXCL.checked.add(key); exclFetchIds(key); }
+  else EXCL.checked.delete(key);
+  exclRender();
+}
+window.exclSessChanged = exclSessChanged;
+
+function exclClearRoom() {
+  cfOpen({
+    eyebrow: 'CLEAR · 清空累計',
+    title: `清空本房已抽過的 ${EXCL.roomCount} 題累計?`,
+    sub: '之後開新的一場,這些題目會回到題池(適合同一房換一批新學員)。賽後報告不受影響,勾選場次排除也仍然可用。',
+    okText: '清空累計',
+    okClass: 'danger',
+    onOk: () => emitOrWarn('clear_prior_asked', {},
+      '已清空本房累計 · 等待伺服器確認…',
+      '⚠ 清空累計沒有送出去(連線中斷)· 連線恢復後請再按一次'),
+  });
+}
+window.exclClearRoom = exclClearRoom;
+
+function exclRender() {
+  const t = document.getElementById('excl-toggle');
+  if (t) t.checked = EXCL.toggle;
+  const roomLine = document.getElementById('excl-room-line');
+  if (roomLine) roomLine.style.display = EXCL.roomCount > 0 ? 'flex' : 'none';
+  const rc = document.getElementById('excl-room-count');
+  if (rc) rc.textContent = String(EXCL.roomCount);
+  const body = document.getElementById('excl-body');
+  if (body) body.classList.toggle('excl-disabled', !EXCL.toggle);
+  const list = document.getElementById('excl-sessions');
+  if (list) {
+    if (EXCL.sessions === null) {
+      list.innerHTML = '<div class="excl-empty">場次清單讀取失敗(離線?)· 本房累計排除不受影響</div>';
+    } else if (EXCL.sessions.length === 0) {
+      list.innerHTML = '<div class="excl-empty">目前沒有可排除的歷史場次</div>';
+    } else {
+      const today = exclTodayTaipei();
+      list.innerHTML = EXCL.sessions.map(s => {
+        const mine = (s.room === PGG_ROOM_CODE && s.day === today);
+        const checked = EXCL.checked.has(s.game_key);
+        const ids = EXCL.ids.get(s.game_key);
+        const count = Array.isArray(ids) ? `${ids.length} 題`
+          : ids === 'loading' ? '載入中…'
+          : ids === 'error' ? '讀取失敗' : `${s.summary?.questions ?? '?'} 題`;
+        const qn = s.summary?.questions ?? 0;
+        return `<label class="excl-sess${mine ? ' mine' : ''}${ids === 'error' ? ' err' : ''}">
+          <input type="checkbox" ${checked ? 'checked' : ''} ${qn === 0 && !Array.isArray(ids) ? 'disabled title="這場報告沒有題目紀錄"' : ''}
+            onchange="exclSessChanged('${s.game_key}', this.checked)">
+          <span class="es-meta">${s.day} · 房 ${s.room} · 第 ${s.seq} 場 · ${s.mode_label || s.mode || ''}模式</span>
+          <span class="es-count">${count}</span>
+        </label>`;
+      }).join('');
+    }
+  }
+  const sum = document.getElementById('excl-summary');
+  if (sum) {
+    if (!EXCL.toggle) {
+      sum.innerHTML = '排除已關閉 · 本場從完整題庫抽題';
+    } else {
+      const picked = exclSelectedIds().length;
+      const loading = [...EXCL.checked].some(k => EXCL.ids.get(k) === 'loading');
+      const failed = [...EXCL.checked].filter(k => EXCL.ids.get(k) === 'error').length;
+      sum.innerHTML = `開賽時將排除:報告勾選 <b>${picked}</b> 題`
+        + (EXCL.roomCount > 0 ? ` + 本房累計 <b>${EXCL.roomCount}</b> 題(重複的算一次)` : '')
+        + (loading ? ' · <span style="color:var(--ink-3)">部分場次載入中…</span>' : '')
+        + (failed ? ` · <span style="color:#e07070">${failed} 場讀取失敗,該場不會被排除</span>` : '');
+    }
+  }
+}
+
 function startGame(){
   // 上一場已結束 → 先跑一次完整重置再開新場。兩個理由:
   // 1. server 的 onGameStart 只在 phase==='lobby' 收件,ended 會被擋掉;
@@ -3600,6 +3818,11 @@ function startGame(){
   S.gameStarted = true;
   if (typeof updateRegroupBtn === 'function') updateRegroupBtn();
   if (typeof recStart === 'function') recStart();   // 賽後報告:開一筆新場次
+  // 抽題防重複:開關開著就把「報告勾選題號 + 本房累計」帶給 server。
+  // 勾選場次還在載入/讀取失敗的,只排除已載入的部分(狀態列會提醒)。
+  const exclOn = !!(typeof EXCL !== 'undefined' && EXCL.toggle);
+  const exclIds = exclOn ? exclSelectedIds() : [];
+  const exclPending = exclOn && [...EXCL.checked].some(k => EXCL.ids.get(k) === 'loading' || EXCL.ids.get(k) === 'error');
   const startSent = PartyBus.emit('game_start', {
     mode: S.mode,
     customTiers: S.customTiers,
@@ -3611,7 +3834,15 @@ function startGame(){
     wordGameCap: S.wordGameCap,
     groupingMode: S.groupingMode,
     timerDefaults: { ...S.timerDefaults },
+    excludeIds: exclIds,
+    excludePrior: exclOn,
   });
+  if (startSent && exclOn) {
+    console.log(`[PGG/excl] 開賽排除:報告勾選 ${exclIds.length} 題 + 本房累計 ${EXCL.roomCount} 題`);
+  }
+  if (startSent && exclPending) {
+    setTimeout(() => setStatus('⚠ 部分勾選場次的題號沒載到,那些場次沒被排除(其餘排除已生效)'), 1200);
+  }
   // Phase 3:不再本地 emit 初始 score_update;server 收到 game_start
   // 命令後會自己廣播一次 score_update(全 0 baseline)給三端。
   // 鎖死「分幾組」(server 端也會拒絕 lobby 之外的 team_count_changed,
@@ -4261,16 +4492,47 @@ const REC = {
   rounds: [],       // 每一輪搶答 { n, rushMode, groupName, personName, detail, rebuzz }
   questions: [],    // 每一題 { n, id, type, topic, difficulty, question, answer, extra, round, score }
   pendingRound: null,
+  _pendingKey: false,   // 等 game_start 廣播帶回 server 時間戳後,才定案 key 並存第一筆
+  lastClosedKey: null,  // 剛結束收檔的那一場 key(擋掉自己的結算補建重複上傳)
 };
+const REC_LS_KEY = () => `pgg_rec_v1_${PGG_ROOM_CODE}`;
 
 function recStart() {
+  // 先用本機時間當暫定 key(離線時仍可記錄);game_start 廣播回來後改用
+  // server 權威時間戳定案 —— 重整後才能憑快照 gameStartedAt 精準接回。
   REC.startedAt = Date.now();
   REC.key = `${PGG_ROOM_CODE}-${REC.startedAt}`;
+  REC._pendingKey = true;
+  REC.lastClosedKey = null;
   REC.rounds = [];
   REC.questions = [];
   REC.pendingRound = null;
-  recSave(false);
+  // 不在這裡送第一筆:等廣播定案 key 再送,避免暫定 key 在 D1 開出重複列。
 }
+
+/* 重整後接回本場賽後紀錄。2026-08-27 事故:助理端比賽中重整過一次,
+   REC.key 歸零 → 之後整場都沒在記,結束本場也存不進去,報告全空。
+   現在 recSave 每次都把 REC 檢查點寫進 localStorage;重整後只要快照的
+   gameStartedAt 對得上檢查點(同一場),就原地接回繼續記。 */
+function recTryRestore(snap) {
+  if (REC.key) return;                                  // 本頁已在記錄
+  if (!snap || !snap.game || snap.phase === 'lobby') return;
+  const ts = snap.gameStartedAt;
+  if (typeof ts !== 'number' || !ts) return;            // 舊 server / 未開賽
+  let stored = null;
+  try { stored = JSON.parse(localStorage.getItem(REC_LS_KEY()) || 'null'); } catch (e) { /* 隱私模式 */ }
+  if (!stored || !stored.key || typeof stored.startedAt !== 'number') return;
+  // 對場:檢查點的時間戳必須就是這一場(±15 秒容忍暫定 key 的本機時差)
+  if (Math.abs(stored.startedAt - ts) > 15000) return;
+  REC.key = stored.key;
+  REC.startedAt = stored.startedAt;
+  REC.rounds = Array.isArray(stored.rounds) ? stored.rounds : [];
+  REC.questions = Array.isArray(stored.questions) ? stored.questions : [];
+  REC.pendingRound = stored.pendingRound || null;
+  REC._pendingKey = false;
+  console.log(`[PGG/rec] 已接回本場賽後紀錄 ${REC.key}(${REC.rounds.length} 輪 / ${REC.questions.length} 題)`);
+}
+window.recTryRestore = recTryRestore;
 
 /* 每輪搶答結果(server 的 rush_winner payload 是權威資料) */
 function recRound(p) {
@@ -4411,9 +4673,17 @@ function recBuild(finished) {
   };
 }
 
-/* 上傳(fetch keepalive:即使正在切走頁面也送得出去)。失敗絕不影響遊戲。 */
+/* 上傳(fetch keepalive:即使正在切走頁面也送得出去)。失敗絕不影響遊戲。
+   同時把 REC 檢查點寫進 localStorage —— 重整後 recTryRestore 憑它接回本場。 */
 function recSave(finished) {
   if (!REC.key) return;
+  try {
+    localStorage.setItem(REC_LS_KEY(), JSON.stringify({
+      key: REC.key, startedAt: REC.startedAt,
+      rounds: REC.rounds, questions: REC.questions,
+      pendingRound: REC.pendingRound, savedAt: Date.now(),
+    }));
+  } catch (e) { /* 隱私模式/爆容量:略過,雲端上傳仍照跑 */ }
   try {
     const body = JSON.stringify(recBuild(finished));
     fetch('/api/game', {
@@ -4426,6 +4696,77 @@ function recSave(finished) {
   } catch (e) { /* 記錄失敗不能拖垮現場 */ }
 }
 window.PGGRec = REC;
+
+/* ══ 結算補建(降級報告)══
+   結束本場的廣播到手時,若本頁沒有 REC(控場端重整過且接不回、或根本是
+   另一台鏡射助理),就用結算 payload + 本機題庫拼一份「降級報告」上傳:
+   有題目與答案、最終分數,但缺每輪搶答明細與逐題計分。
+   game_key 用 server 權威時間戳 → 跟控場端是同一列;API 端有防護:
+   降級版不得覆蓋已存在的完整報告(functions/api/game.ts)。
+   2026-08-27 第二場「報告全空、連題目都看不到」就是這一層要接住的。 */
+function recFallbackFromExport(payload) {
+  if (REC.key) return;                                   // 正常紀錄在跑 → 不補建
+  if (!payload || !Array.isArray(payload.askedQuestions) || payload.askedQuestions.length === 0) return;
+  const ts = S.gameStartedAt;
+  if (typeof ts !== 'number' || !ts) return;             // 對不出同一場 → 放棄
+  const key = `${PGG_ROOM_CODE}-${ts}`;
+  if (REC.lastClosedKey === key) return;                 // 自己剛收檔的那場 → 不必補
+  const questions = payload.askedQuestions.map((a, i) => {
+    const id = a?.id || '';
+    const dSpec = BANK_SCHEMA.difficulties.find(d => d.prefix === id[0]);
+    const bank = dSpec ? BANK[dSpec.id] : null;
+    const q = (bank?.questions || []).find(x => x.id === id) || null;
+    return {
+      n: i + 1, id,
+      type: q?.type || '',
+      typeLabel: (typeof QA_TYPE_LABELS !== 'undefined' && QA_TYPE_LABELS[q?.type]) || q?.type || '',
+      topic: q?.topic || a?.framework || '',
+      difficulty: a?.difficulty || '',
+      question: q?.question || '(題目內容未取得)',
+      answer: q?.answer || '',
+      extra: q?.model_answer || q?.sample_answer || q?.steps || q?.solution || '',
+      keyPoints: Array.isArray(q?.key_points) ? q.key_points : [],
+      options: Array.isArray(q?.options) ? q.options : [],
+      round: null, winnerGroup: '', winnerPerson: '', rushLabel: '', rushDetail: '',
+      score: null, scoreLabel: '', replaced: a?.replaced === true,
+    };
+  });
+  const groups = (payload.groups || []).map((g, i) => ({
+    idx: i, name: g.name,
+    members: Array.isArray(g.members) ? [...g.members] : [],
+    leader: g.leader || null, score: g.score || 0, wins: 0, mvp: g.mvp || null,
+  }));
+  const body = {
+    game_key: key, room: PGG_ROOM_CODE,
+    started_at: ts, ended_at: Date.now(),
+    mode: payload.mode || S.mode || null,
+    mode_label: payload.modeLabel || null,
+    total_q: payload.totalQ || S.totalQ || 0,
+    spq: payload.spq || S.spq || 0,
+    players: groups.reduce((a, g) => a + g.members.length, 0),
+    groups_n: groups.length,
+    finished: true,
+    degraded: true,
+    summary: {
+      groups: groups.map(g => ({ name: g.name, n: g.members.length, score: g.score, wins: 0 })),
+      rounds: 0, questions: questions.length, byMode: {}, degraded: true,
+    },
+    payload: {
+      degraded: true,
+      note: '控場端紀錄中斷 · 本報告由結算資料自動補建:有題目/答案與最終分數,缺每輪搶答明細與逐題計分。',
+      groups, rounds: [], questions, byMode: {}, persons: [],
+      groupingMode: S.groupingMode || 'random',
+    },
+  };
+  try {
+    fetch('/api/game', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body), keepalive: true, cache: 'no-store',
+    }).catch(() => {});
+    console.log(`[PGG/rec] 控場紀錄中斷 → 已用結算資料補建降級報告 ${key}(${questions.length} 題)`);
+  } catch (e) { /* 補建失敗不影響現場 */ }
+}
+window.recFallbackFromExport = recFallbackFromExport;
 
 /* 前綴分組專用：rename 會踢人、confirm 只提醒。 */
 function notifyGroup(team, kind) {
@@ -4657,7 +4998,9 @@ function _doEndImpl(){
   // 時 _doRestartImpl 會用同一個 key 再存一次 finished=false,把剛剛收好的
   // 那一場覆寫成「未完成」。下一場開賽時 recStart() 會配新的 key。
   if (typeof recSave === 'function') recSave(true);
+  REC.lastClosedKey = REC.key;   // 擋掉稍後 export 廣播觸發的「結算補建」重複上傳
   REC.key = null;
+  try { localStorage.removeItem(REC_LS_KEY()); } catch (e) { /* 隱私模式 */ }
   // 自動匯出結果(廣播給參賽者 → 跳出「是否觀看結果」浮窗)
   if (typeof doExport === 'function') doExport();
   setStatus('本場遊戲結束 · 結果已推送 · 可切到「設定」改分組重新開始');

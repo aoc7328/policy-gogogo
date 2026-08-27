@@ -240,7 +240,7 @@ class PartyBusImpl {
     'arm_purgatory', 'mode_preview', 'custom_tiers_changed', 'rush_mode_changed',
     'presenter_show_qr', 'export_result', 'team_count_changed',
     'grouping_mode_changed', 'notify_group', 'set_timer', 'round_reset',
-    'reassign_leader', 'team_rename', 'player_join', 'rename_self',
+    'clear_prior_asked', 'reassign_leader', 'team_rename', 'player_join', 'rename_self',
   ]);
 
   /** 指令送不出去時通知外層(助理端用來跳警告)。 */

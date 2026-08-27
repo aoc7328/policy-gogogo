@@ -2498,7 +2498,9 @@ PartyBus.on('game_start', payload => {
   currentMode  = payload.mode;
   presenterCustomTiers = payload.customTiers || [];
   presenterCustomTypes = payload.customTypes || [];
-  presenterUsedIds = new Set();
+  // excludedIds = 本場開賽時排除的已抽題(報告勾選 ∪ 房間累計);種進
+  // 已抽集合,九宮格「每格剩幾題」從第一秒就是扣掉排除後的數字。
+  presenterUsedIds = new Set(Array.isArray(payload.excludedIds) ? payload.excludedIds : []);
   presenterRushMode = payload.rushMode || 'speed';
   round = 1;
   isRevealed = false;

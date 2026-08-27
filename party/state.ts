@@ -166,6 +166,17 @@ export interface RoomState {
   // 答題倒數截止時間(epoch ms);null = 無倒數。reconnect 端據此續跑。
   timerDeadline: number | null;
 
+  // 本房 24 小時內「實際在台上亮過」的題目 ID,跨 game_restart 累積
+  // (2026-08-27 抽題防重複):新一場 game_start 帶 excludePrior 時整份
+  // 種進 usedIds。與賽後報告獨立 —— 報告上傳掛掉也不會漏。
+  // 隨房間持久化,房間 24h 過期即自然歸零;clear_prior_asked 可手動清。
+  roomAskedIds: Set<string>;
+
+  // server 權威的本場開賽時間戳;null = 未開賽/已重新開始。
+  // 助理端賽後紀錄(REC)以 `${room}-${gameStartedAt}` 當 game_key,
+  // 重整後憑快照精準接回同一場(第二場報告全空的修正)。
+  gameStartedAt: number | null;
+
   // 本題已喪失搶答資格的組(teamIdx):答不出來被重新搶答時排除,累積。
   // 進新題(next/skip)或新一輪 start_rush 時清空。
   excludedTeams: number[];
@@ -221,6 +232,8 @@ export function createInitialState(
     wordGameAsked: 0,
     mvpTally: new Map(),
     timerDeadline: null,
+    roomAskedIds: new Set(),
+    gameStartedAt: null,
     excludedTeams: [],
     lastBuzzWinnerTeam: null,
     rushMode: 'speed',
@@ -236,10 +249,27 @@ export function createInitialState(
 // Mutation helpers (centralize invariants)
 // ──────────────────────────────────────────────────────────────────────
 
+/** excludeIds 白名單驗證:格式不符者靜默丟棄,上限 2000 筆。 */
+const EXCLUDE_ID_RE = /^[A-Z]{1,2}-[A-Z]{2,3}-\d{1,4}$/;
+const EXCLUDE_IDS_MAX = 2000;
+export function sanitizeExcludeIds(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  for (const v of raw) {
+    if (typeof v === 'string' && EXCLUDE_ID_RE.test(v)) out.push(v);
+    if (out.length >= EXCLUDE_IDS_MAX) break;
+  }
+  return out;
+}
+
 export function startGame(state: RoomState, config: GameConfig): void {
-  state.game = config;
+  // excludeIds 只在開賽這一刻種進 usedIds;不留在 state.game(每份快照都
+  // 會帶整個 game config,幾百筆題號沒必要跟著跑)。
+  const excludeIds = sanitizeExcludeIds(config.excludeIds);
+  state.game = { ...config, excludeIds: undefined };
   if (config.groupingMode) state.groupingMode = config.groupingMode;
   state.phase = 'idle';
+  state.gameStartedAt = Date.now();
   state.rushMode = config.rushMode;
   state.rushModeActual = null;
   state.currQ = 0;
@@ -248,6 +278,12 @@ export function startGame(state: RoomState, config: GameConfig): void {
   state.catLocked = false;
   state.purgArmed = false;
   state.usedIds = new Set();
+  // 抽題防重複:報告勾選的題號 ∪(可選)本房實抽累積,種進 usedIds 後
+  // picker 與三端九宮格剩餘題數自然吃到同一份排除。
+  if (config.excludePrior) {
+    for (const id of state.roomAskedIds) state.usedIds.add(id);
+  }
+  for (const id of excludeIds) state.usedIds.add(id);
   state.askedQuestions = [];
   state.wordGameAsked = 0;
   state.mvpTally = new Map();
@@ -337,6 +373,9 @@ export function restartGame(state: RoomState): void {
     participants: state.participants,
     presenterClaimed: state.presenterClaimed,
     groupingMode: prevGroupingMode,
+    // 本房實抽累積跨「重新開始」保留 —— 下一場勾「排除已抽過的題」
+    // 才排得掉上一場的題(2026-08-27 抽題防重複)。
+    roomAskedIds: state.roomAskedIds,
     // 組別結構+成員跨「重新開始」保留、只歸零分數與組長(30 人實戰教訓:
     // 兩場之間組員必須不變,否則獎勵沒辦法發)。舊行為是清空 groups 等
     // 助理重新設定,結果第二場全員被隨機重洗。要打散重分 → 助理按
@@ -824,6 +863,8 @@ export function snapshot(state: RoomState): RoomStateSnapshot {
       team: p.team,
     })),
     askedIds: [...state.usedIds],
+    roomAskedCount: state.roomAskedIds.size,
+    gameStartedAt: state.gameStartedAt,
     presenterClaimed: state.presenterClaimed,
     groupingMode: state.groupingMode,
     onboardingEnabled: state.onboardingEnabled,
@@ -870,6 +911,10 @@ export interface PersistedState {
   timerDeadline: number | null;
   /** 已移除的舊欄位(同一題重搶機制);舊存檔仍帶著,hydrate 忽略。 */
   rebuzzPending?: boolean;
+  /** 本房實抽累積(2026-08-27 加;舊存檔沒有 → 空集合)。 */
+  roomAskedIds?: string[];
+  /** server 權威開賽時間戳(2026-08-27 加;舊存檔沒有 → null)。 */
+  gameStartedAt?: number | null;
   excludedTeams: number[];
   lastBuzzWinnerTeam: number | null;
   rushMode: RushMode;
@@ -902,6 +947,8 @@ export function dehydrateState(state: RoomState): PersistedState {
     wordGameAsked: state.wordGameAsked,
     mvpTally: [...state.mvpTally.entries()].map(([idx, m]) => [idx, [...m.entries()]]),
     timerDeadline: state.timerDeadline,
+    roomAskedIds: [...state.roomAskedIds],
+    gameStartedAt: state.gameStartedAt,
     excludedTeams: [...state.excludedTeams],
     lastBuzzWinnerTeam: state.lastBuzzWinnerTeam,
     rushMode: state.rushMode,
@@ -937,6 +984,8 @@ export function hydrateState(state: RoomState, saved: PersistedState): void {
   // 倒數截止已過(重啟耗掉的時間)→ 清掉,避免還原後立刻誤響鬧鐘
   state.timerDeadline =
     saved.timerDeadline && saved.timerDeadline > Date.now() ? saved.timerDeadline : null;
+  state.roomAskedIds = new Set(saved.roomAskedIds ?? []);
+  state.gameStartedAt = saved.gameStartedAt ?? null;
   state.excludedTeams = [...saved.excludedTeams];
   state.lastBuzzWinnerTeam = saved.lastBuzzWinnerTeam;
   state.rushMode = saved.rushMode;

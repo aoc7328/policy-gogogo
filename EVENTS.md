@@ -31,6 +31,29 @@
   `verify:round-controls-ui`（JSDOM 6 項）、`verify:roundflow`
   （`scripts/verify-round-controls-live.mjs`，需本機 Worker，端到端 24 項）。
 
+## 變更紀錄 · 2026-08-27（第二批：抽題防重複 + 報告韌性）
+
+- **`game_start` 擴充**：config 新增 `excludeIds?: string[]`（賽後報告勾選場次
+  的題號，上限 2000、格式白名單）與 `excludePrior?: boolean`（一併排除本房
+  24h 實抽累積 `roomAskedIds`）。兩者聯集在開賽時種進 `usedIds`。廣播的
+  game_start 事件由 server 補兩個欄位：`startedAt`（權威開賽時間戳）與
+  `excludedIds`（最終排除結果，三端據此種 usedIds 鏡射，九宮格剩餘數才對）。
+- **`roomAskedIds`（server state）**：每次抽題/重抽累積、跨 `game_restart`
+  保留、隨房間持久化（24h 過期自然歸零）。快照曝露 `roomAskedCount` 與
+  `gameStartedAt`。
+- **新指令 `clear_prior_asked`**：清空本房實抽累積；清完向所有端重推
+  `__room_state__`。
+- **賽後紀錄（REC）韌性**：REC 的 game_key 改用 server 權威時間戳；每次
+  recSave 同步寫 localStorage 檢查點；助理端重整後憑快照 `gameStartedAt`
+  對場接回（2026-08-27 第二場報告全空的修正）。REC 中斷時，`export_result`
+  觸發「結算補建」：由結算 payload + 本機題庫拼降級報告（`degraded:true`）
+  上傳；`POST /api/game` 端有防護——降級版不得覆蓋已存在的完整報告。
+- **報告呈現**：`/report` 逐題明細顯示題庫編號（改題/刪題直接報編號）；
+  降級報告頁面有明確告示。
+- 回歸驗證：`verify:exclusion`（靜態 18 項）、`verify:rec`（JSDOM 9 項）、
+  `verify:exclflow`（`scripts/verify-exclusion-live.mjs`，需本機 Worker，
+  端到端 12 項）。
+
 ## Glossary
 
 - **Assistant** (助理): Host-side control panel; holds authoritative game state, arbitrates round winners, manages categories, controls game flow. File: `assistant.html`

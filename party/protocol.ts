@@ -71,6 +71,17 @@ export interface GameConfig {
    * customTypes whitelist).
    */
   wordGameCap?: number | null;
+  /**
+   * 抽題防重複(2026-08-27,兩場活動重複抽題的實戰回饋):
+   * - excludeIds:助理端從賽後報告勾選場次後彙整的題號清單,開賽時直接
+   *   種進 usedIds(上限 2000 筆,格式不符者靜默丟棄)。
+   * - excludePrior:true = 一併排除「本房 24 小時內實際抽過的題」
+   *   (server 端 roomAskedIds,跨「重新開始」累積 —— 報告掛了也不漏)。
+   * 兩者取聯集。server 存 game 時會把 excludeIds 清掉(已種進 usedIds,
+   * 不需要留在每份快照裡);廣播的 game_start 事件帶最終排除結果。
+   */
+  excludeIds?: string[];
+  excludePrior?: boolean;
 }
 
 export interface TeamScore {
@@ -349,6 +360,15 @@ export type AddQuestionCommand = {
 } & PrivilegedHeader;
 
 /**
+ * 清空「本房已抽過的題」累積名單(roomAskedIds)。同一房要對新一批學員
+ * 重用舊題時按;正常情況房間 24 小時過期自動歸零,不必手動清。
+ * server 清完把快照重推給所有端(設定頁的累計數字即時歸零)。
+ */
+export type ClearPriorAskedCommand = {
+  type: 'clear_prior_asked';
+} & PrivilegedHeader;
+
+/**
  * 助理端「重新同步」:把 server 的權威狀態重推給所有還連著的端。
  * 用於「上一場結束後有人卡在結算頁」這類畫面錯位 —— 免去請學員手動重整。
  * 注意:只推得到「WebSocket 還活著」的端;連線真的死掉的手機收不到,
@@ -415,6 +435,7 @@ export type ClientCommand =
   | ReassignLeaderCommand
   | ResyncAllCommand
   | AddQuestionCommand
+  | ClearPriorAskedCommand
   | SetOnboardingCommand
   | ClaimPresenterCommand
   | StaffLoginCommand;
@@ -491,6 +512,11 @@ export interface RoomStateSnapshot {
    * - titleSuffix: fixed 3 chars in the original design
    */
   branding: { titlePrefix: string; titleSuffix: string };
+  /** 本房 24h 內實際抽過的題數(跨場累積);設定頁「排除已抽過的題」顯示用。 */
+  roomAskedCount?: number;
+  /** server 權威的本場開賽時間戳;null = 尚未開賽/已重新開始。
+   *  助理端重整後憑它接回本場賽後紀錄(REC)。 */
+  gameStartedAt?: number | null;
 }
 
 export type RoomStateEvent = {
@@ -553,7 +579,15 @@ export type StaffRouteEvent = {
 
 export type GameStartEvent = {
   type: 'game_start';
-  payload: GameConfig;
+  /**
+   * config 本體 + server 補的兩個欄位:
+   * - startedAt:server 權威的開賽時間戳。助理端賽後紀錄(REC)以
+   *   `${room}-${startedAt}` 當 game_key,重整後才能憑快照的
+   *   gameStartedAt 精準接回同一場(2026-08-27 第二場報告全空的修正)。
+   * - excludedIds:本場開賽時實際排除的題號(excludeIds ∪ 房間累積),
+   *   三端據此種自己的 usedIds 鏡射,九宮格剩餘題數才會正確。
+   */
+  payload: GameConfig & { startedAt?: number; excludedIds?: string[] };
 };
 
 export type ModePreviewEvent = {
@@ -939,6 +973,7 @@ export const PRIVILEGED_COMMAND_TYPES = new Set<string>([
   'reassign_leader',
   'resync_all',
   'add_question',
+  'clear_prior_asked',
   'set_onboarding',
 ]);
 

@@ -20,6 +20,9 @@
     "verify:rush-recovery-ui": "node scripts/verify-rush-recovery-ui.mjs",
     "verify:round-controls-ui": "node scripts/verify-round-controls-ui.mjs",
     "verify:roundflow": "node scripts/verify-round-controls-live.mjs",
+    "verify:exclusion": "node scripts/verify-draw-exclusion.mjs",
+    "verify:rec": "node scripts/verify-rec-resilience.mjs",
+    "verify:exclflow": "node scripts/verify-exclusion-live.mjs",
     "verify:team-lock-restart": "node scripts/verify-team-lock-restart.mjs",
     "verify:group-controls-ui": "node scripts/verify-group-controls-ui.mjs",
     "verify:category-highlight": "node scripts/verify-category-highlight.mjs",
@@ -39,7 +42,7 @@
     "verify:fullgame": "node scripts/verify-full-game.mjs",
     "verify:live": "npm run verify:roster && npm run verify:buzz && npm run verify:regroup",
     "verify:live-all": "npm run verify:fullgame -- policy-gogogo-party.aoc7328.workers.dev && npm run verify:rushmodes -- policy-gogogo-party.aoc7328.workers.dev && npm run verify:liveops -- policy-gogogo-party.aoc7328.workers.dev && npm run verify:groups -- policy-gogogo-party.aoc7328.workers.dev",
-    "verify:all": "npm run typecheck && npm run verify:html && npm run verify:contract && npm run verify:dom-refs && npm run verify:reload && npm run verify:restart && npm run verify:buzzux && npm run verify:round-eligibility && npm run verify:round-progress && npm run verify:postgame-grouping && npm run verify:end-cleanup && npm run verify:rush-recovery-ui && npm run verify:round-controls-ui && npm run verify:team-lock-restart && npm run verify:group-controls-ui && npm run verify:category-highlight && npm run verify:score-card-lock && npm run verify:short-links && npm run verify:undef && npm run verify:bank && npm run audit:check"
+    "verify:all": "npm run typecheck && npm run verify:html && npm run verify:contract && npm run verify:dom-refs && npm run verify:reload && npm run verify:restart && npm run verify:buzzux && npm run verify:round-eligibility && npm run verify:round-progress && npm run verify:postgame-grouping && npm run verify:end-cleanup && npm run verify:rush-recovery-ui && npm run verify:round-controls-ui && npm run verify:exclusion && npm run verify:rec && npm run verify:team-lock-restart && npm run verify:group-controls-ui && npm run verify:category-highlight && npm run verify:score-card-lock && npm run verify:short-links && npm run verify:undef && npm run verify:bank && npm run audit:check"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260702.1",
