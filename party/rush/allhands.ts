@@ -134,7 +134,9 @@ function emitProgress(ctx: RushCtx): void {
 function lockWinner(ctx: RushCtx): void {
   const session = ctx.state.rushSession;
   if (!session || session.mode !== 'allhands' || session.winnerLocked) return;
-  session.winnerLocked = true;
+  // winnerLocked 要等「真的選出勝者」才設:noWinner() 有 winnerLocked 防重入
+  // 保護,先設旗標會讓平手/無人按時 rush_no_winner 發不出去 → 三端凍結
+  // (2026-08-27 現場事故:全組到位兩隊同步人數相同即平手,機率不低)。
   const data = session.data.allhands!;
 
   let winnerIdx = -1;
@@ -158,11 +160,18 @@ function lockWinner(ctx: RushCtx): void {
 
   const tiedTeams = ctx.state.groups.filter((g) => data.bestCluster.get(g.idx)?.count === bestCount);
   if (tiedTeams.length > 1) {
+    // 最佳同步人數相同即平手(不比達成時間 —— 台上解釋不了 0.3 秒的差距),
+    // 交給助理手動「重新搶答」。
     noWinner(ctx.state, ctx.broadcast, 'tie');
     return;
   }
 
-  const team = ctx.state.groups[winnerIdx]!;
+  const team = ctx.state.groups[winnerIdx];
+  if (!team) {
+    noWinner(ctx.state, ctx.broadcast, 'timeout');
+    return;
+  }
+  session.winnerLocked = true;
   ctx.broadcast({
     type: 'rush_winner',
     payload: {

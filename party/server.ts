@@ -354,8 +354,8 @@ export class PolicyGogogoServer extends Server {
         return this.onRebuzzSame(sender);
       case 'fresh_rush':
         return this.onFreshRush(sender);
-      case 'resume_question':
-        return this.onResumeQuestion(sender);
+      case 'round_reset':
+        return this.onRoundReset(sender);
       case 'reassign_leader':
         return this.onReassignLeader(cmd.payload, sender);
       case 'resync_all':
@@ -424,25 +424,60 @@ export class PolicyGogogoServer extends Server {
   }
 
   private onStartRush(rerush: boolean, sender: Connection<ConnState>): void {
-    // Accepted phases: idle / rushing / won / picking. Anything past picking
-    // (answering / revealed / ended / lobby) we now SEND ERROR instead of
-    // silent return — Phase 4 lesson: silent server rejections + assistant's
-    // expectations create deadlocks no one can debug.
-    const ok = ['idle', 'rushing', 'won', 'picking'].includes(this.state.phase);
-    if (!ok) {
+    // Accepted phases: idle / rushing / won / picking. Anything else we
+    // SEND ERROR instead of silent return — Phase 4 lesson: silent server
+    // rejections + assistant's expectations create deadlocks no one can debug.
+    //
+    // rerush:true 額外接受 answering / revealed:「重新這一次」—— 抽了題但
+    // 這一次要作廢重來(助理誤操作、現場出包)。棄置當前題目後重開搶答,
+    // 失格名單保留、題號不動。
+    const okPhases = rerush
+      ? ['idle', 'rushing', 'won', 'picking', 'answering', 'revealed']
+      : ['idle', 'rushing', 'won', 'picking'];
+    if (!okPhases.includes(this.state.phase)) {
       this.sendError(sender, 'wrong_phase',
-        `start_rush 不能在 ${this.state.phase} 階段送(只接受 idle/rushing/won/picking)。` +
+        `start_rush 不能在 ${this.state.phase} 階段送(只接受 ${okPhases.join('/')})。` +
         `若 server 在 lobby,代表 server 失去本場狀態(可能是 partykit dev hot-reload 重建 DO),` +
         `請按「重新開始」整場重置。`);
       return;
     }
-    // 一般「開始搶答 / 重新搶答(重抽)」= 新一輪,清掉本題失格名單
+    // rerush 遇到已抽出的題 → 先棄題(標 replaced 供回顧分辨「亮過但作廢」),
+    // 停掉答題倒數,再重開搶答。
+    if (rerush && this.state.currentQuestion) {
+      this.discardCurrentQuestion({ markReplaced: this.state.phase === 'answering' });
+    }
+    // 一般「開始搶答」= 新一輪,清掉本輪失格名單
     if (!rerush) {
       this.state.excludedTeams = [];
       this.state.lastBuzzWinnerTeam = null;
     }
     this.broadcastBuzzLockout();
     rushStart(this.state, this.rushBroadcast, { rerush });
+  }
+
+  /**
+   * 棄置當前題目(重新搶答換題/重新這一次/重新這一輪共用):
+   * 清 currentQuestion/currentCat/catLocked、關煉獄特效、停答題倒數。
+   * markReplaced=true 時把 askedQuestions 最後一筆標成 replaced
+   * (回顧頁顯示「已重抽 · 未作答」);已公佈答案或已判定的題不標 ——
+   * 它們在報告裡有自己的計分紀錄。
+   */
+  private discardCurrentQuestion(opts: { markReplaced: boolean }): void {
+    if (!this.state.currentQuestion) return;
+    if (this.state.currentQuestion.difficulty === 'purgatory') {
+      this.broadcastEvent({ type: 'purgatory_end', payload: {} });
+    }
+    if (opts.markReplaced) {
+      const last = this.state.askedQuestions[this.state.askedQuestions.length - 1];
+      if (last && last.id === this.state.currentQuestion.id) last.replaced = true;
+    }
+    this.state.currentQuestion = null;
+    this.state.currentCat = null;
+    this.state.catLocked = false;
+    if (this.state.timerDeadline !== null) {
+      this.state.timerDeadline = null;
+      this.broadcastEvent({ type: 'timer_update', payload: { remainingSec: 0 } });
+    }
   }
 
   /**
@@ -1084,20 +1119,24 @@ export class PolicyGogogoServer extends Server {
     });
   }
 
-  /** 同一題重新搶答:保留題目,重新開放搶答。 */
+  /**
+   * 不計分後的「重新搶答(換新題)」:答錯組列入本輪失格名單,原題結束,
+   * 其餘隊伍重新搶答;勝隊由助理重新選九宮格抽新題(同一回合,題號不動)。
+   *
+   * 2026-08-27 改版:舊行為是保留原題、勝者「回到同一題作答」——現場實測
+   * 行不通:答案已經公佈、全場都知道了,再回同一題根本沒得比。依 CONTEXT.md
+   * 「已確認的目標流程」定案:每次重新取得答題權,都由助理重新選九宮格抽題。
+   */
   private onRebuzzSame(sender: Connection<ConnState>): void {
-    // revealed 也放行:公佈答案後發現答題組答錯 → 不計分 → 讓其他組
-    // 再挑戰同一題(答案已公開,但申論/計算題仍可比誰講得完整,由助理
-    // 用部分給分裁量)。user-reported:原本揭曉後只剩「下一題」,流程卡死。
     if (this.state.phase !== 'answering' && this.state.phase !== 'revealed') {
-      this.sendError(sender, 'wrong_phase', '只有在答題或已公佈答案階段才能「同一題重新搶答」');
+      this.sendError(sender, 'wrong_phase', '只有在答題或已公佈答案階段才能「重新搶答(換新題)」');
       return;
     }
     if (!this.state.currentQuestion) {
       this.sendError(sender, 'no_current', '目前沒有題目');
       return;
     }
-    // 答不出來的那組(當前答題者)失去本題搶答資格,累積排除。
+    // 答不出來的那組(當前答題者)失去本輪搶答資格,累積排除。
     const failed = this.state.lastBuzzWinnerTeam;
     if (failed !== null && !this.state.excludedTeams.includes(failed)) {
       const totalTeams = this.state.groups.length;
@@ -1109,11 +1148,10 @@ export class PolicyGogogoServer extends Server {
       }
     }
     this.broadcastBuzzLockout();
-    // 保留 currentQuestion/currentCat,標記「這輪 rush 完要回同一題」。停掉倒數。
-    this.state.rebuzzPending = true;
-    this.state.timerDeadline = null;
-    this.broadcastEvent({ type: 'timer_update', payload: { remainingSec: 0 } });
+    // 原題結束(答案已公佈,不標 replaced —— 報告裡它有「不計分」的判定紀錄)。
+    this.discardCurrentQuestion({ markReplaced: false });
     // 跑一輪 rush(phase → rushing,走 rushBroadcast 才會累計 MVP)。
+    // 勝者出來後 phase=won,助理點九宮格抽新題 —— 與一般勝者流程相同。
     rushStart(this.state, this.rushBroadcast, { rerush: true });
   }
 
@@ -1123,31 +1161,36 @@ export class PolicyGogogoServer extends Server {
       this.sendError(sender, 'wrong_phase', '全員重新搶答只能在公布答案後啟動');
       return;
     }
-    if (this.state.currentQuestion?.difficulty === 'purgatory') {
-      this.broadcastEvent({ type: 'purgatory_end', payload: {} });
-    }
-    this.state.currentQuestion = null;
-    this.state.currentCat = null;
-    this.state.catLocked = false;
-    this.state.rebuzzPending = false;
+    this.discardCurrentQuestion({ markReplaced: false });
     this.state.excludedTeams = [];
     this.state.lastBuzzWinnerTeam = null;
-    this.state.timerDeadline = null;
-    this.broadcastEvent({ type: 'timer_update', payload: { remainingSec: 0 } });
     this.broadcastBuzzLockout();
     this.broadcastEvent({ type: 'next_question', payload: {} });
     rushStart(this.state, this.rushBroadcast, { rerush: false });
   }
 
-  /** 重新搶答後回到同一題作答(phase: won → answering)。 */
-  private onResumeQuestion(sender: Connection<ConnState>): void {
-    if (!this.state.rebuzzPending) {
-      this.sendError(sender, 'wrong_phase', '目前不是「同一題重新搶答」流程');
+  /**
+   * 重新這一輪:整個回合作廢,回到本輪起點(idle)。
+   * 清失格名單/當前題目/搶答/倒數;分數與題號不變、已計分判定不撤銷。
+   * 現場用途:回合走歪了(誤操作、規則爭議)想從「開始搶答」重來,
+   * 不必整場重新開始。
+   */
+  private onRoundReset(sender: Connection<ConnState>): void {
+    const ok = ['rushing', 'won', 'picking', 'answering', 'revealed'].includes(this.state.phase);
+    if (!ok) {
+      this.sendError(sender, 'wrong_phase',
+        `round_reset 只能在回合進行中送(目前 server phase=${this.state.phase});idle 本來就是本輪起點。`);
       return;
     }
-    this.state.rebuzzPending = false;
-    this.state.phase = 'answering';
-    this.broadcastEvent({ type: 'resume_question', payload: {} });
+    rushAbort(this.state);
+    // 亮過但沒公佈答案的題標 replaced(回顧顯示「已重抽 · 未作答」);
+    // revealed 的題已有計分/不計分紀錄,不標。
+    this.discardCurrentQuestion({ markReplaced: this.state.phase === 'answering' });
+    this.state.excludedTeams = [];
+    this.state.lastBuzzWinnerTeam = null;
+    this.state.phase = 'idle';
+    this.broadcastBuzzLockout();
+    this.broadcastEvent({ type: 'round_reset', payload: {} });
   }
 
   /**

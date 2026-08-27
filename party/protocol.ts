@@ -109,6 +109,15 @@ export type ScoreAdjustCommand = {
   payload: { teamIdx: number; delta: number; completeRound?: boolean };
 } & PrivilegedHeader;
 
+/**
+ * 開始/重新搶答。
+ * - rerush:false(開始搶答)= 新一輪:清空本輪失格名單。僅 idle/rushing/
+ *   won/picking 階段接受。
+ * - rerush:true(重新搶答/重新這一次)= 同一輪重跑這一次搶答:保留失格
+ *   名單。額外接受 answering/revealed 階段 —— 此時先棄置當前題目(標記
+ *   replaced、清 currentQuestion/currentCat、停倒數)再重開搶答,
+ *   供「抽了題但這一次要作廢重來」的現場恢復用。
+ */
 export type StartRushCommand = {
   type: 'start_rush';
   payload?: { rerush?: boolean };
@@ -277,8 +286,11 @@ export type SetTimerCommand = {
 } & PrivilegedHeader;
 
 /**
- * 同一題重新搶答:保留當前題目,重新開放搶答(答題者答不出來時用)。
- * server 保留 currentQuestion/currentCat,設 rebuzzPending,跑一輪 rush。
+ * 不計分後的「重新搶答(換新題)」:當前答題組答錯 → 列入本輪失格名單,
+ * 原題與分類就此結束(答案已公佈,不能再拿同一題比),重新開放其餘隊伍
+ * 搶答。勝隊由助理重新選九宮格抽新題;題號(currQ)不前進 —— 仍是同一個
+ * 未完成回合。2026-08-27 前的舊行為(保留原題、勝者回同一題作答)已廢除:
+ * 現場實測答案公佈後根本沒辦法繼續玩。
  */
 export type RebuzzSameCommand = {
   type: 'rebuzz_same';
@@ -290,11 +302,14 @@ export type FreshRushCommand = {
 } & PrivilegedHeader;
 
 /**
- * 重新搶答後回到同一題作答(助理在 winner 卡片後送)。server 把 phase
- * 拉回 answering(rush 模組會把它設成 won),並廣播 resume_question。
+ * 重新這一輪:把「當前這個未完成回合」整個作廢,回到本輪起點。
+ * 清除本輪失格名單、當前題目/分類/搶答與答題倒數,phase 回 idle;
+ * 分數與題號(currQ)不變、已計分的判定不撤銷。僅 rushing/won/picking/
+ * answering/revealed 接受(idle 沒有東西可重置)。server 廣播 round_reset
+ * 事件,三端回到待命畫面。
  */
-export type ResumeQuestionCommand = {
-  type: 'resume_question';
+export type RoundResetCommand = {
+  type: 'round_reset';
 } & PrivilegedHeader;
 
 /**
@@ -396,7 +411,7 @@ export type ClientCommand =
   | SetTimerCommand
   | RebuzzSameCommand
   | FreshRushCommand
-  | ResumeQuestionCommand
+  | RoundResetCommand
   | ReassignLeaderCommand
   | ResyncAllCommand
   | AddQuestionCommand
@@ -780,9 +795,13 @@ export type TimerUpdateEvent = {
   payload: { remainingSec: number };
 };
 
-/** 同一題重新搶答後,回到該題作答畫面(投影/參賽者重新顯示原題)。 */
-export type ResumeQuestionEvent = {
-  type: 'resume_question';
+/**
+ * 助理按「重新這一輪」:本輪作廢、回到待命。三端行為同 next_question 的
+ * 畫面重置,但**回合數不前進**(投影端的 ROUND 顯示不可 +1)、失格名單已
+ * 清空(伴隨的 buzz_lockout 會是空陣列)。
+ */
+export type RoundResetEvent = {
+  type: 'round_reset';
   payload: Record<string, never>;
 };
 
@@ -883,7 +902,7 @@ export type ServerEvent =
   | GroupNoticeEvent
   | PlayerRenamedEvent
   | TimerUpdateEvent
-  | ResumeQuestionEvent
+  | RoundResetEvent
   | TotalQChangedEvent
   | BuzzLockoutEvent;
 
@@ -916,7 +935,7 @@ export const PRIVILEGED_COMMAND_TYPES = new Set<string>([
   'set_timer',
   'rebuzz_same',
   'fresh_rush',
-  'resume_question',
+  'round_reset',
   'reassign_leader',
   'resync_all',
   'add_question',

@@ -1,5 +1,37 @@
 # policy-gogogo — 測試前專案脈絡
 
+## Implementation record — 2026-08-27 現場事故修正（四項）
+
+當日實戰回報的四個問題與處置：
+
+1. **全組到位分出勝負卻不進題目（實為平手死鎖）**：`count.ts`／`allhands.ts` 的
+   `lockWinner` 先設 `session.winnerLocked = true` 才呼叫 `noWinner()`，而
+   `noWinner()` 開頭的防重入檢查看到旗標直接 return —— 平手／無人按時
+   `rush_no_winner` 永遠發不出去、phase 卡在 rushing、三端凍結。全組到位兩隊
+   「最佳同步人數」相同即判平手（隊伍人數相近時機率很高），故當日必然踩中。
+   修正：`winnerLocked` 只在真的選出勝者時設；speed／lightning 的無效紀錄
+   也不再消耗勝負鎖。平手判準維持 CONTEXT 定案（人數相同即平手，不比毫秒）。
+2. **搶答進行中沒有任何恢復按鈕**：按鈕矩陣 rushing/won/picking 現在保持左鈕
+   可按（藍色「重新搶答」，`doRoundControl` 分流），server 本就接受這三階段的
+   `start_rush(rerush:true)`。投影端與參賽者端新增 `rush_no_winner` 顯示
+   （平手／逾時／全員淘汰 + 「等待助理重新開始搶答」），不再無聲凍結。
+3. **不計分後重新搶答卻跳回已公佈答案的原題**：`rebuzz_same` 改為棄置原題
+   （`resume_question` 全面移除，`state.rebuzzPending` 一併移除），答錯隊列入
+   失格，勝隊回九宮格抽新題、`roundQ` 不前進 —— 落實本檔「已確認的目標流程」
+   第 5 點。主鈕文案改「重新搶答(換新題)」。
+4. **缺單次／單輪重置**：新增「重新這一次」（= `start_rush(rerush:true)`，
+   server 放寬到 answering/revealed 也接受：棄題、失格保留、立即重搶，棄置題
+   在 `askedQuestions` 標 `replaced`）與「重新這一輪」（新指令＋事件
+   `round_reset`：清失格名單、棄題、回 idle；分數與題號不變，已計分判定不
+   撤銷；投影端 ROUND 不前進）。兩鈕位於助理控制列第三排，均有確認對話框。
+
+驗證：`verify:all` 全綠（含新 `verify:round-controls-ui`、擴充後 13 項的
+`verify:round-eligibility`）；本機 Worker 端到端 `verify:roundflow` 24 項
+全過（count/allhands 平手、恢復重搶、rebuzz 換新題同回合、answering 棄題、
+round_reset 後原失格隊恢復可搶、export 的 replaced 標記）；
+`verify:fullgame`、`verify:rushmodes`、`verify:rush-flow` 迴歸皆過。
+**尚未部署**：正式環境需重新部署即時 Worker 與 Pages 前端（兩者都有改動）。
+
 ## Implementation record — 2026-07-24 follow-up fixes
 
 - **Round accounting:** `currQ` now means completed scored rounds. Drawing or redrawing after a no-score answer keeps the same displayed round and does not consume the configured question allowance. Only the formal 25% / 50% / 100% score action completes a round. Every draw remains in `askedQuestions` for the final report.

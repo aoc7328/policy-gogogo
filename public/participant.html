@@ -5077,23 +5077,51 @@ PartyBus.on('buzz_lockout', payload => {
   G._buzzLockout = Array.isArray(payload?.teams) ? payload.teams : [];
 });
 
-/* 同一題重新搶答後回到該題:用快取的題目重新顯示(不增題號、不換題) */
-PartyBus.on('resume_question', () => {
-  const c = G.currentBankQ;
-  if (!c) return;
-  // 復原 G.currentQ:start_rush 把它清成 null,不復原的話重新搶答後
-  // 第二次公佈答案會被 revealCurrentAnswer 的 !G.currentQ guard 擋掉,
-  // 參賽者手機看不到答案(既有 bug,揭曉後重搶流程放大了影響)。
-  G.currentQ = c.q;
-  G.revealed = false;
-  G.buzzed = false;
-  document.getElementById('q-wait').style.display = 'none';
-  const body = document.getElementById('q-body');
-  if (body) { body.style.display = 'block'; body.innerHTML = buildQFromBank(c.q, c.difficulty, c.framework); }
-  document.getElementById('q-zone').scrollTop = 0;
-  if (typeof lockBuzz === 'function') lockBuzz();
+/* 重新這一輪:助理把本輪作廢 → 回到待命(同下一題的畫面重置,題號不變)。
+   失格名單已由伴隨的 buzz_lockout(空陣列)清空,下次搶答全員可按。 */
+PartyBus.on('round_reset', () => {
+  resetForNextQuestion();
   const st = document.getElementById('btn-status');
-  if (st) { st.textContent = '答題中'; st.className = 'btn-status'; }
+  if (st) { st.textContent = '本輪重新進行 · 等待重新搶答'; st.className = 'btn-status'; }
+});
+
+/* 本輪搶答無有效勝者(平手/逾時/全員淘汰):鎖鈕並明講結果。
+   2026-08-27 前這個事件沒人處理 —— 手機端搶答鈕停在可按/倒數狀態,
+   大家不知道發生什麼事。 */
+PartyBus.on('rush_no_winner', payload => {
+  if (typeof lockBuzz === 'function') lockBuzz();
+  G.buzzed = false;
+  const reason = payload?.reason;
+  const big = reason === 'tie' ? '平手'
+    : reason === 'all_disqualified' ? '全員淘汰'
+    : '無人搶答';
+  const setShow = (id, show) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = show ? '' : 'none';
+  };
+  ['qw-glyph','qw-title','qw-mode','qw-rule','qw-countdown',
+   'qw-count-panel','qw-allhands-panel','qw-reveal','qw-catgrid',
+   'qw-lockout','qw-hint'].forEach(id => setShow(id, false));
+  if (typeof _clearBuzzDq === 'function') _clearBuzzDq();
+  const resultEl = document.getElementById('qw-result');
+  if (resultEl) {
+    document.getElementById('q-wait').style.display = 'flex';
+    document.getElementById('q-body').style.display = 'none';
+    resultEl.classList.remove('mine');
+    resultEl.style.display = 'flex';
+    const badge = document.getElementById('qwr-badge');
+    if (badge) badge.textContent = '搶答結束';
+    const groupEl = document.getElementById('qwr-group');
+    if (groupEl) groupEl.textContent = big;
+    const subEl = document.getElementById('qwr-sub');
+    if (subEl) subEl.innerHTML = '這一次不算<br>等待助理重新開始搶答';
+    const runnerUpEl = document.getElementById('qwr-runnerup');
+    if (runnerUpEl) runnerUpEl.style.display = 'none';
+    const dqEl = document.getElementById('qwr-dq');
+    if (dqEl) dqEl.style.display = 'none';
+  }
+  const st = document.getElementById('btn-status');
+  if (st) { st.textContent = `${big} · 等待重新搶答`; st.className = 'btn-status active-mid'; }
 });
 
 /* ══ 自動回填登入(同 device 重新整理 / 開新分頁)══

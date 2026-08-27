@@ -2655,13 +2655,19 @@ PartyBus.on('timer_update', payload => {
   }, 1000);
 });
 
-/* 同一題重新搶答後回到該題:重新渲染快取的當前題目 */
-PartyBus.on('resume_question', () => {
-  if (currentQuestion) {
-    isRevealed = false;
-    renderQuestion();
-    goto('scr-question');
-  }
+/* 重新這一輪:助理把本輪作廢 → 回待命頁。與 skip_question 的重置相同,
+   但**回合數不前進**(round++ 只屬於 next_question —— 這一輪要重跑)。 */
+PartyBus.on('round_reset', () => {
+  isRevealed = false;
+  currentQuestion = null;
+  currentDifficulty = null;
+  currentFramework = null;
+  clearCategoryHighlight();
+  const body = document.getElementById('q-body');
+  if (body) body.innerHTML = '';
+  goto('scr-standby');
+  document.getElementById('standby-round').textContent = `ROUND ${String(round).padStart(2,'0')}`;
+  if (typeof updateCategoryGridPresenter === 'function') updateCategoryGridPresenter();
 });
 
 PartyBus.on('purgatory_summon', () => {
@@ -2951,6 +2957,30 @@ PartyBus.on('rush_winner', payload => {
   if (f) { f.style.animation = 'none'; void f.offsetWidth; f.style.animation = ''; }
   goto('scr-winner');
   try { playCorrectSound(); } catch(e) {}
+});
+
+/* 本輪搶答沒有有效勝者(平手/逾時/全員淘汰)。
+   2026-08-27 前投影端沒有處理這個事件 —— 畫面凍在搶答頁,台下看長條圖
+   以為分出勝負了,其實 server 判平手,全場乾等。現在明確告知結果與下一步。 */
+PartyBus.on('rush_no_winner', payload => {
+  const reason = payload?.reason;
+  const modeLabel = (RUSH_MODE_META_PRESENTER[payload?.rushMode] || {}).label || '搶答';
+  const big = reason === 'tie' ? '平手'
+    : reason === 'all_disqualified' ? '全員淘汰'
+    : '無人搶答';
+  const detail = reason === 'tie' ? '不分勝負,這一次不算'
+    : reason === 'all_disqualified' ? '搶答期間全數被淘汰'
+    : '時間到,沒有有效搶答';
+  const badge = document.getElementById('win-badge');
+  if (badge) badge.textContent = `${modeLabel} · 搶答結束`;
+  const wg = document.getElementById('win-group');
+  if (wg) wg.textContent = big;
+  const sub = document.getElementById('win-sub');
+  if (sub) sub.innerHTML = `${detail}<br>等待助理重新開始搶答`;
+  const runnerUpBlock = document.getElementById('win-runnerup');
+  if (runnerUpBlock) runnerUpBlock.style.display = 'none';
+  lastWinner = null;
+  goto('scr-winner');
 });
 
 PartyBus.on('enter_category', () => {

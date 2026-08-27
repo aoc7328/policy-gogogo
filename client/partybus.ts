@@ -239,7 +239,7 @@ class PartyBusImpl {
     'reveal_answer', 'next_question', 'skip_question', 'redraw_question',
     'arm_purgatory', 'mode_preview', 'custom_tiers_changed', 'rush_mode_changed',
     'presenter_show_qr', 'export_result', 'team_count_changed',
-    'grouping_mode_changed', 'notify_group', 'set_timer', 'resume_question',
+    'grouping_mode_changed', 'notify_group', 'set_timer', 'round_reset',
     'reassign_leader', 'team_rename', 'player_join', 'rename_self',
   ]);
 

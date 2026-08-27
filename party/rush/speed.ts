@@ -37,10 +37,12 @@ export function handleBuzz(ctx: RushCtx, record: BuzzRecord): void {
 function lockWinner(ctx: RushCtx, winning: BuzzRecord): void {
   const session = ctx.state.rushSession;
   if (!session || session.winnerLocked) return;
-  session.winnerLocked = true;
 
+  // 無效紀錄不消耗勝負鎖:先鎖再驗 team 的話,一筆壞資料會吃掉整輪
+  // (之後 fallback 的 noWinner 也被 winnerLocked 擋住 → 永遠沒有結果事件)。
   const team = ctx.state.groups[winning.teamIdx];
   if (!team) return;
+  session.winnerLocked = true;
 
   ctx.broadcast({
     type: 'rush_winner',

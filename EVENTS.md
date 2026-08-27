@@ -4,6 +4,32 @@
 > 來源：`assistant.html` / `presenter.html` / `participant.html` / `testbed.html`
 > 用途：作為 Phase 2 PartyKit server 實作的權威規格書。
 > 任何欄位、authority 分類、模式邏輯有疑慮，先回到此文件對齊，再寫 server。
+> **現況注記：`party/protocol.ts` 才是即時同步的權威 wire contract**（由
+> `verify:contract` 對照三端與 server）；本文件是歷史規格 + 重大變更紀錄。
+
+## 變更紀錄 · 2026-08-27（現場事故修正）
+
+- **`rush_no_winner` 判定修正**：count／allhands 平手或無人按時，`noWinner()`
+  先前被 `winnerLocked` 旗標擋住而發不出事件，房間卡死在 rushing（全組到位
+  兩隊同步人數相同即平手，現場很常見）。修正後平手／逾時一定廣播
+  `rush_no_winner`、phase 回 idle。投影端與參賽者端新增此事件的顯示
+  （之前收到也沒人渲染，畫面凍在搶答頁）。
+- **`rebuzz_same` 語意改版**：不計分後的重新搶答不再「回到同一題」
+  （`resume_question` 已自 contract 移除）。原題棄置（答案已公佈）、答錯隊
+  列入 `buzz_lockout`，其餘隊伍重搶，勝隊由助理重新選九宮格抽**新題**；
+  `question_pick.roundQ` 不前進。
+- **`start_rush` 放寬**：`rerush:true` 額外接受 answering／revealed ——
+  「重新這一次」：棄置當前題（`askedQuestions` 標 `replaced`）後立刻重開
+  搶答，失格名單保留。`rerush:false` 的接受階段不變。
+- **新指令／事件 `round_reset`**：「重新這一輪」。整個回合作廢：清失格名單、
+  棄置當前題、phase 回 idle；分數與 `currQ` 不變。三端收到後回待命畫面，
+  投影端 ROUND 顯示**不**前進（有別於 `next_question`）。
+- 助理端控制列：rushing／won／picking 階段左鈕保持可按（藍色「重新搶答」，
+  搶答卡住的逃生口）；新增「重新這一次」「重新這一輪」兩鈕（回合進行中
+  可按，皆有確認）。
+- 回歸驗證：`verify:round-eligibility`（靜態 13 項）、
+  `verify:round-controls-ui`（JSDOM 6 項）、`verify:roundflow`
+  （`scripts/verify-round-controls-live.mjs`，需本機 Worker，端到端 24 項）。
 
 ## Glossary
 

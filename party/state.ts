@@ -166,9 +166,6 @@ export interface RoomState {
   // 答題倒數截止時間(epoch ms);null = 無倒數。reconnect 端據此續跑。
   timerDeadline: number | null;
 
-  // 同一題重新搶答:true 表示這輪 rush 結束後要回到同一題作答,而非進九宮格。
-  rebuzzPending: boolean;
-
   // 本題已喪失搶答資格的組(teamIdx):答不出來被重新搶答時排除,累積。
   // 進新題(next/skip)或新一輪 start_rush 時清空。
   excludedTeams: number[];
@@ -224,7 +221,6 @@ export function createInitialState(
     wordGameAsked: 0,
     mvpTally: new Map(),
     timerDeadline: null,
-    rebuzzPending: false,
     excludedTeams: [],
     lastBuzzWinnerTeam: null,
     rushMode: 'speed',
@@ -872,7 +868,8 @@ export interface PersistedState {
   wordGameAsked: number;
   mvpTally: [number, [string, number][]][];
   timerDeadline: number | null;
-  rebuzzPending: boolean;
+  /** 已移除的舊欄位(同一題重搶機制);舊存檔仍帶著,hydrate 忽略。 */
+  rebuzzPending?: boolean;
   excludedTeams: number[];
   lastBuzzWinnerTeam: number | null;
   rushMode: RushMode;
@@ -905,7 +902,6 @@ export function dehydrateState(state: RoomState): PersistedState {
     wordGameAsked: state.wordGameAsked,
     mvpTally: [...state.mvpTally.entries()].map(([idx, m]) => [idx, [...m.entries()]]),
     timerDeadline: state.timerDeadline,
-    rebuzzPending: state.rebuzzPending,
     excludedTeams: [...state.excludedTeams],
     lastBuzzWinnerTeam: state.lastBuzzWinnerTeam,
     rushMode: state.rushMode,
@@ -941,7 +937,6 @@ export function hydrateState(state: RoomState, saved: PersistedState): void {
   // 倒數截止已過(重啟耗掉的時間)→ 清掉,避免還原後立刻誤響鬧鐘
   state.timerDeadline =
     saved.timerDeadline && saved.timerDeadline > Date.now() ? saved.timerDeadline : null;
-  state.rebuzzPending = saved.rebuzzPending;
   state.excludedTeams = [...saved.excludedTeams];
   state.lastBuzzWinnerTeam = saved.lastBuzzWinnerTeam;
   state.rushMode = saved.rushMode;

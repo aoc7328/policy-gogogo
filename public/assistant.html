@@ -1185,7 +1185,7 @@ input::placeholder{color:var(--ink-3)}
       </div>
 
       <div class="ctrl-row">
-        <button class="cb rush"     id="btn-rush"   onclick="doStartRush()" disabled>開始搶答</button>
+        <button class="cb rush"     id="btn-rush"   onclick="doRoundControl()" disabled>開始搶答</button>
         <button class="cb primary"  id="btn-reveal" onclick="doReveal()"    disabled>公佈答案</button>
         <button class="cb next"     id="btn-next"   onclick="doPrimaryAction()" disabled>下一題</button>
       </div>
@@ -1200,6 +1200,10 @@ input::placeholder{color:var(--ink-3)}
         <span id="timer-readout" style="font-family:var(--font-mono);font-size:14px;color:var(--accent);min-width:48px;text-align:right;margin-left:auto"></span>
       </div>
       <div class="ctrl-row">
+        <button class="cb" id="btn-reset-attempt" onclick="doResetAttempt()" disabled
+          title="放棄這一次搶答/題目並立刻重新搶答;已失格的隊伍維持排除,題號不變">重新這一次</button>
+        <button class="cb" id="btn-reset-round" onclick="doResetRound()" disabled
+          title="整輪作廢回到待命:清除本輪失格名單與當前題目/搶答;分數與題號不變">重新這一輪</button>
         <button class="cb"        id="btn-restart" onclick="doRestart()">重新開始</button>
         <button class="cb danger" onclick="doEnd()">結束本場</button>
       </div>
@@ -1684,7 +1688,7 @@ function paintConnIndicator(status) {
    由 PartyBus.onUndelivered 觸發,只有「會改變全場狀態」的指令才會來。 */
 const UNDELIVERED_LABELS = {
   game_start: '開始遊戲', game_restart: '重新開始', score_adjust: '加減分',
-  start_rush: '開始搶答', rebuzz_same: '同一題重新搶答',
+  start_rush: '開始搶答', rebuzz_same: '重新搶答(換新題)',
   enter_category: '進入選題', category_preview: '預覽分類',
   category_confirm: '確定分類', category_reset: '重置分類',
   reveal_answer: '公佈答案', next_question: '下一題', skip_question: '跳題',
@@ -1693,7 +1697,7 @@ const UNDELIVERED_LABELS = {
   rush_mode_changed: '切換搶答模式', presenter_show_qr: '重新顯示 QR',
   export_result: '匯出結果', team_count_changed: '調整分組',
   grouping_mode_changed: '切換分組方式', notify_group: '通知組別',
-  set_timer: '答題倒數', resume_question: '回到同一題作答',
+  set_timer: '答題倒數', round_reset: '重新這一輪',
   reassign_leader: '重抽組長', team_rename: '組名變更',
 };
 let _sendFailTimer = null;
@@ -2095,7 +2099,6 @@ PartyBus.on('rush_winner', payload => {
 });
 
 PartyBus.on('rush_no_winner', payload => {
-  S._rebuzzPending = false;
   S.lastBuzzWinnerTeam = null;
   S._recoveryPending = true;
   setPhase('idle');
@@ -2422,6 +2425,26 @@ PartyBus.on('skip_question', () => {
   setPhase('idle');
   renderQaView();
   setStatus('已跳過 · 按「開始搶答」開始下輪');
+});
+
+/* 重新這一輪:server 已把本輪作廢(失格名單清空、題目丟棄、回 idle)。
+   畫面重置同下一題,但題號沒有前進 —— 這一輪要重跑。 */
+PartyBus.on('round_reset', () => {
+  if (!S.gameStarted) return;
+  if (typeof _clearLocalRushUITimers === 'function') _clearLocalRushUITimers();
+  if (typeof _stopTimerSafe === 'function') _stopTimerSafe();
+  S.rushSession = null;
+  document.getElementById('rev-acts')?.classList.remove('show');
+  S.pendingIdx = null; S.selectedIdx = null;
+  S.currentQuestion = null; S.currentDifficulty = null; S.currentFramework = null;
+  S.excludedTeams = [];
+  S.lastBuzzWinnerTeam = null;
+  S._recoveryPending = false;
+  resetCategoryPicker(false);
+  renderScores();
+  setPhase('idle');
+  renderQaView();
+  setStatus('本輪已重置 · 全員恢復搶答資格 · 按「開始搶答」重跑這一輪');
 });
 
 /* 重新開始:鏡射呼叫 _doRestartImpl(false) — 同步 UI、不再廣播 */
@@ -3620,15 +3643,16 @@ function setPhase(p) {
   const set = (id, en) => { const el = $(id); if (el) el.disabled = !en; };
 
   // 按鈕啟用矩陣
-  // 跳題:只有題目真的出現後(answering)才能按。won / picking 階段
-  // 還沒抽到題,server 會回 wrong_phase。
   // 下一題:即使在 revealed 也保持 disabled,要等助理按了「加分 / 不計分」
   // 後 afterScore() 才會手動把它打開,避免漏記分。
+  // 左鈕(btn-rush)在 rushing/won/picking 也開著,文案切成藍色「重新搶答」
+  // (doRoundControl 依 phase 分流)—— 2026-08-27 現場事故:全組到位判定
+  // 卡住時,rushing 階段三顆主鈕全滅,助理沒有任何恢復手段,只能整場重開。
   const en = {
     idle:      { rush:1, reveal:0, next:0 },
-    rushing:   { rush:0, reveal:0, next:0 },
-    won:       { rush:0, reveal:0, next:0 },
-    picking:   { rush:0, reveal:0, next:0 },
+    rushing:   { rush:1, reveal:0, next:0 },
+    won:       { rush:1, reveal:0, next:0 },
+    picking:   { rush:1, reveal:0, next:0 },
     answering: { rush:0, reveal:1, next:0 },
     revealed:  { rush:0, reveal:0, next:0 },
     ended:     { rush:0, reveal:0, next:0 },
@@ -3636,7 +3660,12 @@ function setPhase(p) {
   set('btn-rush',   !!en.rush);
   set('btn-reveal', !!en.reveal);
   set('btn-next',   !!en.next);
-  if (p === 'idle') setRoundControl(!!S._recoveryPending);
+  const inRerushPhase = (p === 'rushing' || p === 'won' || p === 'picking');
+  setRoundControl(inRerushPhase || (p === 'idle' && !!S._recoveryPending));
+  // 回合重置鈕:回合進行中(搶答起到揭曉止)都可按;idle/ended/lobby 鎖住。
+  const midRound = inRerushPhase || p === 'answering' || p === 'revealed';
+  set('btn-reset-attempt', midRound);
+  set('btn-reset-round',   midRound);
 
   // 答題倒數 6 個按鈕(關閉/-10/-5/+5/+10/重新計時):只有 answering 階段可按。
   // 公佈答案後(revealed)鎖住,避免誤觸調整已結束的倒數(防呆)。
@@ -3673,6 +3702,14 @@ function setPhase(p) {
    位於 party/rush/{speed,count,lightning,allhands}.ts。
    ════════════════════════════════════════════════════════════════════ */
 
+/* 左側回合控制鈕的分流:idle → 開始搶答;rushing/won/picking → 重新搶答
+   (只重置這一次搶答,保留本輪失格名單)。rushing 也能按是 2026-08-27 的
+   現場教訓 —— 搶答判定萬一卡住,這顆是唯一不用整場重開的逃生口。 */
+function doRoundControl() {
+  if (S.phase === 'idle') return doStartRush();
+  if (S.phase === 'rushing' || S.phase === 'won' || S.phase === 'picking') return doReRush();
+}
+
 /* 開始搶答(從 idle 進 rushing) */
 function doStartRush() {
   if (S.phase !== 'idle') return;
@@ -3704,7 +3741,7 @@ function doStartRush() {
   PartyBus.emit('start_rush', { rerush: false });
 }
 
-/* 重新搶答 */
+/* 重新搶答:只重置這一次搶答(平手/卡住/誤判的恢復口),失格名單保留。 */
 function doReRush() {
   if (S.phase !== 'rushing' && S.phase !== 'won' && S.phase !== 'picking') return;
   _clearLocalRushUITimers();
@@ -3712,14 +3749,17 @@ function doReRush() {
   S.pendingIdx = null;
   resetCategoryPicker(false);
   renderScores();
-  setStatus(`已送出重新搶答指令 · ${RUSH_MODE_LABELS[S.rushMode] || S.rushMode}`);
-  PartyBus.emit('start_rush', { rerush: true });
+  emitOrWarn('start_rush', { rerush: true },
+    `已送出重新搶答指令 · ${RUSH_MODE_LABELS[S.rushMode] || S.rushMode}`,
+    '⚠ 重新搶答沒有送出去(連線中斷)· 連線恢復後請再按一次');
 }
 
-/* 同一題重新搶答:保留當前題目,重新開放搶答(答題者答不出來時用)。
-   不換題、不重抽。server 跑一輪 rush,winner 出來後回到同一題作答。 */
+/* 不計分後的「重新搶答(換新題)」:答錯組失格,原題結束(答案已公佈),
+   其餘隊伍重新搶答。勝者出來後與一般流程相同 —— 助理點九宮格抽新題;
+   題號不前進(仍是同一回合)。2026-08-27 改版:舊的「回到同一題作答」
+   在現場行不通,答案大家都看過了。 */
 function doRebuzzSame() {
-  // revealed 也可觸發(計分後才會解鎖按鈕):不計分 → 同一題給其他組重搶
+  // revealed 也可觸發(計分後才會解鎖按鈕):不計分 → 讓其他組重搶
   if (S.phase !== 'answering' && S.phase !== 'revealed') return;
   _clearLocalRushUITimers();
   _stopTimerSafe();
@@ -3727,14 +3767,70 @@ function doRebuzzSame() {
   document.getElementById('rev-acts')?.classList.remove('show');
   const next = document.getElementById('btn-next');
   if (next) next.disabled = true;
-  S._rebuzzPending = true;     // onRushWinner 看這個 → 回同一題,不進九宮格
   S.selectedIdx = null;
   S.pendingIdx = null;
+  S.currentQuestion = null;
+  S.currentDifficulty = null;
+  S.currentFramework = null;
+  resetCategoryPicker(false);
   renderScores();
-  setStatus(`同一題重新搶答 · ${RUSH_MODE_LABELS[S.rushMode] || S.rushMode}`);
-  PartyBus.emit('rebuzz_same', {});
+  emitOrWarn('rebuzz_same', {},
+    `重新搶答(答錯組已排除)· ${RUSH_MODE_LABELS[S.rushMode] || S.rushMode} · 勝隊將重新選九宮格抽新題`,
+    '⚠ 重新搶答沒有送出去(連線中斷)· 連線恢復後請再按一次');
 }
 window.doRebuzzSame = doRebuzzSame;
+
+/* 重新這一次:放棄這一次搶答/題目,立刻重新搶答(失格名單保留、題號不變)。
+   搶答階段等同左鈕「重新搶答」;已抽題(answering/revealed)則先確認再棄題。 */
+function doResetAttempt() {
+  if (S.phase === 'rushing' || S.phase === 'won' || S.phase === 'picking') return doReRush();
+  if (S.phase !== 'answering' && S.phase !== 'revealed') return;
+  cfOpen({
+    eyebrow: 'RESET · 重新這一次',
+    title: '放棄當前題目,重新搶答?',
+    sub: '這一題作廢(回顧會標「未作答」),已失格的隊伍維持排除;勝隊將重新選九宮格抽新題,題號不變。',
+    okText: '重新搶答',
+    onOk: () => {
+      _clearLocalRushUITimers();
+      _stopTimerSafe();
+      document.getElementById('rev-acts')?.classList.remove('show');
+      const next = document.getElementById('btn-next');
+      if (next) next.disabled = true;
+      S.selectedIdx = null;
+      S.pendingIdx = null;
+      S.currentQuestion = null;
+      S.currentDifficulty = null;
+      S.currentFramework = null;
+      resetCategoryPicker(false);
+      renderScores();
+      emitOrWarn('start_rush', { rerush: true },
+        `重新這一次 · 原題作廢 · ${RUSH_MODE_LABELS[S.rushMode] || S.rushMode}`,
+        '⚠ 重新這一次沒有送出去(連線中斷)· 連線恢復後請再按一次');
+    },
+  });
+}
+window.doResetAttempt = doResetAttempt;
+
+/* 重新這一輪:整個回合作廢,回到本輪起點(idle)。清失格名單與當前題目/
+   搶答;分數與題號不變、已計分的判定不撤銷。真正的重置由 server 廣播
+   round_reset 事件驅動(所有助理一起同步)。 */
+function doResetRound() {
+  const mid = ['rushing', 'won', 'picking', 'answering', 'revealed'];
+  if (!mid.includes(S.phase)) return;
+  cfOpen({
+    eyebrow: 'RESET · 重新這一輪',
+    title: '這一輪整輪重來?',
+    sub: '清除本輪失格名單與當前題目/搶答,回到待命後按「開始搶答」重跑本輪。分數與題號不變;已計分的判定不會撤銷。',
+    okText: '重新這一輪',
+    okClass: 'danger',
+    onOk: () => {
+      emitOrWarn('round_reset', {},
+        '已送出重新這一輪 · 等待伺服器重置…',
+        '⚠ 重新這一輪沒有送出去(連線中斷)· 連線恢復後請再按一次');
+    },
+  });
+}
+window.doResetRound = doResetRound;
 
 function doFreshRush() {
   if (S.phase !== 'revealed') return;
@@ -3770,23 +3866,9 @@ function onRushWinner(idx, payload) {
   S._rushFallback = noRush;   // 供 renderQaHostBar 的文案判斷用(要在渲染之前設好)
   if (typeof renderQaHostBar === 'function') renderQaHostBar();   // 題目分頁即時顯示「誰搶到」
   const g = S.groups[idx];
-  // 同一題重新搶答的 winner:不進九宮格,winner 卡片後回到同一題作答。
-  if (S._rebuzzPending) {
-    S._rebuzzPending = false;
-    setPhase('won');
-    renderScores();
-    setStatus(noRush
-      ? `⏱ 時間到 · 無人搶答,系統指定 ${g?.name || ''} 作答 · 同一題`
-      : `${g?.name || ''} 重新搶到 · 回到同一題作答`);
-    S._winnerCardTimer = setTimeout(() => {
-      S.pendingIdx = idx;
-      PartyBus.emit('resume_question', {});   // server: phase won→answering + 廣播
-      setPhase('answering');
-      if (typeof startQuestionTimer === 'function') startQuestionTimer();  // 新答題者重新計時
-      setStatus(`${g?.name || ''} 作答中 · 同一題`);
-    }, 3500);
-    return;
-  }
+  // 2026-08-27 起,「重新搶答(換新題)」的 winner 與一般 winner 走同一條路:
+  // 勝隊由助理點九宮格抽新題。舊的「回到同一題作答」(resume_question)已
+  // 廢除 —— 答案公佈過的題沒辦法再比。
   setPhase('won');
   renderScores();
   setStatus(noRush
@@ -3852,7 +3934,7 @@ function setPrimaryAction(kind){
   S._primaryAction = kind;
   const btn = document.getElementById('btn-next');
   if (!btn) return;
-  const labels = { next:'下一題', rebuzz:'同一題重新搶答', category:'進入九宮格', rerush:'重新搶答', fresh_rush:'全員重新搶答' };
+  const labels = { next:'下一題', rebuzz:'重新搶答(換新題)', category:'進入九宮格', rerush:'重新搶答', fresh_rush:'全員重新搶答' };
   btn.textContent = labels[kind] || labels.next;
   btn.disabled = false;
 }
@@ -3912,7 +3994,7 @@ function afterScore(){
     ? '全員均不計分 · 舊題已結束，按「全員重新搶答」後由勝者重新選九宮格抽題'
     : remaining === 1
     ? '不計分 · 最後一隊直接答題，按「進入九宮格」抽新題'
-    : '不計分 · 按「同一題重新搶答」讓其餘隊伍搶答');
+    : '不計分 · 按「重新搶答(換新題)」讓其餘隊伍搶答，勝隊重新選九宮格抽新題');
 }
 
 function doNext(){

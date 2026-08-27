@@ -99,7 +99,10 @@ function teamSizeOf(ctx: RushCtx, idx: number): number {
 function lockWinner(ctx: RushCtx): void {
   const session = ctx.state.rushSession;
   if (!session || session.mode !== 'count' || session.winnerLocked) return;
-  session.winnerLocked = true;
+  // 注意:winnerLocked 要等「真的選出勝者」才設。noWinner() 內部有
+  // 「winnerLocked 已設就不動作」的防重入保護 —— 先設旗標再呼叫 noWinner
+  // 會讓 rush_no_winner 永遠發不出去,房間卡死在 rushing(2026-08-27 現場
+  // 事故:平手/無人按時三端全部凍結,只能整場重開)。
   const data = session.data.count!;
 
   // Find max count.
@@ -128,26 +131,20 @@ function lockWinner(ctx: RushCtx): void {
     if (Math.abs(avgOf(idx, count) - bestAvg) < EPS) tiedIdxs.push(idx);
   }
   if (tiedIdxs.length > 1) {
+    // 人均平手 → 無有效勝者,交給助理手動「重新搶答」(CONTEXT.md 定案)。
     noWinner(ctx.state, ctx.broadcast, 'tie');
     return;
   }
-  let winnerIdx = tiedIdxs[0]!;
-  let earliestTs =
-    data.teamReachedAt.get(winnerIdx)?.get(data.teamCounts.get(winnerIdx) ?? 0) ??
-    Number.POSITIVE_INFINITY;
-  for (let i = 1; i < tiedIdxs.length; i++) {
-    const idx = tiedIdxs[i]!;
-    const ts =
-      data.teamReachedAt.get(idx)?.get(data.teamCounts.get(idx) ?? 0) ??
-      Number.POSITIVE_INFINITY;
-    if (ts < earliestTs) {
-      earliestTs = ts;
-      winnerIdx = idx;
-    }
-  }
+  const winnerIdx = tiedIdxs[0]!;
 
   const team = ctx.state.groups[winnerIdx];
-  if (!team) return;
+  if (!team) {
+    // 防禦:組別在賽中不會變,理論上到不了這裡;真的發生就以無勝者收場,
+    // 千萬不能默默 return —— 那會讓這輪搶答永遠沒有結果事件。
+    noWinner(ctx.state, ctx.broadcast, 'timeout');
+    return;
+  }
+  session.winnerLocked = true;
   const winnerTotal = data.teamCounts.get(winnerIdx) ?? 0;
   const winnerSize = teamSizeOf(ctx, winnerIdx);
 

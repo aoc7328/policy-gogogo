@@ -67,9 +67,10 @@ export function handleBuzz(ctx: RushCtx, record: BuzzRecord): void {
 function lockWinner(ctx: RushCtx, winning: BuzzRecord): void {
   const session = ctx.state.rushSession;
   if (!session || session.winnerLocked) return;
-  session.winnerLocked = true;
+  // 同 speed:無效紀錄不消耗勝負鎖,fallback 才能照常以 noWinner 收場。
   const team = ctx.state.groups[winning.teamIdx];
   if (!team) return;
+  session.winnerLocked = true;
   ctx.broadcast({
     type: 'rush_winner',
     payload: {
