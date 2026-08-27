@@ -1,0 +1,252 @@
+{
+  "fixedAt": "2026-08-27",
+  "note": "選項洗牌後解析字母未同步更新;依名次重新對應。題目與正解未變動。",
+  "items": [
+    {
+      "id": "P-MC-002",
+      "bank": "purgatory",
+      "oldOrder": "C>B>A>D",
+      "newOrder": "A>B>C>D"
+    },
+    {
+      "id": "P-MC-004",
+      "bank": "purgatory",
+      "oldOrder": "A>C>D>B",
+      "newOrder": "D>C>A>B"
+    },
+    {
+      "id": "P-MC-006",
+      "bank": "purgatory",
+      "oldOrder": "B>A>D>C",
+      "newOrder": "C>A>D>B"
+    },
+    {
+      "id": "P-MC-007",
+      "bank": "purgatory",
+      "oldOrder": "B>D>C>A",
+      "newOrder": "A>D>C>B"
+    },
+    {
+      "id": "P-MC-008",
+      "bank": "purgatory",
+      "oldOrder": "C>B>A>D",
+      "newOrder": "D>B>A>C"
+    },
+    {
+      "id": "P-MC-009",
+      "bank": "purgatory",
+      "oldOrder": "B>C>A>D",
+      "newOrder": "C>B>A>D"
+    },
+    {
+      "id": "P-MC-010",
+      "bank": "purgatory",
+      "oldOrder": "C>B>D>A",
+      "newOrder": "D>B>C>A"
+    },
+    {
+      "id": "P-MC-011",
+      "bank": "purgatory",
+      "oldOrder": "C>A>B>D",
+      "newOrder": "A>C>B>D"
+    },
+    {
+      "id": "P-MC-012",
+      "bank": "purgatory",
+      "oldOrder": "D>C>B>A",
+      "newOrder": "B>C>D>A"
+    },
+    {
+      "id": "P-MC-013",
+      "bank": "purgatory",
+      "oldOrder": "C>B>A>D",
+      "newOrder": "B>C>A>D"
+    },
+    {
+      "id": "P-MC-014",
+      "bank": "purgatory",
+      "oldOrder": "C>A>B>D",
+      "newOrder": "D>B>A>C"
+    },
+    {
+      "id": "P-MC-015",
+      "bank": "purgatory",
+      "oldOrder": "B>C>A>D",
+      "newOrder": "C>B>A>D"
+    },
+    {
+      "id": "P-MC-016",
+      "bank": "purgatory",
+      "oldOrder": "C>D>B>A",
+      "newOrder": "A>D>B>C"
+    },
+    {
+      "id": "P-MC-017",
+      "bank": "purgatory",
+      "oldOrder": "B>A>D>C",
+      "newOrder": "C>A>D>B"
+    },
+    {
+      "id": "P-MC-018",
+      "bank": "purgatory",
+      "oldOrder": "B>D>A>C",
+      "newOrder": "D>B>A>C"
+    },
+    {
+      "id": "P-MC-020",
+      "bank": "purgatory",
+      "oldOrder": "B>A>C>D",
+      "newOrder": "A>B>C>D"
+    },
+    {
+      "id": "P-MC-021",
+      "bank": "purgatory",
+      "oldOrder": "C>B>A>D",
+      "newOrder": "D>B>A>C"
+    },
+    {
+      "id": "P-MC-022",
+      "bank": "purgatory",
+      "oldOrder": "C>A>D>B",
+      "newOrder": "B>A>D>C"
+    },
+    {
+      "id": "P-MC-023",
+      "bank": "purgatory",
+      "oldOrder": "C>B>A>D",
+      "newOrder": "A>B>C>D"
+    },
+    {
+      "id": "P-MC-024",
+      "bank": "purgatory",
+      "oldOrder": "B>C>A>D",
+      "newOrder": "C>A>D>B"
+    },
+    {
+      "id": "P-MC-025",
+      "bank": "purgatory",
+      "oldOrder": "C>B>A>D",
+      "newOrder": "A>B>C>D"
+    },
+    {
+      "id": "P-MC-026",
+      "bank": "purgatory",
+      "oldOrder": "A>B>D>C",
+      "newOrder": "D>B>A>C"
+    },
+    {
+      "id": "P-MC-029",
+      "bank": "purgatory",
+      "oldOrder": "B>A>C>D",
+      "newOrder": "D>A>C>B"
+    },
+    {
+      "id": "P-MC-030",
+      "bank": "purgatory",
+      "oldOrder": "B>A>D>C",
+      "newOrder": "C>A>D>B"
+    },
+    {
+      "id": "P-MC-031",
+      "bank": "purgatory",
+      "oldOrder": "B>A>C>D",
+      "newOrder": "A>B>C>D"
+    },
+    {
+      "id": "P-MC-033",
+      "bank": "purgatory",
+      "oldOrder": "B>D>C>A",
+      "newOrder": "A>D>C>B"
+    },
+    {
+      "id": "P-MC-034",
+      "bank": "purgatory",
+      "oldOrder": "C>D>A>B",
+      "newOrder": "B>D>A>C"
+    },
+    {
+      "id": "P-MC-035",
+      "bank": "purgatory",
+      "oldOrder": "B>D>A>C",
+      "newOrder": "C>D>A>B"
+    },
+    {
+      "id": "P-MC-036",
+      "bank": "purgatory",
+      "oldOrder": "B>C>A>D",
+      "newOrder": "D>C>A>B"
+    },
+    {
+      "id": "P-MC-037",
+      "bank": "purgatory",
+      "oldOrder": "B>A>D>C",
+      "newOrder": "D>A>B>C"
+    },
+    {
+      "id": "P-MC-039",
+      "bank": "purgatory",
+      "oldOrder": "B>D>A>C",
+      "newOrder": "C>D>A>B"
+    },
+    {
+      "id": "P-MC-040",
+      "bank": "purgatory",
+      "oldOrder": "B>D>C>A",
+      "newOrder": "A>D>C>B"
+    },
+    {
+      "id": "X-MC-014",
+      "bank": "hell",
+      "oldOrder": "C>B>A>D",
+      "newOrder": "B>C>A>D"
+    },
+    {
+      "id": "X-MC-015",
+      "bank": "hell",
+      "oldOrder": "B>C>D>A",
+      "newOrder": "D>C>B>A"
+    },
+    {
+      "id": "X-MC-016",
+      "bank": "hell",
+      "oldOrder": "B>C>A>D",
+      "newOrder": "C>B>A>D"
+    },
+    {
+      "id": "X-MC-018",
+      "bank": "hell",
+      "oldOrder": "C>B>A>D",
+      "newOrder": "B>A>C>D"
+    },
+    {
+      "id": "X-MC-020",
+      "bank": "hell",
+      "oldOrder": "C>B>D>A",
+      "newOrder": "A>B>D>C"
+    },
+    {
+      "id": "X-MC-021",
+      "bank": "hell",
+      "oldOrder": "C>D>A>B",
+      "newOrder": "B>D>A>C"
+    },
+    {
+      "id": "X-MC-022",
+      "bank": "hell",
+      "oldOrder": "C>B>A>D",
+      "newOrder": "D>B>A>C"
+    },
+    {
+      "id": "X-MC-023",
+      "bank": "hell",
+      "oldOrder": "B>D>C>A",
+      "newOrder": "C>D>B>A"
+    },
+    {
+      "id": "X-MC-024",
+      "bank": "hell",
+      "oldOrder": "C>A>D>B",
+      "newOrder": "A>C>D>B"
+    }
+  ]
+}
