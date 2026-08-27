@@ -29,6 +29,36 @@ export type RushMode = 'speed' | 'count' | 'lightning' | 'allhands' | 'random';
 export type ActualRushMode = Exclude<RushMode, 'random'>;
 export type ConnectionRole = 'assistant' | 'presenter' | 'participant';
 
+/**
+ * 助理角色(伺服器權威 —— 取代過去「所有助理平權共用 controlCode + 前端鎖分頁」)。
+ * - chief     總助理:建房者,每房唯一,完整權限;唯一可按「確定開始遊戲」者。
+ * - admin     管理助理:每房至多一位、可不存在;可管理四種執行助理。
+ * - scorer    記分助理
+ * - grouper   分組助理
+ * - host      主持人助理
+ * - projector 投影端助理
+ * - unassigned 已加入但尚未被指派(等待總助理/管理助理指派)。
+ */
+export type AssistantRole =
+  | 'chief'
+  | 'admin'
+  | 'scorer'
+  | 'grouper'
+  | 'host'
+  | 'projector'
+  | 'unassigned';
+
+/** 「管理助理」能指派/管理的四種執行角色(不含 chief/admin)。 */
+export const EXECUTION_ROLES: AssistantRole[] = ['scorer', 'grouper', 'host', 'projector'];
+
+/** 助理名冊項(送給 client 畫「助理管理」分頁)。online = 當下是否有連線。 */
+export interface AssistantInfo {
+  id: string;
+  name: string;
+  role: AssistantRole;
+  online: boolean;
+}
+
 export type Phase =
   | 'lobby'      // before game_start
   | 'idle'      // game running, waiting for next rush
@@ -249,6 +279,15 @@ export type NotifyGroupCommand = {
 } & PrivilegedHeader;
 
 /**
+ * 分組助理巡檢:人工勾選/取消把某組「置頂巡檢」。狀態由房間共用(所有分組助理
+ * 看到同一份);「其他組」固定置頂不吃此指令。授權:chief / admin / grouper。
+ */
+export type ToggleGroupPinCommand = {
+  type: 'toggle_group_pin';
+  payload: { team: string; pinned: boolean };
+} & PrivilegedHeader;
+
+/**
  * 參賽者改自己的「名字」(不是組名)。prefix 模式下 server 會依新名字
  * 重新歸組;random 模式則留在原組只換顯示名。
  */
@@ -365,6 +404,43 @@ export type StaffLoginCommand = {
   payload: { code: string };
 };
 
+/**
+ * 助理管理:指派某位助理的角色。只有總助理(chief)或管理助理(admin)可送;
+ * server 依「送出者角色 + 目標現有角色 + 目標新角色」二次授權:
+ *   - chief:可改任何非 chief 的助理;新角色可為 admin(每房最多一位)或四種執行角色或 unassigned;不可指派 chief。
+ *   - admin:只能改「四種執行助理或未指派者」,新角色限四種執行角色或 unassigned;不可動 chief/admin。
+ */
+export type AssignAssistantRoleCommand = {
+  type: 'assign_assistant_role';
+  payload: { assistantId: string; role: AssistantRole };
+} & PrivilegedHeader;
+
+/** 助理管理:替某位助理改名(不可與其他助理重複)。授權規則同 assign_assistant_role。 */
+export type RenameAssistantCommand = {
+  type: 'rename_assistant';
+  payload: { assistantId: string; name: string };
+} & PrivilegedHeader;
+
+/**
+ * 助理替「自己」命名(加入時的請輸入姓名流程)。任何角色皆可送(含未指派);
+ * server 只改送出者自身的紀錄,姓名不可與其他助理重複。
+ */
+export type SetOwnNameCommand = {
+  type: 'set_own_name';
+  payload: { name: string };
+} & PrivilegedHeader;
+
+/**
+ * 助理管理:移除某位助理(撤銷角色)。授權同 assign_assistant_role(總助理可移除
+ * 任何非總助理;管理助理只能移除四種執行助理/未指派者);另允許「移除自己」——
+ * 非總助理主動放棄角色(轉為參賽者),管理助理退出後職位回到空缺。
+ * 被移除者若在線,server 私訊 __role_revoked__,前端走「轉為參賽者」流程。
+ */
+export type RemoveAssistantCommand = {
+  type: 'remove_assistant';
+  payload: { assistantId: string };
+} & PrivilegedHeader;
+
 export type ClientCommand =
   | PingCommand
   | GameStartCommand
@@ -391,6 +467,7 @@ export type ClientCommand =
   | TeamCountChangedCommand
   | GroupingModeChangedCommand
   | NotifyGroupCommand
+  | ToggleGroupPinCommand
   | RenameSelfCommand
   | LeaveRoomCommand
   | SetTimerCommand
@@ -402,7 +479,11 @@ export type ClientCommand =
   | AddQuestionCommand
   | SetOnboardingCommand
   | ClaimPresenterCommand
-  | StaffLoginCommand;
+  | StaffLoginCommand
+  | AssignAssistantRoleCommand
+  | RenameAssistantCommand
+  | SetOwnNameCommand
+  | RemoveAssistantCommand;
 
 // ──────────────────────────────────────────────────────────────────────
 // ServerEvent variants (server → client)
@@ -419,6 +500,9 @@ export type WelcomeEvent = {
     roomId: string;
     controlCode?: string;       // present only when sent to assistant (投影端控制碼)
     assistantCode?: string;     // present only when sent to assistant (助理端控制碼,房間分頁顯示)
+    assistantId?: string;       // present only for assistant — 本連線穩定身分(deviceId 或臨時碼)
+    assistantRole?: AssistantRole;  // present only for assistant — 本連線當前角色
+    assistantName?: string;     // present only for assistant — 本連線目前顯示名('' = 尚未命名,需請輸入姓名)
     serverTime: number;
   };
 };
@@ -476,6 +560,18 @@ export interface RoomStateSnapshot {
    * - titleSuffix: fixed 3 chars in the original design
    */
   branding: { titlePrefix: string; titleSuffix: string };
+  /**
+   * 助理名冊(角色/在線);「助理管理」分頁用。含 late-join / 重連的助理端
+   * 據此還原分頁與可編輯性。非助理端(投影/參賽者)忽略即可。
+   */
+  assistants: AssistantInfo[];
+  /** 總助理(建房者)的 assistantId;null = 尚無總助理。 */
+  chiefId: string | null;
+  /** 分組助理巡檢共用狀態(置頂清單 + 各組最近通知操作);late-join 端據此還原。 */
+  groupWatch: {
+    pinned: string[];
+    notices: { team: string; kind: GroupNoticeKind; by: string; at: number }[];
+  };
 }
 
 export type RoomStateEvent = {
@@ -496,6 +592,16 @@ export type ErrorEvent = {
 export type KickedEvent = {
   type: '__kicked__';
   payload: { reason: 'replaced_by_new_tab' };
+};
+
+/**
+ * 私訊給「角色被撤銷 / 主動放棄」的助理連線。前端據此走「轉為參賽者」流程:
+ * 顯示提示 → 輸入參賽者姓名 → 依現有規則加入目前遊戲。
+ * by: 'chief' | 'admin' = 被他人撤銷;'self' = 自己主動轉換。
+ */
+export type RoleRevokedEvent = {
+  type: '__role_revoked__';
+  payload: { by: 'chief' | 'admin' | 'self' };
 };
 
 /**
@@ -762,6 +868,19 @@ export type GroupNoticeEvent = {
   payload: { team: string; kind: GroupNoticeKind; deadlineMs: number };
 };
 
+/**
+ * 分組助理巡檢共用狀態(置頂清單 + 各組最近一次通知操作紀錄)。
+ * 助理端據此:置頂排序、只在置頂組顯示「確認前綴/通知改名」、按鈕旁標示
+ * 「最近由誰、何時操作」以避免重複發送。變動時廣播,亦含在 snapshot。
+ */
+export type GroupWatchEvent = {
+  type: 'group_watch';
+  payload: {
+    pinned: string[];
+    notices: { team: string; kind: GroupNoticeKind; by: string; at: number }[];
+  };
+};
+
 /** 某參賽者改名(可能伴隨換組)→ 三端更新名單 + 助理進退場紀錄。 */
 export type PlayerRenamedEvent = {
   type: 'player_renamed';
@@ -838,7 +957,20 @@ export type RosterReshuffledEvent = {
   type: 'roster_reshuffled';
   payload: {
     groups: { idx: number; name: string; members: string[] }[];
+    /** 當前分組方式 —— 讓非發送端(如分組助理)也能即時同步 prefix/random,
+     *  據此決定是否顯示前綴巡檢控制。舊 client 沒讀這欄也不會壞。 */
+    groupingMode?: GroupingMode;
   };
+};
+
+/**
+ * 助理名冊(角色/在線)變動時廣播。client「助理管理」分頁據此重畫;
+ * 每位助理也用自己的 assistantId 比對出自身最新角色,角色被改可即時反映
+ * (例:被指派成記分助理 → 立刻切換分頁與可用操作)。
+ */
+export type AssistantRosterEvent = {
+  type: 'assistant_roster';
+  payload: { assistants: AssistantInfo[]; chiefId: string | null };
 };
 
 export type ServerEvent =
@@ -846,6 +978,7 @@ export type ServerEvent =
   | RoomStateEvent
   | ErrorEvent
   | KickedEvent
+  | RoleRevokedEvent
   | PongEvent
   | StaffRouteEvent
   | ResyncReportEvent
@@ -885,7 +1018,9 @@ export type ServerEvent =
   | TimerUpdateEvent
   | ResumeQuestionEvent
   | TotalQChangedEvent
-  | BuzzLockoutEvent;
+  | BuzzLockoutEvent
+  | AssistantRosterEvent
+  | GroupWatchEvent;
 
 // ──────────────────────────────────────────────────────────────────────
 // Privileged command type guard
@@ -921,6 +1056,11 @@ export const PRIVILEGED_COMMAND_TYPES = new Set<string>([
   'resync_all',
   'add_question',
   'set_onboarding',
+  'assign_assistant_role',
+  'rename_assistant',
+  'set_own_name',
+  'remove_assistant',
+  'toggle_group_pin',
 ]);
 
 export function isPrivilegedCommand(

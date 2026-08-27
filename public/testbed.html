@@ -2,115 +2,112 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>保險知識星攻略 · 開發測試台</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%;background:#050912;color:#F2EDE1;font-family:"Noto Sans TC",system-ui,sans-serif;overflow:hidden}
+html,body{height:100%;background:#050912;color:#F2EDE1;font-family:"Noto Sans TC",system-ui,sans-serif}
+body{display:flex;flex-direction:column;overflow:hidden}
 
-/* 頂部控制列 */
+/* ── 頂部控制列 ───────────────────────────────── */
 .tb-bar{
-  height:42px;background:#0B1020;border-bottom:1px solid rgba(155,163,181,.18);
-  display:flex;align-items:center;padding:0 16px;gap:12px;flex-shrink:0;
+  height:44px;background:#0B1020;border-bottom:1px solid rgba(155,163,181,.18);
+  display:flex;align-items:center;padding:0 14px;gap:10px;flex-shrink:0;
 }
-.tb-title{
-  font-weight:700;font-size:13px;letter-spacing:.1em;color:#F2EDE1;
-}
+.tb-title{font-weight:700;font-size:13px;letter-spacing:.1em;color:#F2EDE1;white-space:nowrap}
 .tb-title .sub{
   font-family:"JetBrains Mono",monospace;font-size:9px;letter-spacing:.22em;
   color:#D4A34B;margin-left:8px;text-transform:uppercase;font-weight:500;
 }
-.tb-spacer{flex:1}
-.tb-btn{
-  background:transparent;border:1px solid rgba(155,163,181,.28);color:#9BA3B5;
-  font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.14em;
-  padding:6px 11px;text-transform:uppercase;cursor:pointer;
-  transition:all 160ms;
+.tb-room{
+  font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.18em;
+  color:#5C6480;text-transform:uppercase;
 }
-.tb-btn:hover{border-color:#D4A34B;color:#D4A34B}
-.tb-btn.danger{border-color:rgba(216,52,74,.35);color:#D8344A}
-.tb-btn.danger:hover{border-color:#D8344A;color:#EC5068;background:rgba(216,52,74,.08)}
-.tb-zoom{display:flex;align-items:center;gap:4px}
+.tb-spacer{flex:1}
+
+.tb-zoom{display:flex;align-items:center;gap:5px}
 .tb-zoom .lbl{
   font-family:"JetBrains Mono",monospace;font-size:9px;color:#5C6480;
   letter-spacing:.12em;text-transform:uppercase;
 }
 .tb-zoom select{
   background:#141B2E;border:1px solid rgba(155,163,181,.28);color:#9BA3B5;
-  font-family:"JetBrains Mono",monospace;font-size:10px;padding:3px 6px;
-  cursor:pointer;
+  font-family:"JetBrains Mono",monospace;font-size:10px;padding:3px 6px;cursor:pointer;
 }
 
-/* 三欄主區 */
+.tb-btn{
+  background:transparent;border:1px solid rgba(155,163,181,.28);color:#9BA3B5;
+  font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.12em;
+  padding:6px 10px;text-transform:uppercase;cursor:pointer;transition:all 160ms;white-space:nowrap;
+}
+.tb-btn:hover{border-color:#D4A34B;color:#D4A34B}
+.tb-btn.danger{border-color:rgba(216,52,74,.35);color:#D8344A}
+.tb-btn.danger:hover{border-color:#D8344A;color:#EC5068;background:rgba(216,52,74,.08)}
+
+/* ── 工作區:可自由拖曳的畫布 ───────────
+   各端點皆 position:absolute,靠標題列拖曳;拖曳時對齊其他端的邊/中線(貼齊)。 */
 .tb-stage{
-  height:calc(100vh - 42px);
-  display:grid;
-  grid-template-columns:1fr 1fr 380px;
-  gap:1px;background:rgba(155,163,181,.14);
+  flex:1;overflow:auto;padding:16px;position:relative;
 }
 
-/* 每欄 */
-.tb-col{
-  display:flex;flex-direction:column;background:#080A10;min-width:0;min-height:0;
+.dev{position:absolute;display:flex;flex-direction:column;flex:0 0 auto;z-index:10}
+.dev.dragging{opacity:.96}
+.dev-hd{
+  display:flex;align-items:center;gap:8px;height:26px;padding:0 8px;
+  background:#141B2E;border:1px solid rgba(155,163,181,.16);border-bottom:0;
+  cursor:move;user-select:none;touch-action:none;
 }
-.tb-col-hd{
-  height:32px;background:#141B2E;border-bottom:1px solid rgba(155,163,181,.14);
-  display:flex;align-items:center;padding:0 12px;gap:10px;flex-shrink:0;
+.dev-hd .role{
+  font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.16em;
+  color:#D4A34B;text-transform:uppercase;font-weight:700;white-space:nowrap;
 }
-.tb-col-hd .role{
-  font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.22em;
-  color:#D4A34B;text-transform:uppercase;font-weight:700;
+.dev-hd .desc{
+  font-size:11px;color:#C9CEDA;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
-.tb-col-hd .desc{
-  font-family:"JetBrains Mono",monospace;font-size:9px;letter-spacing:.12em;
-  color:#5C6480;
-}
-.tb-col-hd .actions{margin-left:auto;display:flex;gap:6px}
-.tb-col-hd .icon-btn{
+.dev-hd .grip{color:#3C435A;font-size:11px;flex-shrink:0}
+.dev-hd .actions{margin-left:auto;display:flex;gap:4px;flex-shrink:0}
+.dev-hd .icon-btn{
   background:transparent;border:1px solid rgba(155,163,181,.18);color:#5C6480;
-  width:24px;height:22px;display:flex;align-items:center;justify-content:center;
-  font-family:"JetBrains Mono",monospace;font-size:11px;cursor:pointer;
-  transition:all 160ms;
+  width:20px;height:18px;display:flex;align-items:center;justify-content:center;
+  font-family:"JetBrains Mono",monospace;font-size:10px;cursor:pointer;transition:all 140ms;
 }
-.tb-col-hd .icon-btn:hover{border-color:#D4A34B;color:#D4A34B}
-.tb-col-body{
-  flex:1;position:relative;overflow:hidden;background:#000;
-}
-.tb-col-body iframe{
-  position:absolute;top:0;left:0;border:none;display:block;background:#080A10;
-  transform-origin:top left;
-}
+.dev-hd .icon-btn:hover{border-color:#D4A34B;color:#D4A34B}
 
-/* 參賽者欄:模擬手機外觀 */
-.tb-col.participant .tb-col-body{
-  background:#1a1a1a;
-  display:flex;align-items:center;justify-content:center;
-  padding:8px;
+/* 螢幕容器：尺寸 = 設計尺寸 × scale，iframe 以 transform 等比縮，排版不重排 */
+.dev-screen{
+  position:relative;overflow:hidden;background:#000;
+  border:1px solid rgba(155,163,181,.16);
+  width:calc(var(--dw) * var(--s) * 1px);
+  height:calc(var(--dh) * var(--s) * 1px);
 }
-.tb-col.participant .frame-wrap{
-  position:relative;width:100%;max-width:380px;height:100%;
-  border-radius:8px;overflow:hidden;
-  box-shadow:0 0 0 1px rgba(155,163,181,.18), 0 8px 24px rgba(0,0,0,.6);
+.dev-screen iframe{
+  position:absolute;top:0;left:0;border:0;display:block;background:#080A10;
+  width:calc(var(--dw) * 1px);
+  height:calc(var(--dh) * 1px);
+  transform:scale(var(--s));transform-origin:top left;
 }
-.tb-col.participant .frame-wrap iframe{
-  position:absolute;top:0;left:0;width:100%;height:100%;
-  transform:none;
-}
+.dev.phone{--dw:400;--dh:880;--s:var(--phone-s)}
+/* 投影端:永遠置頂(z-index 遠高於手機端),可拖曳、可隱藏 */
+.dev.presenter{--dw:1024;--dh:768;--s:var(--pres-s);z-index:9000}
+.dev.presenter .dev-hd{background:#1a2036}
+.dev.hidden{display:none}
 
-/* loading 占位 */
+/* 拖曳中:全域禁選字,並讓 iframe 不吃指標事件(避免搶走拖曳) */
+body.dragging{cursor:move}
+body.dragging iframe{pointer-events:none}
+
+/* 貼齊參考線(拖曳時出現) */
+.tb-guide{position:absolute;background:#D4A34B;z-index:99999;pointer-events:none;display:none}
+.tb-guide.v{width:1px}
+.tb-guide.h{height:1px}
+
 .tb-loading{
   position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
   background:#080A10;font-family:"JetBrains Mono",monospace;font-size:11px;
-  color:#5C6480;letter-spacing:.18em;text-transform:uppercase;
-  pointer-events:none;
-}
-
-/* RWD:窄螢幕改為垂直堆疊 */
-@media (max-width:1100px){
-  .tb-stage{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
-  .tb-col.participant{grid-column:1/-1}
+  color:#5C6480;letter-spacing:.16em;text-transform:uppercase;pointer-events:none;
 }
 </style>
 </head>
@@ -118,212 +115,284 @@ html,body{height:100%;background:#050912;color:#F2EDE1;font-family:"Noto Sans TC
 
 <div class="tb-bar">
   <div class="tb-title">保險知識星攻略<span class="sub">DEV TESTBED</span></div>
+  <span class="tb-room" id="tb-room">ROOM ----</span>
+
   <div class="tb-zoom">
-    <span class="lbl">Zoom</span>
-    <select id="tb-zoom-sel" onchange="setZoom(this.value)">
-      <option value="1">100%</option>
-      <option value="0.85" selected>85%</option>
+    <span class="lbl">手機縮放</span>
+    <select id="tb-zoom-sel" onchange="setZoom(parseFloat(this.value))">
+      <option value="0.45">45%</option>
+      <option value="0.55">55%</option>
+      <option value="0.62">62%</option>
       <option value="0.75">75%</option>
-      <option value="0.65">65%</option>
-      <option value="0.5">50%</option>
+      <option value="0.90">90%</option>
+      <option value="1.00" selected>100%</option>
     </select>
   </div>
+
+  <div class="tb-zoom">
+    <span class="lbl">投影縮放</span>
+    <select id="tb-pres-zoom-sel" onchange="setPresZoom(parseFloat(this.value))">
+      <option value="0.25">25%</option>
+      <option value="0.35">35%</option>
+      <option value="0.45" selected>45%</option>
+      <option value="0.55">55%</option>
+      <option value="0.70">70%</option>
+      <option value="0.90">90%</option>
+    </select>
+  </div>
+
   <div class="tb-spacer"></div>
+  <button class="tb-btn" onclick="addParticipant()">＋ 參賽者</button>
+  <button class="tb-btn" id="tb-pres-toggle" onclick="togglePresenter()">隱藏投影端</button>
   <button class="tb-btn" onclick="reloadAll()">重整全部</button>
   <button class="tb-btn" onclick="clearBus()">清 PartyBus</button>
   <button class="tb-btn danger" onclick="clearBank()">清題庫</button>
   <button class="tb-btn danger" onclick="resetAll()">完全重置</button>
 </div>
 
-<div class="tb-stage">
-
-  <!-- 主持人(投影) -->
-  <div class="tb-col" data-role="presenter">
-    <div class="tb-col-hd">
-      <span class="role">Presenter</span>
-      <span class="desc">主持人 · 投影</span>
-      <div class="actions">
-        <button class="icon-btn" onclick="reloadFrame('presenter')" title="重整">↻</button>
-        <button class="icon-btn" onclick="popout('presenter')" title="獨立視窗">↗</button>
-      </div>
-    </div>
-    <div class="tb-col-body">
-      <div class="tb-loading">Loading presenter...</div>
-      <iframe id="if-presenter" data-src="presenter" allow="autoplay"></iframe>
-    </div>
-  </div>
-
-  <!-- 助理(總控) -->
-  <div class="tb-col" data-role="assistant">
-    <div class="tb-col-hd">
-      <span class="role">Assistant</span>
-      <span class="desc">助理 · 總控</span>
-      <div class="actions">
-        <button class="icon-btn" onclick="reloadFrame('assistant')" title="重整">↻</button>
-        <button class="icon-btn" onclick="popout('assistant')" title="獨立視窗">↗</button>
-      </div>
-    </div>
-    <div class="tb-col-body">
-      <div class="tb-loading">Loading assistant...</div>
-      <iframe id="if-assistant" data-src="assistant"></iframe>
-    </div>
-  </div>
-
-  <!-- 參賽者(手機) -->
-  <div class="tb-col participant" data-role="participant">
-    <div class="tb-col-hd">
-      <span class="role">Participant</span>
-      <span class="desc">參賽者 · 手機</span>
-      <div class="actions">
-        <button class="icon-btn" onclick="reloadFrame('participant')" title="重整">↻</button>
-        <button class="icon-btn" onclick="popout('participant')" title="獨立視窗">↗</button>
-      </div>
-    </div>
-    <div class="tb-col-body">
-      <div class="frame-wrap">
-        <div class="tb-loading">Loading participant...</div>
-        <iframe id="if-participant" data-src="participant"></iframe>
-      </div>
-    </div>
-  </div>
-
-</div>
+<div class="tb-stage" id="stage"></div>
 
 <script>
-/* testbed 自己產一個房號 → 帶 ?room=XXXX 餵給三個 iframe。
-   不這樣做會出 race:DEMO01 被拿掉之後,presenter / participant 沒帶
-   ?room= 又比 assistant 早讀 localStorage 的話會跳「無法進入」錯誤頁。
-   testbed 跟 iframe 同 origin,寫 localStorage 也一併讓「在另一台裝置
-   開 participant 不帶 ?room= 但同 origin」的舊路徑能 fallback。 */
-(function injectIframeRooms() {
-  const qs = new URLSearchParams(window.location.search);
-  const room = qs.get('room') || String(Math.floor(Math.random() * 10000)).padStart(4, '0');
-  // ?host=127.0.0.1:1999 一併轉發給三個 iframe,本機 npm run dev 測試用
-  const host = qs.get('host');
-  try { localStorage.setItem('pgg_last_room', room); } catch {}
-  ['presenter', 'assistant', 'participant'].forEach(role => {
-    const f = document.getElementById('if-' + role);
-    if (!f) return;
-    const base = f.getAttribute('data-src');
-    if (base) f.src = base + '?room=' + encodeURIComponent(room)
-      + (host ? '&host=' + encodeURIComponent(host) : '');
+/* ────────────────────────────────────────────────────────────────
+   TestBed（工作區）：固定的總助理(chief) + 投影端(大螢幕 4:3) + 可增加的參賽者。
+   - 工作區:每個端點都可用「標題列」自由拖曳;拖曳時自動貼齊其他端的邊/中線
+     (金色參考線)。投影端永遠置頂(浮在手機端之上),且可用工具列開關整個隱藏。
+   - 助理身分一律走正式現場流程:額外助理不是「指定」出來的,而是先以參賽者
+     連入,再從該參賽者右下角「角色登入」輸入助理控制碼 → 轉為(未指派)助理,
+     最後由總助理面板指派角色。testbed 不提供任何繞過伺服器授權的捷徑。
+   - 「＋ 參賽者」每按一次多一個參賽者分頁,各自獨立 deviceId(?did=tb-pN)。
+   - 每個 iframe 用固定「設計視窗」尺寸渲染,再 transform:scale 等比縮小,
+     排版不會因縮小而 RWD 重排。
+   ──────────────────────────────────────────────────────────────── */
+const QS = new URLSearchParams(location.search);
+const ROOM = QS.get('room') || String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+const HOST = QS.get('host') || '';
+try { localStorage.setItem('pgg_last_room', ROOM); } catch {}
+document.getElementById('tb-room').textContent = 'ROOM ' + ROOM;
+
+// did = 每個 iframe 的獨立裝置身分(避免同源 localStorage 互相覆蓋 24h 角色/互踢);
+// aname = 助理預設顯示名;first=true 的助理先連線 → 成為總助理(建房者)。
+// x / y = 進場時在工作區的絕對座標(之後可自由拖曳)。
+const PANES = [
+  { id:'chief',     kind:'phone',     src:'assistant',   role:'Chief',    desc:'總助理 · 建房/完整權限', did:'tb-chief', aname:'', first:true, x:24,  y:24 },
+  { id:'p1',        kind:'phone',     src:'participant', role:'Player 1', desc:'參賽者 1 · 右下角「角色登入」轉助理', did:'tb-p1', x:456, y:24 },
+  { id:'presenter', kind:'presenter', src:'presenter',   role:'Screen',   desc:'投影端 · 可拖曳/隱藏,永遠置頂', x:888, y:24 },
+];
+let participantCount = 1;   // 已建立的參賽者數;下一個的編號與 did 用它遞增
+
+const stage = document.getElementById('stage');
+
+function paneSrc(p){
+  return `${p.src}.html?room=${encodeURIComponent(ROOM)}`
+    + (HOST ? `&host=${encodeURIComponent(HOST)}` : '')
+    + (p.did ? `&did=${encodeURIComponent(p.did)}` : '')
+    + (p.aname ? `&aname=${encodeURIComponent(p.aname)}` : '');
+}
+
+/* 建一張裝置卡片並掛上 iframe;render()(初始)與 addParticipant()(動態)共用。 */
+function buildCard(p){
+  const card = document.createElement('div');
+  card.className = 'dev ' + (p.kind === 'presenter' ? 'presenter' : 'phone');
+  card.dataset.pane = p.id;
+  card.style.left = (p.x || 0) + 'px';
+  card.style.top  = (p.y || 0) + 'px';
+  card.innerHTML = `
+    <div class="dev-hd">
+      <span class="grip">⠿</span>
+      <span class="role">${p.role}</span>
+      <span class="desc">${p.desc}</span>
+      <div class="actions">
+        <button class="icon-btn" title="重整" data-act="reload">↻</button>
+        <button class="icon-btn" title="獨立視窗" data-act="popout">↗</button>
+      </div>
+    </div>
+    <div class="dev-screen">
+      <div class="tb-loading">Loading ${p.src}…</div>
+      <iframe data-role="${p.id}" data-file="${p.src}" allow="autoplay"></iframe>
+    </div>`;
+  stage.appendChild(card);
+
+  const frame = card.querySelector('iframe');
+  frame.addEventListener('load', () => {
+    const l = card.querySelector('.tb-loading');
+    if (l) l.style.display = 'none';
   });
-  // 順手把房號顯示在頂部 zoom 旁邊,方便除錯時對房號
-  const bar = document.querySelector('.tb-bar');
-  if (bar) {
-    const tag = document.createElement('span');
-    tag.style.cssText = 'font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.18em;color:#5C6480;text-transform:uppercase;margin-right:8px';
-    tag.textContent = 'ROOM ' + room;
-    bar.insertBefore(tag, bar.lastElementChild);
-  }
-})();
+  card.querySelector('[data-act="reload"]').addEventListener('click', () => reloadFrame(frame));
+  card.querySelector('[data-act="popout"]').addEventListener('click', () => window.open(paneSrc(p), '_blank'));
 
-/* 縮放:用 transform scale 縮 iframe,讓畫面更舒服
-   參賽者欄不縮放(已是手機尺寸) */
-function setZoom(z) {
-  z = parseFloat(z);
-  ['presenter', 'assistant'].forEach(role => {
-    const f = document.getElementById('if-' + role);
-    if (!f) return;
-    const body = f.parentElement;
-    f.style.transform = `scale(${z})`;
-    f.style.width = `${100 / z}%`;
-    f.style.height = `${100 / z}%`;
-  });
-}
-// 等 iframe 載完再套用初始縮放(避免閃爍)
-window.addEventListener('load', () => {
-  setTimeout(() => setZoom(document.getElementById('tb-zoom-sel').value), 200);
-});
+  // 標題列 = 拖曳把手(點到右側 actions 按鈕時不拖)。
+  const header = card.querySelector('.dev-hd');
+  header.addEventListener('pointerdown', (e) => startDrag(e, card, header));
 
-/* 重整單一 iframe */
-function reloadFrame(role) {
-  const f = document.getElementById('if-' + role);
-  if (!f) return;
-  // 用 src 重設觸發 reload
-  const src = f.src;
-  f.src = 'about:blank';
-  setTimeout(() => { f.src = src; }, 50);
-}
-
-/* 重整全部 */
-function reloadAll() {
-  ['presenter', 'assistant', 'participant'].forEach(reloadFrame);
-}
-
-/* 把某 iframe 開到獨立視窗(脫離 testbed) */
-function popout(role) {
-  const f = document.getElementById('if-' + role);
-  if (!f) return;
-  // 用原始路徑開新分頁(去除 about:blank 等暫態)
-  const src = f.getAttribute('src');
-  if (src && src !== 'about:blank') {
-    window.open(src, '_blank');
+  // 建房者(first)先連線 → 成為總助理;其餘助理延後,確保「第一個連上的助理 = 總助理」。
+  const src = paneSrc(p);
+  if (p.src === 'assistant' && !p.first) {
+    setTimeout(() => { frame.src = src; }, 700);
   } else {
-    window.open(`${role}.html`, '_blank');
+    frame.src = src;
   }
+  return card;
 }
 
-/* 清掉 PartyBus 殘留(localStorage 的 pgg_party_event key) */
-function clearBus() {
-  try {
+function render(){
+  stage.innerHTML = '';
+  guideV = document.createElement('div'); guideV.className = 'tb-guide v';
+  guideH = document.createElement('div'); guideH.className = 'tb-guide h';
+  stage.appendChild(guideV);
+  stage.appendChild(guideH);
+  for (const p of PANES) buildCard(p);
+  setZoom(parseFloat(document.getElementById('tb-zoom-sel').value));
+  setPresZoom(parseFloat(document.getElementById('tb-pres-zoom-sel').value));
+}
+
+/* 「＋ 參賽者」:每按一次多一個參賽者分頁,各自獨立 deviceId(?did=tb-pN),
+   位置以層疊方式錯開(避免完全重疊)。要多一位助理時,在該參賽者右下角
+   「角色登入」輸入助理控制碼 → 轉為(未指派)助理,再由總助理面板指派角色。 */
+function addParticipant(){
+  participantCount += 1;
+  const n = participantCount;
+  const step = n - 1;                       // 1,2,3… 依序往右下錯開
+  buildCard({ id:'p'+n, kind:'phone', src:'participant', role:'Player '+n,
+              desc:'參賽者 '+n+' · 右下角「角色登入」轉助理', did:'tb-p'+n,
+              x: 200 + step*40, y: 200 + step*40 });
+  setZoom(parseFloat(document.getElementById('tb-zoom-sel').value));
+}
+
+/* 隱藏 / 顯示 投影端(某些測試不需要它時整個收起來,連線仍保留)。 */
+let presenterHidden = false;
+function togglePresenter(){
+  presenterHidden = !presenterHidden;
+  const card = stage.querySelector('.dev.presenter');
+  if (card) card.classList.toggle('hidden', presenterHidden);
+  const btn = document.getElementById('tb-pres-toggle');
+  if (btn) btn.textContent = presenterHidden ? '顯示投影端' : '隱藏投影端';
+}
+
+/* ── 拖曳 + 貼齊 ─────────────────────────────────────────────── */
+const SNAP = 8;            // 貼齊吸附距離(px)
+let phoneTopZ = 10;        // 手機端疊放層級(投影端固定 9000,永遠在最上層)
+let guideV, guideH;        // 貼齊參考線元素
+
+/* 把某卡片提到手機端的最上層(投影端永遠置頂,不參與、也不會被壓下去)。 */
+function bringToFront(card){
+  if (card.classList.contains('presenter')) return;
+  card.style.zIndex = String(++phoneTopZ);
+}
+
+function startDrag(e, card, header){
+  if (e.target.closest('.actions')) return;    // 點到重整 / 獨立視窗鈕 → 不拖曳
+  e.preventDefault();
+  bringToFront(card);
+  const startX = e.clientX, startY = e.clientY;
+  const origX = card.offsetLeft, origY = card.offsetTop;
+  card.classList.add('dragging');
+  document.body.classList.add('dragging');
+  try { header.setPointerCapture(e.pointerId); } catch {}
+
+  const move = (ev) => {
+    let nx = Math.max(0, origX + (ev.clientX - startX));
+    let ny = Math.max(0, origY + (ev.clientY - startY));
+    const s = applySnap(card, nx, ny);
+    card.style.left = s.x + 'px';
+    card.style.top  = s.y + 'px';
+    showGuides(s.gx, s.gy);
+  };
+  const up = () => {
+    card.classList.remove('dragging');
+    document.body.classList.remove('dragging');
+    hideGuides();
+    try { header.releasePointerCapture(e.pointerId); } catch {}
+    header.removeEventListener('pointermove', move);
+    header.removeEventListener('pointerup', up);
+    header.removeEventListener('pointercancel', up);
+  };
+  header.addEventListener('pointermove', move);
+  header.addEventListener('pointerup', up);
+  header.addEventListener('pointercancel', up);
+}
+
+/* 對齊其他(未隱藏)卡片的 左/中/右 與 上/中/下,以及畫布左上緣(0)。
+   回傳貼齊後的座標與參考線位置(gx / gy;null = 該軸未貼齊)。 */
+function applySnap(card, x, y){
+  const w = card.offsetWidth, h = card.offsetHeight;
+  const others = [...stage.querySelectorAll('.dev')].filter(c => c !== card && !c.classList.contains('hidden'));
+  const xt = [0], yt = [0];
+  for (const o of others){
+    xt.push(o.offsetLeft, o.offsetLeft + o.offsetWidth / 2, o.offsetLeft + o.offsetWidth);
+    yt.push(o.offsetTop,  o.offsetTop  + o.offsetHeight / 2, o.offsetTop  + o.offsetHeight);
+  }
+  const myX = [x, x + w / 2, x + w];
+  const myY = [y, y + h / 2, y + h];
+  let bx = { d: SNAP + 1, adj: 0, g: null };
+  for (const m of myX) for (const t of xt){ const d = Math.abs(t - m); if (d < bx.d) bx = { d, adj: t - m, g: t }; }
+  let by = { d: SNAP + 1, adj: 0, g: null };
+  for (const m of myY) for (const t of yt){ const d = Math.abs(t - m); if (d < by.d) by = { d, adj: t - m, g: t }; }
+  return {
+    x: x + (bx.g !== null ? bx.adj : 0),
+    y: y + (by.g !== null ? by.adj : 0),
+    gx: bx.g, gy: by.g,
+  };
+}
+
+function showGuides(gx, gy){
+  if (gx !== null && gx !== undefined){
+    guideV.style.display = 'block';
+    guideV.style.left = gx + 'px';
+    guideV.style.top = '0';
+    guideV.style.height = stage.scrollHeight + 'px';
+  } else { guideV.style.display = 'none'; }
+  if (gy !== null && gy !== undefined){
+    guideH.style.display = 'block';
+    guideH.style.top = gy + 'px';
+    guideH.style.left = '0';
+    guideH.style.width = stage.scrollWidth + 'px';
+  } else { guideH.style.display = 'none'; }
+}
+function hideGuides(){ guideV.style.display = 'none'; guideH.style.display = 'none'; }
+
+/* ── 縮放:手機端(總助理 + 各參賽者)與投影端各自獨立一支 slider。 ── */
+function setZoom(z){ stage.style.setProperty('--phone-s', z); }
+function setPresZoom(z){ stage.style.setProperty('--pres-s', z); }
+
+function reloadFrame(frame){
+  if (!frame) return;
+  const src = frame.src;
+  frame.src = 'about:blank';
+  setTimeout(() => { frame.src = src; }, 50);
+}
+function eachFrame(fn){ stage.querySelectorAll('iframe[data-role]').forEach(fn); }
+function reloadAll(){ eachFrame(reloadFrame); }
+
+function clearBus(){
+  try{
     localStorage.removeItem('pgg_party_event');
-    // 各 iframe 內也清(iframe 同 origin 可直接存取)
-    ['presenter', 'assistant', 'participant'].forEach(role => {
-      try {
-        const f = document.getElementById('if-' + role);
-        f?.contentWindow?.localStorage?.removeItem('pgg_party_event');
-      } catch (e) {}
-    });
+    eachFrame(f => { try { f.contentWindow?.localStorage?.removeItem('pgg_party_event'); } catch {} });
     alert('PartyBus 殘留已清除');
-  } catch (e) {
-    alert('清除失敗: ' + e.message);
-  }
+  }catch(e){ alert('清除失敗: ' + e.message); }
 }
-
-/* 清掉題庫(localStorage 的 pgg_quiz_bank_v1 key)+ 重整 */
-function clearBank() {
-  if (!confirm('確定要清除已掛載的題庫?之後要重新上傳。')) return;
-  try {
+function clearBank(){
+  if (!confirm('確定要清除已掛載的題庫？之後要重新上傳。')) return;
+  try{
     localStorage.removeItem('pgg_quiz_bank_v1');
-    ['presenter', 'assistant', 'participant'].forEach(role => {
-      try {
-        const f = document.getElementById('if-' + role);
-        f?.contentWindow?.localStorage?.removeItem('pgg_quiz_bank_v1');
-      } catch (e) {}
-    });
+    eachFrame(f => { try { f.contentWindow?.localStorage?.removeItem('pgg_quiz_bank_v1'); } catch {} });
     reloadAll();
-  } catch (e) {
-    alert('清除失敗: ' + e.message);
-  }
+  }catch(e){ alert('清除失敗: ' + e.message); }
 }
-
-/* 完全重置(清所有 pgg_* + 重整) */
-function resetAll() {
-  if (!confirm('完全重置會清除題庫、PartyBus、所有狀態,確定?')) return;
-  try {
+function resetAll(){
+  if (!confirm('完全重置會清除題庫、PartyBus、所有狀態,確定？')) return;
+  try{
     Object.keys(localStorage).filter(k => k.startsWith('pgg_')).forEach(k => localStorage.removeItem(k));
-    ['presenter', 'assistant', 'participant'].forEach(role => {
-      try {
-        const f = document.getElementById('if-' + role);
-        const ls = f?.contentWindow?.localStorage;
+    eachFrame(f => {
+      try{
+        const ls = f.contentWindow?.localStorage;
         if (ls) Object.keys(ls).filter(k => k.startsWith('pgg_')).forEach(k => ls.removeItem(k));
-      } catch (e) {}
+      }catch{}
     });
     reloadAll();
-  } catch (e) {
-    alert('重置失敗: ' + e.message);
-  }
+  }catch(e){ alert('重置失敗: ' + e.message); }
 }
 
-/* iframe 載完後移除 loading */
-['presenter', 'assistant', 'participant'].forEach(role => {
-  const f = document.getElementById('if-' + role);
-  f?.addEventListener('load', () => {
-    const loading = f.parentElement.querySelector('.tb-loading');
-    if (loading) loading.style.display = 'none';
-  });
-});
+render();
 </script>
 
 </body>

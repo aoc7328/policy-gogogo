@@ -241,6 +241,8 @@ class PartyBusImpl {
     'presenter_show_qr', 'export_result', 'team_count_changed',
     'grouping_mode_changed', 'notify_group', 'set_timer', 'resume_question',
     'reassign_leader', 'team_rename', 'player_join', 'rename_self',
+    'assign_assistant_role', 'rename_assistant', 'set_own_name', 'remove_assistant',
+    'toggle_group_pin',
   ]);
 
   /** 指令送不出去時通知外層(助理端用來跳警告)。 */

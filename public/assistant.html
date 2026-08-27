@@ -33,7 +33,9 @@
 .app[data-mode="paradise"]{--accent:#D4A34B;--accent-b:#F0C060;--accent-s:rgba(212,163,75,.12);--accent-l:rgba(212,163,75,.35)}
 .app[data-mode="custom"]{--accent:#C49A5A;--accent-b:#D9B477;--accent-s:rgba(196,154,90,.12);--accent-l:rgba(196,154,90,.35)}
 *{box-sizing:border-box;margin:0;padding:0;touch-action:manipulation}
-html,body{background:var(--bg-void);color:var(--ink-1);font-family:var(--font-sans);min-height:100vh;-webkit-font-smoothing:antialiased;letter-spacing:.01em}
+html,body{background:var(--bg-void);color:var(--ink-1);font-family:var(--font-sans);min-height:100vh;-webkit-font-smoothing:antialiased;letter-spacing:.01em;
+  /* 鎖水平捲動:手機/平板只能上下滑,絕不左右跑版(配合下方 RWD 讓內容不溢出) */
+  overflow-x:hidden;max-width:100vw;overscroll-behavior-x:none}
 button{cursor:pointer;font-family:inherit}
 input{font-family:var(--font-mono);background:var(--bg-raised);border:1px solid var(--line-s);color:var(--ink-1);padding:9px 12px;font-size:14px;outline:none;width:100%;transition:border-color 180ms;letter-spacing:.04em}
 input:focus{border-color:var(--accent)}
@@ -123,7 +125,7 @@ input::placeholder{color:var(--ink-3)}
 @keyframes alertPulse{0%,100%{opacity:1}50%{opacity:.72}}
 
 /* tabs */
-.tab-bar{display:flex;gap:2px;background:var(--bg-surface);border:1px solid var(--line);padding:3px;width:fit-content;margin-bottom:22px}
+.tab-bar{display:flex;flex-wrap:wrap;gap:2px;background:var(--bg-surface);border:1px solid var(--line);padding:3px;width:fit-content;max-width:100%;margin-bottom:22px}
 .tab-btn{background:transparent;border:none;color:var(--ink-3);font-family:var(--font-mono);font-size:11px;letter-spacing:.18em;padding:8px 18px;transition:all 200ms;text-transform:uppercase}
 .tab-btn.active{background:var(--accent);color:var(--bg-void);font-weight:700}
 .tab-btn:not(.active):not(.disabled):hover{color:var(--ink-2);background:var(--bg-raised)}
@@ -707,6 +709,122 @@ input::placeholder{color:var(--ink-3)}
 /* 分頁鎖定:鎖住時其他分頁鈕不可點,只有「題目」與頁內解鎖鈕可用 */
 #tab-bar.qa-locked .tab-btn:not(#tb-qa){opacity:.3;pointer-events:none;filter:grayscale(.5)}
 
+/* ── 角色收斂(伺服器權威角色 → 前端只顯示該角色該看的)──────────────
+   data-role 由 applyRoleVisibility() 依 server 角色設在 <body>。預設 chief(全開),
+   welcome 到達後改成實際角色。真正的權限在 party/server.ts 逐指令驗證,這裡只是
+   把不相關的畫面收起來,讓每個角色是一個聚焦的工作臺。 */
+#role-waiting,#role-nameentry{display:none}
+body[data-role="unassigned"] #tab-bar{display:none}
+body[data-role="unassigned"] .page{display:none !important}
+/* 未指派且尚未命名 → 請輸入姓名;已命名 → 等待指派 */
+body[data-role="unassigned"][data-named="0"] #role-nameentry{display:flex;min-height:52vh;align-items:center;justify-content:center}
+body[data-role="unassigned"][data-named="1"] #role-waiting{display:flex;min-height:52vh;align-items:center;justify-content:center}
+.role-name-box{margin:auto;text-align:center;padding:40px 24px;width:100%;max-width:340px}
+.role-name-box .rn-title{font-size:17px;color:var(--ink-1);letter-spacing:.06em;margin-bottom:6px}
+.role-name-box .rn-sub{font-size:12px;color:var(--ink-3);line-height:1.7;margin-bottom:18px}
+.role-name-box input{width:100%;background:var(--bg-deep);border:1px solid var(--line);color:var(--ink-1);font-size:16px;padding:12px 14px;text-align:center;outline:none}
+.role-name-box input:focus{border-color:var(--accent)}
+.role-name-box button{width:100%;margin-top:12px;background:var(--accent);border:0;color:var(--bg-void);font-size:15px;font-weight:700;padding:12px;cursor:pointer;letter-spacing:.1em}
+.role-name-box .rn-err{color:var(--err,#E55353);font-size:12px;margin-top:10px;min-height:16px}
+/* 助理管理主控台(一人一行:左=綠燈+名字、中=角色下拉、右=移除) */
+.am-card{background:var(--bg-raised);border:1px solid var(--line);padding:10px 12px}
+.am-card.am-row{display:flex;align-items:center;gap:10px}
+.am-left{flex:1;display:flex;align-items:center;gap:9px;min-width:0}
+.am-role-sel{background:var(--bg-deep);color:var(--ink-1);border:1px solid var(--line);padding:6px 9px;font-size:13px;font-family:var(--font-sans);cursor:pointer;flex-shrink:0}
+.am-role-sel:hover{border-color:var(--accent)}
+.am-remove-ph{width:0;flex-shrink:0}
+.am-row1{display:flex;align-items:center;gap:9px}
+.am-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.am-dot.on{background:#3FB950}.am-dot.off{background:var(--line)}
+.am-name{flex:1;min-width:0;font-size:14px;color:var(--ink-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.am-name.unnamed{color:var(--ink-3);font-style:italic}
+.am-me{font-size:10px;color:var(--accent);margin-left:6px}
+.am-badge{font-size:11px;color:var(--ink-2);border:1px solid var(--line);padding:2px 8px;white-space:nowrap}
+.am-badge.chief{color:var(--accent);border-color:var(--accent-l)}
+.am-rename{background:transparent;border:1px solid var(--line);color:var(--ink-3);font-size:11px;padding:3px 9px;cursor:pointer}
+.am-rename:hover{border-color:var(--accent);color:var(--accent)}
+.am-remove{background:transparent;border:1px solid rgba(216,52,74,.4);color:var(--err,#E55353);font-size:11px;padding:3px 9px;cursor:pointer}
+.am-remove:hover{background:var(--err-s,rgba(216,52,74,.08));border-color:var(--err,#E55353)}
+/* 頂部「轉為參賽者」按鈕(非總助理才顯示) */
+#btn-to-player{background:transparent;border:1px solid var(--line);color:var(--ink-3);font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;padding:5px 9px;cursor:pointer;white-space:nowrap;display:none}
+#btn-to-player:hover{border-color:var(--accent);color:var(--accent)}
+/* 助理身份 + 名字(右上角);總助理不顯示 */
+.hd-identity{display:none;align-items:center;gap:6px;background:var(--accent-s);border:1px solid var(--accent-l);color:var(--accent);font-size:12px;font-weight:700;padding:4px 10px;white-space:nowrap;max-width:190px;overflow:hidden;text-overflow:ellipsis}
+.hd-identity .hi-role{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;opacity:.85}
+.hd-identity .hi-name{color:var(--ink-1)}
+/* 管理助理:設定頁「確定開始遊戲」不可點(僅總助理可按) */
+body[data-role="admin"] #start-btn{pointer-events:none;opacity:.4;filter:grayscale(.5)}
+.am-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px;padding-top:9px;border-top:1px dashed var(--line)}
+.am-chip{background:var(--bg-deep);border:1px solid var(--line);color:var(--ink-2);font-size:12px;padding:5px 10px;cursor:pointer;transition:all 140ms}
+.am-chip:hover{border-color:var(--accent);color:var(--accent)}
+.am-chip.on{background:var(--accent);border-color:var(--accent);color:var(--bg-void);font-weight:700}
+.am-assign-lbl{font-size:10px;color:var(--ink-3);letter-spacing:.12em;align-self:center;margin-right:2px}
+/* 計分表流程控制:ctrl-zone(開始搶答/公佈/下一題/計時/重開/結束/加減分回合)與
+   搶答模式,只有總助理可見;其餘角色(含管理助理)一律隱藏,只留計分卡與排行。 */
+body:not([data-role="chief"]) #pg-score .ctrl-zone,
+body:not([data-role="chief"]) #pg-score .rush-mode-zone{display:none !important}
+/* 九宮格:記分助理等單頁角色不顯示;管理助理可見但唯讀(不可按) */
+body:not([data-role="chief"]):not([data-role="admin"]) #pg-score .cat-zone{display:none !important}
+body[data-role="admin"] #pg-score .cat-zone{pointer-events:none;opacity:.55}
+/* 全員重新分組:只有總助理 / 管理助理(分組助理不可改組數/組別)*/
+body:not([data-role="chief"]):not([data-role="admin"]) #regroup-btn{display:none !important}
+/* 投影端控制碼:只有總助理 / 管理助理 / 投影端助理看得到 */
+body:not([data-role="chief"]):not([data-role="admin"]):not([data-role="projector"]) #room-block-projcode{display:none !important}
+/* 房號管理(重新生成 / 自訂房號)只有總助理;其餘助理只看得到房號,不可改 */
+body:not([data-role="chief"]) #btn-regen-room,
+body:not([data-role="chief"]) .room-edit,
+body:not([data-role="chief"]) #room-lock-hint,
+body:not([data-role="chief"]):not([data-role="admin"]) #btn-show-presenter-qr{display:none !important}
+/* 投影端助理:房號 + 投影端控制碼放大顯示(協助逐台投影電腦手動輸入)*/
+body[data-role="projector"] #room-code,
+body[data-role="projector"] #host-code{font-size:34px;letter-spacing:.14em}
+/* 記分助理:計分卡的在線人數 + 收合組員名單(其餘角色隱藏,計分卡外觀不變)*/
+.sc-mem{display:none;margin-top:6px;padding-top:6px;border-top:1px solid var(--line)}
+body[data-role="scorer"] .sc-mem{display:block}
+.sc-mem-tog{background:transparent;border:0;color:var(--ink-3);font-size:11px;cursor:pointer;padding:2px 0;width:100%;text-align:left}
+.sc-mem-tog:hover{color:var(--accent)}
+.sc-online{color:var(--accent);font-weight:700}
+.sc-mem-list{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.sc-mem-chip{font-size:11px;color:var(--ink-2);background:var(--bg-deep);border:1px solid var(--line);padding:2px 7px}
+.sc-mem-empty{font-size:11px;color:var(--ink-3);font-style:italic}
+/* 分組助理巡檢:置頂勾選(緊湊:圖釘+核取)、置頂高亮、按鈕旁的最近操作者/時間 */
+.gc-pin{display:inline-flex;align-items:center;gap:3px;margin-left:auto;cursor:pointer;flex-shrink:0}
+.gc-pin input{cursor:pointer;accent-color:var(--accent);width:15px;height:15px;margin:0}
+.gc-pin-ico{font-size:13px;line-height:1}
+.gc-pin-fixed{margin-left:auto;font-size:15px;cursor:default;flex-shrink:0}
+.gc-notice-info{font-size:10px;color:var(--ink-3);margin:0 6px 0 3px;white-space:nowrap}
+/* 確認前綴=橘(中性,左);通知改名=紅(強制,右) */
+.gc-nbtn.confirm{border-color:var(--accent-l,rgba(212,163,75,.5));color:var(--accent)}
+.gc-nbtn.confirm:hover{background:var(--accent-s);border-color:var(--accent)}
+.gc-nbtn.rename{border-color:rgba(216,52,74,.5);color:var(--err,#E55353)}
+.gc-nbtn.rename:hover{background:var(--err-s,rgba(216,52,74,.1));border-color:var(--err,#E55353)}
+.gc.gc-pinned{border-color:var(--accent-l,rgba(212,163,75,.4));box-shadow:0 0 0 1px var(--accent-l,rgba(212,163,75,.3)) inset}
+/* 重抽組長:只有總助理 / 管理助理 */
+body:not([data-role="chief"]):not([data-role="admin"]) .gc-leader-btn{display:none !important}
+/* 「自行鎖定分頁」已由角色權限取代 → 隱藏該按鈕(不再讓助理手動鎖分頁) */
+#qav-lock-btn{display:none !important}
+/* 主持人助理:分組表唯讀 —— 隱藏巡檢勾選與所有分組操作按鈕 */
+body[data-role="host"] .gc-pin,
+body[data-role="host"] .gc-notify{display:none !important}
+.role-waiting-box{margin:auto;text-align:center;padding:40px 24px}
+.role-waiting-box .rw-ico{font-size:40px;margin-bottom:14px}
+.role-waiting-box .rw-title{font-size:16px;color:var(--ink-1);letter-spacing:.08em;margin-bottom:8px}
+.role-waiting-box .rw-sub{font-size:13px;color:var(--ink-3);line-height:1.7}
+/* 撤權提示視窗(被移除角色時在本裝置跳出) */
+#revoke-modal{position:fixed;inset:0;z-index:5000;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.8);backdrop-filter:blur(6px)}
+#revoke-modal.show{display:flex}
+.rv-box{background:var(--bg-surface);border:1px solid var(--err,#E55353);padding:32px 28px;max-width:340px;width:100%;text-align:center}
+.rv-ico{font-size:44px;margin-bottom:12px}
+.rv-title{font-size:18px;font-weight:700;color:var(--ink-1);margin-bottom:10px}
+.rv-sub{font-size:13px;color:var(--ink-3);line-height:1.7;margin-bottom:22px}
+.rv-btn{width:100%;background:var(--accent);border:0;color:var(--bg-void);font-size:15px;font-weight:700;padding:13px;cursor:pointer;letter-spacing:.08em}
+
+/* 自願轉為參賽者的確認視窗(遊戲內樣式,取代原生 confirm) */
+#leave-modal{position:fixed;inset:0;z-index:5000;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.8);backdrop-filter:blur(6px)}
+#leave-modal.show{display:flex}
+#leave-modal .rv-box{border-color:var(--accent)}   /* 自願離開:金色框,與「被撤銷」的紅框區別 */
+.rv-btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink-2);margin-top:10px}
+
 /* 長條圖排行 */
 .ranking{margin-top:12px;padding:18px 20px;background:var(--bg-surface);border:1px solid var(--line)}
 
@@ -761,10 +879,20 @@ input::placeholder{color:var(--ink-3)}
 }
 @media(max-width:600px){
   .app{padding:14px 14px 40px}
-  .setup-row,.mode-grid,.group-names,.group-grid{grid-template-columns:1fr}
+  .setup-row,.mode-grid,.group-names{grid-template-columns:1fr}
+  .group-grid{grid-template-columns:1fr 1fr;gap:8px}
   .score-grid{grid-template-columns:repeat(2,1fr)}
   .sc-val{font-size:28px}
+  /* QR 版面手機改直向堆疊,避免併排超出邊界 */
+  .invite-row{flex-direction:column;align-items:center;gap:14px}
+  .invite-qr{width:180px;height:180px}
+  .invite-info{width:100%}
+  .code-display{width:100%;flex-wrap:wrap}
+  .code-value{font-size:22px;letter-spacing:.1em;word-break:break-all;min-width:0}
+  .invite-url{font-size:13px}
 }
+/* QR 容器內的 canvas/img 一律不得超出容器(任何尺寸都適用) */
+.invite-qr img,.invite-qr canvas{max-width:100%;height:auto}
 
 /* ── 助理確認 modal(用於重新開始 / 結束本場) ──────────── */
 .cf-modal{position:fixed;inset:0;z-index:3000;display:none;align-items:center;justify-content:center;padding:20px}
@@ -803,7 +931,7 @@ input::placeholder{color:var(--ink-3)}
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script src="lib/partybus.js"></script>
 </head>
-<body>
+<body data-role="chief">
 <!-- 全域警示橫幅(斷線 / 指令沒送出去)。刻意放在 .app 外面且 position:fixed,
      任何分頁、任何捲動位置都看得到 —— 這兩種狀況助理一定要立刻知道。 -->
 <div class="alert-bar" id="alert-bar">
@@ -822,6 +950,8 @@ input::placeholder{color:var(--ink-3)}
       <span class="brand-mode" id="brand-mode">尚未選擇模式</span>
     </div>
     <div class="hd-meta">
+      <!-- 助理身份 + 名字(總助理不顯示;其餘助理由 applyRoleVisibility 填入) -->
+      <span class="hd-identity" id="hd-identity"></span>
       <!-- 連線狀態:綠點=正常、黃=連線中、紅=斷線(斷線同時跳頂部橫幅) -->
       <span class="conn-ind wait" id="conn-ind" title="連線中…">
         <span class="cd"></span>
@@ -838,16 +968,61 @@ input::placeholder{color:var(--ink-3)}
            gameStarted=false 會把計分頁鎖起來 —— 正好是最需要這顆按鈕的時候。 -->
       <button class="hd-resync" id="btn-resync" onclick="doResync()"
         title="把目前狀態重推給所有還連著的端(投影/助理/參賽者)。有人卡在上一場畫面時按這顆,不用請他重整">↻ 重新同步</button>
+      <button id="btn-to-player" onclick="leaveToParticipant()"
+        title="放棄目前助理角色,轉為參賽者加入本場">⎋ 轉為參賽者</button>
     </div>
   </div>
 
   <div class="tab-bar" id="tab-bar">
     <button class="tab-btn active" id="tb-room" onclick="sw('room')">房間</button>
+    <button class="tab-btn" id="tb-asst" onclick="sw('asst')" style="display:none">助理管理</button>
     <button class="tab-btn" id="tb-setup" onclick="sw('setup')">設定</button>
-    <button class="tab-btn disabled" id="tb-score" onclick="sw('score')">計分表</button>
+    <button class="tab-btn" id="tb-score" onclick="sw('score')">計分表</button>
     <button class="tab-btn" id="tb-group" onclick="sw('group')">分組表</button>
     <button class="tab-btn" id="tb-qa" onclick="sw('qa')">題目</button>
     <button class="tab-btn" id="tb-bank" onclick="sw('bank')">題庫</button>
+  </div>
+
+  <!-- 加入助理:先請輸入姓名(未指派且尚未命名時,由 CSS 顯示) -->
+  <div id="role-nameentry">
+    <div class="role-name-box">
+      <div class="rn-title">請輸入你的姓名</div>
+      <div class="rn-sub">你即將以助理身分加入本房。<br>姓名不可與其他助理重複,總助理會依姓名指派你的角色。</div>
+      <input type="text" id="role-name-input" maxlength="20" placeholder="例如:王小明"
+        autocomplete="off" onkeydown="if(event.key==='Enter')submitOwnName()">
+      <button onclick="submitOwnName()">加入</button>
+      <div class="rn-err" id="role-name-err"></div>
+    </div>
+  </div>
+
+  <!-- 已命名、尚未被指派角色的等待畫面 -->
+  <div id="role-waiting">
+    <div class="role-waiting-box">
+      <div class="rw-ico">⏳</div>
+      <div class="rw-title">等待指派角色</div>
+      <div class="rw-sub">你已加入本房,但尚未被指派角色。<br>請總助理(或管理助理)在「助理管理」中指派後,<br>你的工作臺就會出現。</div>
+    </div>
+  </div>
+
+  <!-- 撤權提示:被總助理/管理助理移除角色時,在「本助理的裝置」跳出 -->
+  <div id="revoke-modal">
+    <div class="rv-box">
+      <div class="rv-ico">⚠️</div>
+      <div class="rv-title">您已被取消助理身份</div>
+      <div class="rv-sub">您的助理角色已被移除。<br>請以參賽者身分加入目前這場遊戲。</div>
+      <button class="rv-btn" onclick="toParticipantPage()">加入參賽者 →</button>
+    </div>
+  </div>
+
+  <!-- 自願轉為參賽者:遊戲內確認視窗(取代原生 confirm) -->
+  <div id="leave-modal">
+    <div class="rv-box">
+      <div class="rv-ico">⎋</div>
+      <div class="rv-title">轉為參賽者</div>
+      <div class="rv-sub">您將放棄目前的助理角色,<br>改以參賽者身分加入本場遊戲。</div>
+      <button class="rv-btn" onclick="confirmLeaveToParticipant()">轉為參賽者 →</button>
+      <button class="rv-btn ghost" onclick="closeLeaveModal()">取消</button>
+    </div>
   </div>
 
   <!-- ===== ROOM ===== -->
@@ -875,7 +1050,7 @@ input::placeholder{color:var(--ink-3)}
       <p class="hint" id="room-lock-hint">連線中 · 確認房間狀態後才能修改房號</p>
     </div>
 
-    <div class="room-block">
+    <div class="room-block" id="room-block-projcode">
       <div class="sec-label">投影端控制碼</div>
       <div class="code-row">
         <div class="code-fld">
@@ -891,16 +1066,17 @@ input::placeholder{color:var(--ink-3)}
 
     <div class="room-block">
       <div class="sec-label">助理端控制碼</div>
-      <div class="code-row">
-        <div class="code-fld">
-          <span class="flbl">控制碼</span>
-          <div class="code-display">
+      <div class="invite-row">
+        <div class="invite-qr" id="asst-qr"></div>
+        <div class="invite-info">
+          <div class="code-display" style="margin-bottom:8px">
             <span class="code-value" id="asst-code">—</span>
             <button class="copy-btn" id="btn-copy-asst" onclick="copyCode('asst')">複製</button>
           </div>
+          <div class="invite-label">助理夥伴掃描此 QR 開啟房間,再以此控制碼登入助理端</div>
         </div>
       </div>
-      <p class="hint">第二、三位助理:開參賽者網址 → 右下角「投影或助理登入」→ 輸入此碼,即轉為助理介面。投影人員只給投影碼,就進不了計分控制,避免誤操作。</p>
+      <p class="hint">找夥伴一起幫忙:請他掃上方 QR（或開參賽者網址）→ 右下角「投影或助理登入」→ 輸入此控制碼,即轉為助理介面（加入後為「未指派」,由總助理/管理助理指派任務）。投影人員只給投影碼,就進不了計分控制,避免誤操作。</p>
     </div>
 
     <div class="room-block">
@@ -917,6 +1093,15 @@ input::placeholder{color:var(--ink-3)}
         </div>
       </div>
       <p class="hint">將此 QR Code 或短網址提供給參賽者掃描加入。投影端的 QR 會在 1 分鐘後自動消失,可隨時按上方按鈕讓它重新出現。遊戲開始後 QR 永久消失。</p>
+    </div>
+  </div>
+
+  <!-- ===== ASSISTANT MANAGEMENT ===== -->
+  <div class="page" id="pg-asst">
+    <div class="room-block">
+      <div class="sec-label">助理管理</div>
+      <p class="hint" id="asst-mgmt-hint">依角色管理本房助理。</p>
+      <div id="asst-roster" style="display:flex;flex-direction:column;gap:8px;margin-top:12px"></div>
     </div>
   </div>
 
@@ -1343,7 +1528,12 @@ if (!_autoRoom) {
 const PGG_ROOM_CODE = _autoRoom;
 const PGG_JOIN_URL = window.location.origin + '/r/' + PGG_ROOM_CODE;
 // 部署環境:預設指向正式 PartyKit URL;本機開發可用 ?host=localhost:1999 覆寫。
-const PGG_PARTY_HOST = _PGG_QS.get('host') || 'policy-gogogo-party.aoc7328.workers.dev';
+// 後端主機:?host= 最優先(本機測試用);預覽(測試)站自動連測試後端,
+// 正式站(policy-gogogo.pages.dev)與其他一律連正式後端 —— 可安全合併回正式。
+const PGG_PARTY_HOST = _PGG_QS.get('host')
+  || (location.hostname.endsWith('.pages.dev') && location.hostname !== 'policy-gogogo.pages.dev'
+      ? 'policy-gogogo-party-beta.aoc7328.workers.dev'
+      : 'policy-gogogo-party.aoc7328.workers.dev');
 // 把這場 room 寫進 localStorage 當 hint;主持人/參賽者端開啟時若 URL 沒
 // ?room= 就拿這個 fallback,讓三端在同一 origin / 同一裝置上自動對齊到
 // 同一房,免得測試時還要手動複製貼網址。
@@ -1389,6 +1579,13 @@ const S={
   // 隨機模式時記錄當前回合實際使用的模式(讓 UI 顯示)
   rushModeActual: 'speed',
   gameStarted: false,  // 是否已按過「開始遊戲」(影響分頁鎖定)
+  // ── 助理身分/角色(伺服器權威;「助理管理」分頁用)──────────────
+  myAssistantId: null,   // 本連線的助理身分(server __welcome__ 給)
+  myRole: null,          // 本連線當前角色:chief/admin/scorer/grouper/host/projector/unassigned
+  myName: '',            // 本連線目前顯示名（'' = 尚未命名 → 出現「請輸入姓名」）
+  assistants: [],        // 全房助理名冊 [{id,name,role,online}](server 廣播)
+  chiefId: null,         // 總助理 assistantId
+  groupWatch: { pinned: [], notices: [] },  // 分組助理巡檢共用狀態(置頂 + 最近通知)
 };
 
 /* ════════════════════════════════════════════════════════════════════
@@ -1454,10 +1651,32 @@ const BANK_STORAGE_KEY = 'pgg_quiz_bank_v1';
      - PartyBus.init({...})   開啟 WebSocket(本檔在下方呼叫一次)
      - PartyBus.onStatus(cb)  訂閱 'connecting'|'connected'|'disconnected'
    ════════════════════════════════════════════════════════════════════ */
+/* 助理裝置身分:同一瀏覽器一輩子的 id,server 據此判定角色、24h 內重連
+   恢復原角色。testbed 用 ?did= 給每個 iframe 獨立身分(避免同源 localStorage
+   互相覆蓋);?aname= 覆寫預設顯示名。 */
+const PGG_ASST_DEVICE_KEY = 'pgg_device_id_v1';
+function getOrCreateAsstDeviceId(){
+  const override = _PGG_QS.get('did');
+  if (override) return override;
+  try {
+    let id = localStorage.getItem(PGG_ASST_DEVICE_KEY);
+    if (!id) {
+      id = (crypto && crypto.randomUUID) ? crypto.randomUUID()
+         : 'd_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
+      localStorage.setItem(PGG_ASST_DEVICE_KEY, id);
+    }
+    return id;
+  } catch { return 'd_ephemeral_' + Math.random().toString(36).slice(2, 12); }
+}
+const PGG_ASST_DEVICE_ID = getOrCreateAsstDeviceId();
+const PGG_ASST_NAME = _PGG_QS.get('aname') || '';
+
 PartyBus.init({
   role: 'assistant',
   roomId: PGG_ROOM_CODE,
   host: PGG_PARTY_HOST,
+  deviceId: PGG_ASST_DEVICE_ID,
+  name: PGG_ASST_NAME || undefined,
 });
 
 /* 收到 server 發的私訊 __welcome__ 時,把 controlCode 填到 host-code 顯示位置
@@ -1473,11 +1692,36 @@ PartyBus.on('__welcome__', payload => {
     const el = document.getElementById('asst-code');
     if (el) el.textContent = S.asstCode;
   }
+  // 助理身分/角色/姓名:server 權威。角色決定工作臺;姓名為空 → 請輸入姓名。
+  if (payload && typeof payload === 'object') {
+    if (payload.assistantId) S.myAssistantId = payload.assistantId;
+    if (payload.assistantRole) S.myRole = payload.assistantRole;
+    if (typeof payload.assistantName === 'string') S.myName = payload.assistantName;
+    if (typeof applyRoleVisibility === 'function') applyRoleVisibility();
+  }
   // ⚠ 這裡過去會自動 emit team_count_changed(count) —— 30 人實戰證實是
   // 全場玩家反覆被隨機重分組的主因:__welcome__ 在「每一次重連」都會收到,
   // 助理手機螢幕鎖定/WiFi 抖動/切分頁重連一次,全場就被重洗一次。
   // 現改為:在 __room_state__ 快照裡看到「lobby 且 server 尚無分組」才
   // 初始化一次(見下方 snapshot handler);重洗只能靠「重新分組」按鈕。
+});
+
+/* 分組助理巡檢共用狀態變動 → 更新本地並重畫分組表(置頂/按鈕/操作者時間)。 */
+PartyBus.on('group_watch', p => {
+  if (!p || typeof p !== 'object') return;
+  S.groupWatch = { pinned: Array.isArray(p.pinned) ? p.pinned : [], notices: Array.isArray(p.notices) ? p.notices : [] };
+  if (typeof renderGroups === 'function') renderGroups();
+});
+
+/* 助理名冊(角色/在線)變動 → 更新本地狀態、重算自身角色與分頁可見性、
+   重畫「助理管理」名冊。 */
+PartyBus.on('assistant_roster', p => {
+  if (!p || typeof p !== 'object') return;
+  S.assistants = Array.isArray(p.assistants) ? p.assistants : [];
+  S.chiefId = p.chiefId ?? null;
+  syncMyRoleFromRoster();
+  if (typeof applyRoleVisibility === 'function') applyRoleVisibility();
+  if (typeof renderAsstRoster === 'function') renderAsstRoster();
 });
 
 /* 接收 server snapshot 中的 frameworks(從 bank metadata 讀):
@@ -1489,6 +1733,21 @@ PartyBus.on('__welcome__', payload => {
 PartyBus.on('__room_state__', snap => {
   // 房號鎖:server 是權威,每份快照都重算一次(含重連後)
   if (typeof syncRoomLockFromSnapshot === 'function') syncRoomLockFromSnapshot(snap);
+  // 助理名冊:late-join / 重連端據此還原「助理管理」分頁與自身角色。
+  if (snap && Array.isArray(snap.assistants)) {
+    S.assistants = snap.assistants;
+    S.chiefId = snap.chiefId ?? null;
+    syncMyRoleFromRoster();
+    if (typeof applyRoleVisibility === 'function') applyRoleVisibility();
+    if (typeof renderAsstRoster === 'function') renderAsstRoster();
+  }
+  // 分組助理巡檢共用狀態
+  if (snap && snap.groupWatch && typeof snap.groupWatch === 'object') {
+    S.groupWatch = {
+      pinned: Array.isArray(snap.groupWatch.pinned) ? snap.groupWatch.pinned : [],
+      notices: Array.isArray(snap.groupWatch.notices) ? snap.groupWatch.notices : [],
+    };
+  }
   const fa = snap?.frameworks?.A;
   const fb = snap?.frameworks?.B;
   if (Array.isArray(fa) && fa.length > 0) {
@@ -1805,10 +2064,11 @@ function toggleQaLock() {
 }
 window.toggleQaLock = toggleQaLock;
 
-/* ── #qa 深連結 + 鎖定還原:第二位助理(主持人)開 /ass#qa 直接進
-   「題目」分頁;若上次是鎖定狀態,重整/喚醒後也停在鎖定的題目分頁。 ── */
-try { if (localStorage.getItem(QA_LOCK_KEY) === '1') S.qaLocked = true; } catch (e) {}
-if (window.location.hash === '#qa' || S.qaLocked) {
+/* ── #qa 深連結 ──────────────────────────────────────────────────
+   「自行鎖定分頁」概念已由伺服器權威的角色權限取代(主持人助理本來就被
+   限制在題目/分組表),故不再自 localStorage 還原鎖定、頂部鎖定鈕也隱藏。
+   仍保留 /ass#qa 深連結,方便直接開到題目分頁。 ── */
+if (window.location.hash === '#qa') {
   sw('qa');
 }
 applyQaLockUI();
@@ -1954,6 +2214,10 @@ PartyBus.on('player_join', payload => {
    gn-X input 列(rebuildNames 會讀 i-n,所以先 sync i-n 再呼叫)。 */
 PartyBus.on('roster_reshuffled', payload => {
   if (!Array.isArray(payload?.groups)) return;
+  // 分組方式以 server 為準同步(非發送端如分組助理據此顯示前綴巡檢控制)
+  if (payload.groupingMode === 'prefix' || payload.groupingMode === 'random') {
+    S.groupingMode = payload.groupingMode;
+  }
   const oldByName = new Map((S.groups || []).map(g => [g.name, g]));
   S.groups = payload.groups.map(g => ({
     id: `GROUP ${String(g.idx + 1).padStart(2, '0')}`,
@@ -2460,6 +2724,13 @@ PartyBus.on('__error__', payload => {
   if (!payload || typeof payload !== 'object') return;
   const code = payload.code || 'unknown';
   const msg = payload.message || '';
+  // 命名中的錯誤(重複/太長)→ 顯示在「請輸入姓名」表單,不寫進被隱藏的 #sts
+  if (code === 'rename_failed' && S._namingPending) {
+    const err = document.getElementById('role-name-err');
+    if (err) err.textContent = msg;
+    S._namingPending = false;
+    return;
+  }
   const sts = document.getElementById('sts');
   if (sts) {
     sts.innerHTML = `<span style="color:var(--err,#E55353)">⚠ ${msg}</span>`;
@@ -2749,6 +3020,17 @@ function renderInviteQR() {
     height: 176,
     correctLevel: QRCode.CorrectLevel.H,
   });
+  // 助理端 QR:同一個房間入口(掃描 → 參賽者網址 → 以助理端控制碼登入助理端)。
+  const asstQr = document.getElementById('asst-qr');
+  if (asstQr && typeof QRCode !== 'undefined') {
+    asstQr.innerHTML = '';
+    new QRCode(asstQr, {
+      text: PGG_JOIN_URL,
+      width: 140,
+      height: 140,
+      correctLevel: QRCode.CorrectLevel.H,
+    });
+  }
 }
 window.renderInviteQR = renderInviteQR;
 
@@ -4010,7 +4292,7 @@ function sw(t){
   if (S.qaLocked && t !== 'qa') return;
   const targetTab=document.getElementById(`tb-${t}`);
   if(targetTab?.classList.contains('disabled'))return;
-  ['room','setup','group','score','qa','bank'].forEach(x=>{
+  ['room','asst','setup','group','score','qa','bank'].forEach(x=>{
     document.getElementById(`pg-${x}`)?.classList.remove('active');
     document.getElementById(`tb-${x}`)?.classList.remove('active');
   });
@@ -4021,6 +4303,8 @@ function sw(t){
     if (typeof renderQaView === 'function') renderQaView();
     if (typeof updateWakeIndicator === 'function') updateWakeIndicator();
   }
+  // 助理管理:切進來就用當前名冊重畫一次
+  if (t === 'asst' && typeof renderAsstRoster === 'function') renderAsstRoster();
 }
 
 /* 依當前 phase 決定哪些分頁可用、哪些鎖定
@@ -4047,22 +4331,259 @@ function applyTabLock() {
   // 題目(主持人判定用):永遠開放 — 第二位助理全程掛在這個分頁看題目與答案
   document.getElementById('tb-qa')?.classList.remove('disabled');
   // 計分表:遊戲已開始(含已結束)時開放;純未開始才鎖
+  // 計分表:一律開放(Vincent 規格:遊戲開始前只要組別已確定,總助理/管理助理/
+  // 記分助理就能先加減分做現場評估)。分頁內的遊戲流程鈕仍各自依相位自我停用。
   const tbScore = document.getElementById('tb-score');
-  if (tbScore) tbScore.classList.toggle('disabled', !inSession);
+  if (tbScore) tbScore.classList.remove('disabled');
   // 若當前 active 分頁被鎖,自動切到一個合理的可用分頁
   const activeTab = document.querySelector('.tab-btn.active');
   if (activeTab?.classList.contains('disabled')) {
     sw(inSession ? 'score' : 'setup');
   }
+  // 相位鎖處理完後,角色工作臺優先 —— 把不屬於本角色的分頁再收斂一次
+  // (例如記分助理在賽前被 applyTabLock 導到 setup,這裡再拉回計分表)。
+  if (typeof applyRoleVisibility === 'function') applyRoleVisibility();
 }
 window.applyTabLock = applyTabLock;
 
+/* ══ 助理管理(伺服器權威角色)══════════════════════════════════════
+   - 角色由 server 判定並廣播(assistant_roster / snapshot / welcome)。
+   - 只有 chief(總助理)與 admin(管理助理)看得到「助理管理」分頁。
+   - 前端的可編輯性只是「照角色藏按鈕」;真正的授權在 party/server.ts
+     的 onAssignAssistantRole / onRenameAssistant 依送出者角色二次驗證。 */
+const ROLE_LABELS = {
+  chief:'總助理', admin:'管理助理', scorer:'記分助理',
+  grouper:'分組助理', host:'主持人助理', projector:'投影端助理', unassigned:'未指派',
+};
+const EXEC_ROLES = ['scorer','grouper','host','projector'];
+
+/** 從名冊重算自身角色/姓名(被 chief/admin 改過、或自己命名成功時,roster 比 welcome 新)。 */
+function syncMyRoleFromRoster(){
+  if (!S.myAssistantId) return;
+  const me = (S.assistants||[]).find(a => a.id === S.myAssistantId);
+  if (me) { S.myRole = me.role; S.myName = me.name || ''; }
+}
+
+/** 每個角色可見的分頁(= 該角色的工作臺)。真正的權限在 server 逐指令驗證。 */
+const ALL_TABS = ['room','asst','setup','score','group','qa','bank'];
+// 所有助理都看得到「房間」(邀請入口:房號、助理端控制碼/QR、參賽者邀請 QR;
+// 投影端控制碼另依角色 gate)。各角色再加自己的工作分頁。
+const ROLE_TABS = {
+  chief:     ['room','asst','setup','score','group','qa','bank'],  // 總助理:全開
+  admin:     ['room','asst','setup','score','group','qa','bank'],  // 管理助理:全開,但計分表內的流程控制由 CSS 隱藏、流程指令由 server 擋
+  scorer:    ['score','room'],       // 記分助理:計分 + 邀請入口
+  grouper:   ['group','room'],       // 分組助理:分組 + 邀請入口
+  host:      ['qa','group','room'],  // 主持人助理:唯讀題目 + 分組表 + 邀請入口
+  projector: ['room'],               // 投影端助理:房號 + 投影端控制碼
+  unassigned: [],                    // 未指派:等待畫面(頁面由 CSS 藏)
+};
+
+/** 直接切到某分頁(繞過 sw 的 qaLock/phase-disabled 守衛 —— 角色決定的分頁優先於相位鎖)。 */
+function forceTab(t){
+  ALL_TABS.forEach(x => {
+    document.getElementById(`pg-${x}`)?.classList.toggle('active', x === t);
+    document.getElementById(`tb-${x}`)?.classList.toggle('active', x === t);
+  });
+  if (t === 'qa'    && typeof renderQaView    === 'function') renderQaView();
+  if (t === 'asst'  && typeof renderAsstRoster === 'function') renderAsstRoster();
+  if (t === 'score' && typeof renderScores    === 'function') renderScores();
+  if (t === 'group' && typeof renderGroups    === 'function') renderGroups();
+}
+
+/** 依 server 角色套用工作臺:設 body[data-role]、顯示該角色的分頁、把 active 導到主分頁。 */
+function applyRoleVisibility(){
+  const role = S.myRole || 'chief';   // welcome 抵達前預設全開(chief),避免畫面閃爍
+  document.body.dataset.role = role;
+  // 是否已命名(未指派且未命名 → 顯示「請輸入姓名」;已命名 → 顯示等待畫面)
+  document.body.dataset.named = S.myName ? '1' : '0';
+  // 「轉為參賽者」按鈕:除總助理外都顯示(主動放棄角色)。
+  // 注意:CSS 預設 display:none,所以要顯示時必須給明確值(給 '' 會退回 CSS 的 none)。
+  const toPlayerBtn = document.getElementById('btn-to-player');
+  if (toPlayerBtn) toPlayerBtn.style.display = (role && role !== 'chief') ? 'inline-block' : 'none';
+  // 「重新同步」按鈕:只有總助理有(其餘助理不需要,且此鈕的安全性尚待評估)。
+  const resyncBtn = document.getElementById('btn-resync');
+  if (resyncBtn) resyncBtn.style.display = (role && role !== 'chief') ? 'none' : '';
+  // 右上角助理身份 + 名字:除總助理外都顯示
+  const idEl = document.getElementById('hd-identity');
+  if (idEl) {
+    if (role && role !== 'chief') {
+      idEl.style.display = 'inline-flex';
+      idEl.innerHTML = `<span class="hi-role">${ROLE_LABELS[role] || role}</span><span class="hi-name">${esc(S.myName || '（未命名）')}</span>`;
+    } else {
+      idEl.style.display = 'none';
+    }
+  }
+  const tabs = ROLE_TABS[role] || ROLE_TABS.chief;
+  ALL_TABS.forEach(t => {
+    const btn = document.getElementById(`tb-${t}`);
+    if (btn) btn.style.display = tabs.includes(t) ? '' : 'none';
+  });
+  if (role === 'unassigned') return;   // 頁面整個由 CSS(data-role)藏起,顯示等待畫面
+  // 若目前 active 分頁不在本角色可見清單 → 切到該角色主分頁(繞過相位鎖)。
+  // chief/admin 全分頁可見 → 永遠不會被強制切走,保留自己的導覽。
+  const activeId = document.querySelector('.tab-btn.active')?.id?.replace('tb-','');
+  if (!activeId || !tabs.includes(activeId)) {
+    if (tabs[0]) forceTab(tabs[0]);
+  }
+}
+window.applyRoleVisibility = applyRoleVisibility;
+
+/** 加入時替自己命名(送 set_own_name;姓名不可與其他助理重複)。 */
+function submitOwnName(){
+  const inp = document.getElementById('role-name-input');
+  const err = document.getElementById('role-name-err');
+  const name = (inp?.value || '').trim();
+  if (err) err.textContent = '';
+  if (!name){ if (err) err.textContent = '請輸入姓名'; return; }
+  if (name.length > 20){ if (err) err.textContent = '姓名太長(上限 20 字)'; return; }
+  S._namingPending = true;
+  const ok = PartyBus.emit('set_own_name', { name });
+  if (ok === false){ if (err) err.textContent = '連線異常,請稍後再試'; S._namingPending = false; }
+}
+window.submitOwnName = submitOwnName;
+
+function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/** 畫「助理管理」名冊。可編輯性:
+   - chief:除總助理列(角色固定)外,所有列的角色可改;所有列(含自己)可改名。
+   - admin:只能管理四種執行助理與未指派者(改角色/改名);對總助理、其他管理助理(含自己)唯讀。*/
+function renderAsstRoster(){
+  const host = document.getElementById('asst-roster');
+  const hint = document.getElementById('asst-mgmt-hint');
+  if (!host) return;
+  const iAmChief = S.myRole === 'chief';
+  const iAmAdmin = S.myRole === 'admin';
+  if (hint) {
+    hint.textContent = iAmChief
+      ? '你是總助理:可指派/改名所有助理(總助理身分固定)。管理助理每房最多一位。'
+      : iAmAdmin
+        ? '你是管理助理:可管理記分／分組／主持人／投影端四種執行助理;對總助理唯讀。'
+        : '';
+  }
+  if (!iAmChief && !iAmAdmin) { host.innerHTML = ''; return; }
+
+  const list = S.assistants || [];
+  if (list.length === 0) { host.innerHTML = '<div class="hint">尚無助理連線。</div>'; return; }
+
+  host.innerHTML = list.map(a => {
+    const isChiefRow = a.role === 'chief';
+    const isMe = a.id === S.myAssistantId;
+    const roleEditable = iAmChief ? !isChiefRow : (EXEC_ROLES.includes(a.role) || a.role === 'unassigned');
+    const optRoles = iAmChief
+      ? ['unassigned','admin','scorer','grouper','host','projector']
+      : ['unassigned','scorer','grouper','host','projector'];
+    const dot = `<span class="am-dot ${a.online ? 'on' : 'off'}" title="${a.online ? '在線' : '離線'}"></span>`;
+    const meTag = isMe ? '<span class="am-me">你</span>' : '';
+    const named = !!a.name;
+    const nameCell = `<span class="am-name${named ? '' : ' unnamed'}">${named ? esc(a.name) : '（未命名）'}${meTag}</span>`;
+    // 一人一行:左=綠燈+名字、中=角色下拉(誤觸率比按鈕低)、右=移除。
+    // 名字由使用者自己命名,總助理/管理助理不代改 → 無改名鈕。
+    const roleCell = roleEditable
+      ? `<select class="am-role-sel" onchange="assignAsstRole('${esc(a.id)}',this.value)" title="指派角色">
+           ${optRoles.map(r => `<option value="${r}"${r === a.role ? ' selected' : ''}>${ROLE_LABELS[r]}</option>`).join('')}
+         </select>`
+      : `<span class="am-badge${isChiefRow ? ' chief' : ''}">${ROLE_LABELS[a.role] || a.role}</span>`;
+    const removeBtn = roleEditable
+      ? `<button class="am-remove" onclick="removeAsst('${esc(a.id)}','${esc(a.name)}')" title="移除助理(撤銷角色，對方轉為參賽者)">移除</button>`
+      : '<span class="am-remove-ph"></span>';
+    return `<div class="am-card am-row">
+      <span class="am-left">${dot}${nameCell}</span>
+      ${roleCell}
+      ${removeBtn}
+    </div>`;
+  }).join('');
+}
+window.renderAsstRoster = renderAsstRoster;
+
+/** 指派某助理角色 → server 二次授權。 */
+function assignAsstRole(id, role){
+  const ok = PartyBus.emit('assign_assistant_role', { assistantId: id, role });
+  if (ok === false) alert('連線異常,指派未送出,請稍後再試');
+  // server 會回廣播 assistant_roster;失敗會私訊 __error__(下方統一提示)。
+}
+window.assignAsstRole = assignAsstRole;
+
+/** 替某助理改名(不可與其他助理重複)。 */
+function renameAsst(id){
+  const cur = (S.assistants||[]).find(a => a.id === id);
+  const name = prompt('輸入助理姓名(1–20 字,不可與其他助理重複)', cur ? cur.name : '');
+  if (name === null) return;
+  const trimmed = name.trim();
+  if (!trimmed) { alert('姓名不可空白'); return; }
+  const ok = PartyBus.emit('rename_assistant', { assistantId: id, name: trimmed });
+  if (ok === false) alert('連線異常,改名未送出,請稍後再試');
+}
+window.renameAsst = renameAsst;
+
+/** 移除某助理(撤銷角色 → 對方走轉為參賽者)。 */
+function removeAsst(id, name){
+  if (!confirm(`確定要移除助理「${name || ''}」?\n對方的角色會被撤銷,並跳出提示讓他轉為參賽者。`)) return;
+  const ok = PartyBus.emit('remove_assistant', { assistantId: id });
+  if (ok === false) alert('連線異常,移除未送出,請稍後再試');
+}
+window.removeAsst = removeAsst;
+
+/** 主動轉為參賽者:跳「遊戲內確認視窗」(取代原生 confirm)。 */
+function leaveToParticipant(){
+  const m = document.getElementById('leave-modal');
+  if (m) { m.classList.add('show'); return; }
+  confirmLeaveToParticipant();   // fallback:沒有視窗元素時直接執行
+}
+function closeLeaveModal(){
+  const m = document.getElementById('leave-modal');
+  if (m) m.classList.remove('show');
+}
+/** 在確認視窗按下「轉為參賽者」→ 真正送出放棄自身角色。 */
+function confirmLeaveToParticipant(){
+  closeLeaveModal();
+  if (!S.myAssistantId) { toParticipantPage(); return; }
+  const ok = PartyBus.emit('remove_assistant', { assistantId: S.myAssistantId });
+  if (ok === false) { alert('連線異常,請稍後再試'); return; }
+  // server 會回 __role_revoked__(self),由下方 listener 導向參賽者端。
+}
+window.leaveToParticipant = leaveToParticipant;
+window.confirmLeaveToParticipant = confirmLeaveToParticipant;
+window.closeLeaveModal = closeLeaveModal;
+
+/** 導向參賽者端(轉為參賽者);沿用同房號/host,並用同 deviceId 讓 testbed 身分不撞。 */
+function toParticipantPage(){
+  const q = new URLSearchParams();
+  q.set('room', PGG_ROOM_CODE);
+  const host = _PGG_QS.get('host'); if (host) q.set('host', host);
+  const did = _PGG_QS.get('did');  if (did) q.set('did', did);
+  location.href = 'participant.html?' + q.toString();
+}
+
+/* 角色被撤銷 / 主動放棄 → 走「轉為參賽者」流程。 */
+PartyBus.on('__role_revoked__', payload => {
+  const self = payload && payload.by === 'self';
+  // disconnect 避免 partysocket 自動重連又把自己登記成新的未指派助理。
+  try { PartyBus.disconnect(); } catch {}
+  if (self) {
+    // 自己按「轉為參賽者」→ 直接導向(他已知情,不必再提示)。
+    toParticipantPage();
+    return;
+  }
+  // 被總助理/管理助理移除 → 在「這位助理的裝置」跳出提示視窗,由他自己按鈕轉為參賽者。
+  const modal = document.getElementById('revoke-modal');
+  if (modal) modal.classList.add('show');
+  else toParticipantPage();
+});
+
+const PREFIX_OTHER_GROUP = '其他';
 function renderGroups(){
-  const prefixControls = S.groupingMode === 'prefix';
-  document.getElementById('group-grid').innerHTML=S.groups.map(g=>{
+  const prefix = S.groupingMode === 'prefix';
+  const watch = S.groupWatch || { pinned: [], notices: [] };
+  const isPinned = name => name === PREFIX_OTHER_GROUP || (watch.pinned || []).includes(name);
+  // 巡檢排序(前綴分組才排):其他組 → 已勾選置頂 → 其餘;random 模式沿用原序。
+  const rank = g => prefix ? (g.name === PREFIX_OTHER_GROUP ? 0 : (isPinned(g.name) ? 1 : 2)) : 0;
+  const ordered = prefix ? [...S.groups].sort((a, b) => rank(a) - rank(b)) : S.groups;
+  document.getElementById('group-grid').innerHTML = ordered.map(g => {
     // 名單與人數一律用「此刻真的連著」的名單,避免列出早就離開的人
     const members = displayMembers(g);
     const leader = S.leaders?.[g.name] || null;
+    const safe = g.name.replace(/'/g, "\\'");
+    const pinned = isPinned(g.name);
     let body;
     if (members.length === 0) {
       body = `<div class="gc-note" style="opacity:.5">尚無成員加入</div>`;
@@ -4078,24 +4599,56 @@ function renderGroups(){
           }).join('')}
         </div>`;
     }
-    const safe = g.name.replace(/'/g, "\\'");
+    // 巡檢置頂控制(前綴分組):其他組固定置頂(僅圖釘);其餘為圖釘+核取方塊(緊湊)。
+    let pinCtrl = '';
+    if (prefix) {
+      pinCtrl = g.name === PREFIX_OTHER_GROUP
+        ? `<span class="gc-pin gc-pin-fixed" title="無前綴/格式不符者的收容組,固定置頂巡檢">📌</span>`
+        : `<label class="gc-pin" title="勾選把這組置頂巡檢(所有分組助理共用)"><span class="gc-pin-ico">📌</span><input type="checkbox" ${pinned ? 'checked' : ''} onchange="toggleGroupPin('${safe}',this.checked)"></label>`;
+    }
+    // 「確認前綴 / 通知改名」只在前綴分組且已置頂的組顯示。
+    // 版位:確認前綴(橘、中性、左) → 通知改名(紅、強制、右);兩者都標示最近操作者與時間。
+    const noticeBtns = (prefix && pinned)
+      ? `<button class="gc-nbtn confirm" title="軟性提醒這組確認前綴與名稱（可略過，不會踢人）" onclick="notifyGroup('${safe}','confirm')">確認前綴</button>${noticeInfo(g.name,'confirm')}
+         <button class="gc-nbtn rename" title="通知這組更正前綴(30 秒倒數；逾時未改名者會被請出房間)" onclick="notifyGroup('${safe}','rename')">通知改名</button>${noticeInfo(g.name,'rename')}`
+      : '';
+    // 重抽組長:只有總助理/管理助理可用(CSS 另 gate .gc-leader-btn)
+    const leaderBtn = `<button class="gc-nbtn gc-leader-btn" ${members.length === 0 ? 'disabled title="這組還沒有人,無法抽組長"' : 'title="重抽這組組長(組長中離不回來、或要換人領獎時用)"'} onclick="redrawLeader('${safe}')">重抽組長</button>`;
     return `
-    <div class="gc">
+    <div class="gc${prefix && pinned ? ' gc-pinned' : ''}">
       <div class="gc-hd">
         <div class="gc-hd-top">
           <span class="gc-id">${g.id}</span>
           <span class="gc-name">${g.name}</span>
+          ${pinCtrl}
         </div>
-        <span class="gc-notify">
-          ${prefixControls ? `<button class="gc-nbtn warn" title="通知這組更正前綴(30 秒倒數；逾時未改名者會被請出房間)" onclick="notifyGroup('${safe}','rename')">通知改名</button>
-          <button class="gc-nbtn" title="軟性提醒這組確認前綴與名稱（可略過，不會踢人）" onclick="notifyGroup('${safe}','confirm')">確認前綴</button>` : ''}
-          <button class="gc-nbtn" ${members.length === 0 ? 'disabled title="這組還沒有人,無法抽組長"' : 'title="重抽這組組長(組長中離不回來、或要換人領獎時用)"'} onclick="redrawLeader('${safe}')">重抽組長</button>
-        </span>
+        <span class="gc-notify">${noticeBtns}${leaderBtn}</span>
       </div>
       ${body}
     </div>`;
   }).join('');
 }
+
+/** 分組表:某組某種通知的「最近由誰、多久前」提示。 */
+function noticeInfo(team, kind){
+  const n = (S.groupWatch?.notices || []).find(x => x.team === team && x.kind === kind);
+  if (!n) return '';
+  // 提醒所有分組助理:誰、多久前按過,讓大家自行判斷要不要再按一次。
+  return `<span class="gc-notice-info">${esc(n.by || '?')} 於 ${relTime(n.at)}按過</span>`;
+}
+function relTime(at){
+  const s = Math.max(0, Math.round((Date.now() - (at || 0)) / 1000));
+  if (s < 10) return '剛剛';
+  if (s < 60) return s + ' 秒前';
+  const m = Math.round(s / 60);
+  if (m < 60) return m + ' 分前';
+  return Math.round(m / 60) + ' 小時前';
+}
+/** 分組助理巡檢:勾選/取消置頂某組(共用狀態,送 server 廣播)。 */
+function toggleGroupPin(team, pinned){
+  PartyBus.emit('toggle_group_pin', { team, pinned: !!pinned });
+}
+window.toggleGroupPin = toggleGroupPin;
 
 /* ── 重新同步:把 server 權威狀態重推給所有還連著的端 ──────────────
    使用時機:上一場結束後有學員卡在結算頁、或投影端畫面停在舊狀態。
@@ -4389,6 +4942,18 @@ function renderScores(){
     const isLead=g.score===mx&&mx>0;
     const isPick=S.selectedIdx===i;
     const classes=['sc', isLead?'lead':'', isPick?'picking':''].filter(Boolean).join(' ');
+    // 記分助理用:在線人數 + 預設收合、可唯讀展開的組員名單(大型活動辨識組別用)。
+    // 其餘角色由 CSS 隱藏 .sc-mem,計分卡外觀不變。
+    const mem = displayMembers(g);
+    const memSection = `
+      <div class="sc-mem">
+        <button class="sc-mem-tog" onclick="event.stopPropagation();toggleScMembers(${i})" title="展開/收合組員(唯讀)">
+          在線 <span class="sc-online">${mem.length}</span> 人 <span class="sc-caret" id="sc-caret-${i}">▸</span>
+        </button>
+        <div class="sc-mem-list" id="sc-mem-${i}" style="display:none">
+          ${mem.length ? mem.map(m => `<span class="sc-mem-chip">${esc(m)}</span>`).join('') : '<span class="sc-mem-empty">無在線組員</span>'}
+        </div>
+      </div>`;
     return `
     <div class="${classes}" id="sc-${i}">
       <div class="sf" id="sf-${i}"></div>
@@ -4401,9 +4966,21 @@ function renderScores(){
         <button class="sc-btn add" onclick="event.stopPropagation();adj(${i},1)" title="微調 +1(沾邊給分用;整題配分請按下方答對)">+1</button>
         <button class="sc-btn sub" onclick="event.stopPropagation();adj(${i},-1)" title="微調 −1">−1</button>
       </div>
+      ${memSection}
     </div>`}).join('');
   renderRank();
 }
+
+/** 記分助理:展開/收合某組的唯讀組員名單。 */
+function toggleScMembers(i){
+  const list = document.getElementById(`sc-mem-${i}`);
+  const caret = document.getElementById(`sc-caret-${i}`);
+  if (!list) return;
+  const open = list.style.display === 'none';
+  list.style.display = open ? 'flex' : 'none';
+  if (caret) caret.textContent = open ? '▾' : '▸';
+}
+window.toggleScMembers = toggleScMembers;
 
 function adj(i,d, options={}){
   // Optimistic local update — UI 立即反應(<200ms 手感要求,避免等 server 來回)

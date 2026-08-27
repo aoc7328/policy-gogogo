@@ -32,9 +32,11 @@ import {
 
 import {
   isPrivilegedCommand,
+  EXECUTION_ROLES,
   type ClientCommand,
   type ServerEvent,
   type ConnectionRole,
+  type AssistantRole,
   type GameConfig,
 } from './protocol';
 
@@ -61,6 +63,16 @@ import {
   snapshot,
   dehydrateState,
   hydrateState,
+  attachAssistant,
+  assistantRoleOf,
+  hasAdmin,
+  setAssistantRole,
+  renameAssistant as renameAssistantRec,
+  removeAssistant as removeAssistantRec,
+  assistantList,
+  setGroupPin,
+  recordGroupNotice,
+  groupWatchPayload,
   type PersistedState,
   type RoomState,
   type BuzzRecord,
@@ -86,14 +98,74 @@ interface ConnState {
   team: string | null;       // participant only
   deviceId: string | null;   // participant only — per-browser identity for multi-tab dedup
   verified: boolean;         // controlCode validated for assistants
+  assistantId: string | null;  // assistant only — stable identity for role lookup (deviceId or conn.id)
 }
 
 const STATE_STORAGE_KEY = 'pgg_room_state_v1';
 // 存檔超過 24 小時視為上一場活動的殘留,不還原(活動不會跨日進行)
 const STATE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * 逐指令角色授權矩陣(伺服器權威)。key = 特權指令;value = 允許送出的助理角色。
+ * controlCode 只證明「是本房助理」(所有助理都有),真正能不能執行看角色 ——
+ * 這正是把權限從「前端藏按鈕」搬到伺服器的關鍵。未列於此表的特權指令
+ * 一律只允許 chief(最保守預設)。
+ *
+ * 依 docs/adr/0001 + CONTEXT 定案:
+ * - 遊戲流程(開始遊戲/九宮格/搶答/公布/下一題/計時/重開/結束/搶答模式/加題)= 只有 chief。
+ * - 計分 +1/-1 = chief / admin / scorer。
+ * - 一般設定 + 分組設定 + 邀請/重新同步 = chief / admin。
+ * - 前綴分組通知(確認前綴/通知改名)= chief / admin / grouper。
+ * - 助理管理(指派/改名)= chief / admin(細則另在 handler 二次驗證)。
+ */
+const ROLE_PERMS: Record<string, AssistantRole[]> = {
+  // 遊戲流程 —— 只有總助理
+  game_start: ['chief'],
+  start_rush: ['chief'],
+  rebuzz_same: ['chief'],
+  fresh_rush: ['chief'],
+  resume_question: ['chief'],
+  enter_category: ['chief'],
+  category_preview: ['chief'],
+  category_confirm: ['chief'],
+  category_reset: ['chief'],
+  reveal_answer: ['chief'],
+  next_question: ['chief'],
+  skip_question: ['chief'],
+  redraw_question: ['chief'],
+  arm_purgatory: ['chief'],
+  set_timer: ['chief'],
+  game_restart: ['chief'],
+  export_result: ['chief'],
+  rush_mode_changed: ['chief'],
+  add_question: ['chief'],
+  // 計分 +1/-1
+  score_adjust: ['chief', 'admin', 'scorer'],
+  // 一般設定 / 分組設定 / 邀請 / 重新同步
+  set_onboarding: ['chief', 'admin'],
+  mode_preview: ['chief', 'admin'],
+  custom_tiers_changed: ['chief', 'admin'],
+  team_count_changed: ['chief', 'admin'],
+  grouping_mode_changed: ['chief', 'admin'],
+  reassign_leader: ['chief', 'admin'],
+  presenter_show_qr: ['chief', 'admin'],
+  resync_all: ['chief', 'admin'],
+  // 前綴分組通知(確認前綴 / 通知改名)+ 巡檢置頂
+  notify_group: ['chief', 'admin', 'grouper'],
+  toggle_group_pin: ['chief', 'admin', 'grouper'],
+  // 助理管理(粗授權;細則在 onAssignAssistantRole / onRenameAssistant)
+  assign_assistant_role: ['chief', 'admin'],
+  rename_assistant: ['chief', 'admin'],
+  // 替自己命名:任何角色(含未指派)皆可 —— 加入時的「請輸入姓名」流程。
+  set_own_name: ['chief', 'admin', 'scorer', 'grouper', 'host', 'projector', 'unassigned'],
+  // 移除助理:任何角色皆可送(含未指派)—— 因為包含「移除自己(主動轉為參賽者)」;
+  // 移除他人的細則(chief/admin + 目標範圍)在 onRemoveAssistant 內二次驗證。
+  remove_assistant: ['chief', 'admin', 'scorer', 'grouper', 'host', 'projector', 'unassigned'],
+};
+
 export class PolicyGogogoServer extends Server {
   // rush 的倒數用 in-memory setTimeout,DO 不可休眠(與 PartyKit 行為一致)
+  // (多助理權限:助理身分/角色/名冊由 state.assistants + chiefId 承載)
   static options = { hibernate: false };
 
   // 兩組獨立控制碼:controlCode = 投影端(+特權簽章);assistantCode = 助理端登入路由。
@@ -189,15 +261,30 @@ export class PolicyGogogoServer extends Server {
     //   assistant can claim the role without presenting matching code.
     void presentedCode;
 
+    // 助理身分/角色(伺服器權威):以助理端 deviceId 為穩定身分(無則退回
+    // conn.id 臨時碼)。第一個連上的助理成為總助理(chief);其餘為未指派,
+    // 待總助理/管理助理指派。24h 內同裝置重連恢復原角色(attachAssistant)。
+    // name query 對助理端解讀為「偏好顯示名」(只在新建時採用、去重)。
+    let assistantId: string | null = null;
+    let assistantRole: AssistantRole | null = null;
+    let assistantName: string | null = null;
+    if (role === 'assistant') {
+      assistantId = deviceId ?? conn.id;
+      const rec = attachAssistant(this.state, assistantId, name);
+      assistantRole = rec.role;
+      assistantName = rec.name;
+    }
+
     conn.setState({
       role,
       name: role === 'participant' ? name : null,
       team: role === 'participant' ? team : null,
       deviceId: role === 'participant' ? deviceId : null,
       verified: role === 'assistant',
+      assistantId,
     });
 
-    // Welcome: send role + (assistant only) controlCode + server time.
+    // Welcome: send role + (assistant only) controlCode + assistant identity + server time.
     this.send(conn, {
       type: '__welcome__',
       payload: {
@@ -205,6 +292,9 @@ export class PolicyGogogoServer extends Server {
         roomId: this.state.roomId,
         controlCode: role === 'assistant' ? this.state.controlCode : undefined,
         assistantCode: role === 'assistant' ? this.state.assistantCode : undefined,
+        assistantId: assistantId ?? undefined,
+        assistantRole: assistantRole ?? undefined,
+        assistantName: assistantName ?? undefined,
         serverTime: Date.now(),
       },
     });
@@ -222,7 +312,13 @@ export class PolicyGogogoServer extends Server {
     }
 
     // Push current room snapshot so the connection can render correct UI.
-    this.send(conn, { type: '__room_state__', payload: snapshot(this.state) });
+    this.send(conn, { type: '__room_state__', payload: snapshot(this.state, this.onlineAssistantIds()) });
+
+    // 助理上線/取得身分 → 讓現有的總助理/管理助理「助理管理」名冊即時更新。
+    if (role === 'assistant') {
+      this.broadcastAssistantRoster();
+      this.schedulePersist();   // 建房者(chief)身分要落盤,DO 重啟後可還原
+    }
   }
 
   onClose(conn: Connection<ConnState>): void {
@@ -236,6 +332,30 @@ export class PolicyGogogoServer extends Server {
         });
       }
     }
+    // 助理離線:身分紀錄保留(24h 可重連恢復),但在線狀態變了 → 重播名冊。
+    if (cs?.role === 'assistant') {
+      this.broadcastAssistantRoster();
+    }
+  }
+
+  /** 目前有連線的助理 assistantId 集合(給名冊 online 判定用)。 */
+  private onlineAssistantIds(): Set<string> {
+    const ids = new Set<string>();
+    for (const c of this.getConnections<ConnState>()) {
+      if (c.state?.role === 'assistant' && c.state.assistantId) ids.add(c.state.assistantId);
+    }
+    return ids;
+  }
+
+  /** 廣播助理名冊(角色/在線)。助理端「助理管理」分頁據此重畫。 */
+  private broadcastAssistantRoster(): void {
+    this.broadcastEvent({
+      type: 'assistant_roster',
+      payload: {
+        assistants: assistantList(this.state, this.onlineAssistantIds()),
+        chiefId: this.state.chiefId,
+      },
+    });
   }
 
   onError(conn: Connection, err: Error): void {
@@ -268,6 +388,18 @@ export class PolicyGogogoServer extends Server {
     if (isPrivilegedCommand(cmd)) {
       if (!verifyControlCode(cmd.controlCode, this.state.controlCode)) {
         this.sendError(sender, 'unauth', `controlCode required for ${cmd.type}`);
+        return;
+      }
+      // 逐指令角色授權(伺服器權威):controlCode 只證明是本房助理,能不能執行看角色。
+      // 未指派 / 越權 → forbidden(前端也會藏按鈕,但這裡才是真正的防線)。
+      const allowed = ROLE_PERMS[cmd.type] ?? (['chief'] as AssistantRole[]);
+      const role = assistantRoleOf(this.state, sender.state?.assistantId);
+      if (!role || !allowed.includes(role)) {
+        this.sendError(
+          sender,
+          'forbidden',
+          `你的角色(${role ?? '未指派'})不能執行此操作(${cmd.type})`
+        );
         return;
       }
     }
@@ -344,6 +476,8 @@ export class PolicyGogogoServer extends Server {
         return this.onGroupingModeChanged(cmd.payload, sender);
       case 'notify_group':
         return this.onNotifyGroup(cmd.payload, sender);
+      case 'toggle_group_pin':
+        return this.onToggleGroupPin(cmd.payload);
       case 'rename_self':
         return this.onRenameSelf(cmd.payload, sender);
       case 'leave_room':
@@ -364,6 +498,14 @@ export class PolicyGogogoServer extends Server {
         return this.onAddQuestion(cmd.payload, sender);
       case 'set_onboarding':
         return this.onSetOnboarding(cmd.payload);
+      case 'assign_assistant_role':
+        return this.onAssignAssistantRole(cmd.payload, sender);
+      case 'rename_assistant':
+        return this.onRenameAssistant(cmd.payload, sender);
+      case 'set_own_name':
+        return this.onSetOwnName(cmd.payload, sender);
+      case 'remove_assistant':
+        return this.onRemoveAssistant(cmd.payload, sender);
       default: {
         const _exhaustive: never = cmd;
         void _exhaustive;
@@ -701,8 +843,9 @@ export class PolicyGogogoServer extends Server {
     stateRestartGame(this.state);
     this.broadcastEvent({ type: 'game_restart', payload: {} });
     // Also push a fresh snapshot to all so they reset their UI.
+    const restartSnap = snapshot(this.state, this.onlineAssistantIds());
     for (const c of this.getConnections<ConnState>()) {
-      this.send(c, { type: '__room_state__', payload: snapshot(this.state) });
+      this.send(c, { type: '__room_state__', payload: restartSnap });
     }
     // prefix 模式:restartGame 已依名字前綴重新整組 → 廣播 roster,
     // 讓助理/參賽者重建 prefix 分組(他們從 roster_reshuffled 重建,
@@ -956,6 +1099,7 @@ export class PolicyGogogoServer extends Server {
       team,
       deviceId: sender.state?.deviceId ?? null,
       verified: false,
+      assistantId: null,
     });
     this.broadcastEvent({ type: 'player_join', payload: { name: payload.name, team } });
     // prefix 模式可能剛建了新組 → 廣播完整 roster,讓三端同步新組結構
@@ -996,6 +1140,7 @@ export class PolicyGogogoServer extends Server {
           name: g.name,
           members: [...g.members],
         })),
+        groupingMode: this.state.groupingMode,
       },
     });
   }
@@ -1015,9 +1160,18 @@ export class PolicyGogogoServer extends Server {
       this.state.groupingMode = 'random';
       const n = Math.max(2, Math.min(10, Math.floor(payload.count ?? this.state.groups.length ?? 2)));
       setupTeams(this.state, n);
-      reshuffleParticipants(this.state);
+      reshuffleParticipants(this.state);   // 全員重洗 → 分數歸零(見 reshuffleParticipants)
     }
     this.broadcastRoster();
+    // 重洗/重建組別可能改動分數(歸零)→ 補一發 score_update,計分卡即時反映。
+    this.broadcastEvent({
+      type: 'score_update',
+      payload: {
+        scores: this.state.groups.map((g) => ({ idx: g.idx, name: g.name, score: g.score })),
+        changedIdx: -1,
+        delta: 0,
+      },
+    });
     this.syncLeaders(true);
   }
 
@@ -1035,6 +1189,22 @@ export class PolicyGogogoServer extends Server {
       type: 'group_notice',
       payload: { team: payload.team, kind, deadlineMs: kind === 'rename' ? 30000 : 0 },
     });
+    // 記錄「最近由誰、何時」操作,讓其他分組助理避免重複發送(共用房間狀態)。
+    const by = this.state.assistants.get(sender.state?.assistantId ?? '')?.name || '助理';
+    recordGroupNotice(this.state, payload.team, kind, by);
+    this.broadcastGroupWatch();
+  }
+
+  /** 分組助理巡檢:人工勾選/取消置頂某組 → 廣播共用巡檢狀態。 */
+  private onToggleGroupPin(payload: { team: string; pinned: boolean }): void {
+    if (!payload?.team) return;
+    setGroupPin(this.state, payload.team, payload.pinned === true);
+    this.broadcastGroupWatch();
+  }
+
+  /** 廣播分組助理巡檢共用狀態(置頂清單 + 最近通知操作)。 */
+  private broadcastGroupWatch(): void {
+    this.broadcastEvent({ type: 'group_watch', payload: groupWatchPayload(this.state) });
   }
 
   /** 參賽者改自己的名字(prefix 模式會重新歸組)。 */
@@ -1059,6 +1229,7 @@ export class PolicyGogogoServer extends Server {
       team: r.newTeam ?? null,
       deviceId: sender.state?.deviceId ?? null,
       verified: false,
+      assistantId: null,
     });
     this.broadcastEvent({
       type: 'player_renamed',
@@ -1165,7 +1336,7 @@ export class PolicyGogogoServer extends Server {
    * 順便回報各角色實際連線數,現場可當點名用。
    */
   private onResyncAll(sender: Connection<ConnState>): void {
-    const snap = snapshot(this.state);
+    const snap = snapshot(this.state, this.onlineAssistantIds());
     const count = { presenter: 0, assistant: 0, participant: 0 };
     for (const c of this.getConnections<ConnState>()) {
       const role = c.state?.role;
@@ -1209,12 +1380,179 @@ export class PolicyGogogoServer extends Server {
    */
   private onSetOnboarding(payload: { enabled: boolean }): void {
     this.state.onboardingEnabled = payload?.enabled === true;
-    const snap = snapshot(this.state);
+    const snap = snapshot(this.state, this.onlineAssistantIds());
     for (const c of this.getConnections<ConnState>()) {
       try {
         this.send(c, { type: '__room_state__', payload: snap });
       } catch { /* 連線關閉中 */ }
     }
+  }
+
+  // ────────────────────────────────────────────────────────────
+  // 助理管理(伺服器權威的角色授權)
+  // ────────────────────────────────────────────────────────────
+
+  /**
+   * 指派助理角色。controlCode 已在 onMessage 驗過(證明是本房助理),
+   * 這裡再依「送出者角色」做二次授權 —— 這是把權限從「前端藏按鈕」搬到
+   * 伺服器的關鍵:光有 controlCode(所有助理都有)不足以管理他人。
+   */
+  private onAssignAssistantRole(
+    payload: { assistantId: string; role: AssistantRole },
+    sender: Connection<ConnState>
+  ): void {
+    const senderRole = assistantRoleOf(this.state, sender.state?.assistantId);
+    if (senderRole !== 'chief' && senderRole !== 'admin') {
+      this.sendError(sender, 'forbidden', '只有總助理或管理助理可以管理助理');
+      return;
+    }
+    const targetId = payload?.assistantId;
+    const newRole = payload?.role;
+    const target = targetId ? this.state.assistants.get(targetId) : undefined;
+    if (!target) {
+      this.sendError(sender, 'not_found', '找不到該助理(可能已離線超過 24 小時)');
+      return;
+    }
+    if (target.role === 'chief') {
+      this.sendError(sender, 'forbidden', '總助理身分固定(建房者),不可變更');
+      return;
+    }
+    if (newRole === 'chief') {
+      this.sendError(sender, 'forbidden', '總助理由建房者固定取得,不可指派');
+      return;
+    }
+    const validRoles: AssistantRole[] = ['admin', ...EXECUTION_ROLES, 'unassigned'];
+    if (!validRoles.includes(newRole)) {
+      this.sendError(sender, 'bad_payload', '無效的角色');
+      return;
+    }
+    // 管理助理只能管理四種執行助理:target 與 newRole 都必須落在執行角色/未指派。
+    if (senderRole === 'admin') {
+      const scope: AssistantRole[] = [...EXECUTION_ROLES, 'unassigned'];
+      if (!scope.includes(target.role)) {
+        this.sendError(sender, 'forbidden', '管理助理只能管理四種執行助理,不能變更總助理或其他管理助理');
+        return;
+      }
+      if (!scope.includes(newRole)) {
+        this.sendError(sender, 'forbidden', '管理助理不能指派「管理助理」角色');
+        return;
+      }
+    }
+    // 管理助理每房至多一位(排除目標本身,允許「維持現任 admin 不變」的冪等操作)。
+    if (newRole === 'admin' && hasAdmin(this.state, targetId)) {
+      this.sendError(sender, 'admin_exists', '每房最多一位管理助理,請先把現任管理助理改為其他角色');
+      return;
+    }
+    setAssistantRole(this.state, targetId, newRole);
+    this.broadcastAssistantRoster();
+  }
+
+  /**
+   * 移除助理(撤銷角色)。兩種情境共用:
+   *  - 移除他人:送出者須是 chief/admin;chief 可移除任何非 chief,admin 只能移除
+   *    四種執行助理/未指派者。
+   *  - 移除自己(targetId === 自身):非總助理主動轉為參賽者(管理助理退出 → 職位空缺)。
+   * 被移除者若在線,私訊 __role_revoked__,其前端走「轉為參賽者」流程。
+   */
+  private onRemoveAssistant(
+    payload: { assistantId: string },
+    sender: Connection<ConnState>
+  ): void {
+    const myId = sender.state?.assistantId;
+    const senderRole = assistantRoleOf(this.state, myId);
+    const targetId = payload?.assistantId;
+    const target = targetId ? this.state.assistants.get(targetId) : undefined;
+    if (!target) {
+      this.sendError(sender, 'not_found', '找不到該助理');
+      return;
+    }
+    if (target.role === 'chief') {
+      this.sendError(sender, 'forbidden', '總助理不可被移除');
+      return;
+    }
+    const isSelf = targetId === myId;
+    if (!isSelf) {
+      // 移除他人:須 chief/admin,且 admin 只能移除執行助理/未指派者。
+      if (senderRole !== 'chief' && senderRole !== 'admin') {
+        this.sendError(sender, 'forbidden', '只有總助理或管理助理可以移除其他助理');
+        return;
+      }
+      if (senderRole === 'admin') {
+        const scope: AssistantRole[] = [...EXECUTION_ROLES, 'unassigned'];
+        if (!scope.includes(target.role)) {
+          this.sendError(sender, 'forbidden', '管理助理只能移除四種執行助理');
+          return;
+        }
+      }
+    }
+    // isSelf 時 target.role !== 'chief' 已保證是「非總助理主動轉換」,直接放行。
+
+    removeAssistantRec(this.state, targetId);
+    // 通知被移除者(該 assistantId 目前所有連線)→ 走轉為參賽者。
+    const by: 'chief' | 'admin' | 'self' = isSelf ? 'self' : (senderRole === 'admin' ? 'admin' : 'chief');
+    for (const c of this.getConnections<ConnState>()) {
+      if (c.state?.role === 'assistant' && c.state.assistantId === targetId) {
+        try { this.send(c, { type: '__role_revoked__', payload: { by } }); } catch { /* 連線關閉中 */ }
+      }
+    }
+    this.broadcastAssistantRoster();
+  }
+
+  /** 助理替「自己」命名(加入時的請輸入姓名)。只改送出者自身紀錄,姓名去重。 */
+  private onSetOwnName(
+    payload: { name: string },
+    sender: Connection<ConnState>
+  ): void {
+    const myId = sender.state?.assistantId;
+    if (!myId || !this.state.assistants.has(myId)) {
+      this.sendError(sender, 'not_found', '找不到你的助理身分');
+      return;
+    }
+    const r = renameAssistantRec(this.state, myId, payload?.name ?? '');
+    if (!r.ok) {
+      const msg =
+        r.reason === 'duplicate' ? '這個姓名已經有人用了,請換一個' :
+        r.reason === 'too_long' ? '姓名太長(上限 20 字)' :
+        r.reason === 'empty' ? '請輸入姓名' : '設定姓名失敗';
+      this.sendError(sender, 'rename_failed', msg);
+      return;
+    }
+    this.broadcastAssistantRoster();
+  }
+
+  /** 替某位助理改名(授權同 assign;姓名不可與其他助理重複)。 */
+  private onRenameAssistant(
+    payload: { assistantId: string; name: string },
+    sender: Connection<ConnState>
+  ): void {
+    const senderRole = assistantRoleOf(this.state, sender.state?.assistantId);
+    if (senderRole !== 'chief' && senderRole !== 'admin') {
+      this.sendError(sender, 'forbidden', '只有總助理或管理助理可以管理助理');
+      return;
+    }
+    const targetId = payload?.assistantId;
+    const target = targetId ? this.state.assistants.get(targetId) : undefined;
+    if (!target) {
+      this.sendError(sender, 'not_found', '找不到該助理');
+      return;
+    }
+    if (senderRole === 'admin') {
+      const scope: AssistantRole[] = [...EXECUTION_ROLES, 'unassigned'];
+      if (!scope.includes(target.role)) {
+        this.sendError(sender, 'forbidden', '管理助理只能管理四種執行助理');
+        return;
+      }
+    }
+    const r = renameAssistantRec(this.state, targetId, payload?.name ?? '');
+    if (!r.ok) {
+      const msg =
+        r.reason === 'duplicate' ? '助理姓名不可重複' :
+        r.reason === 'too_long' ? '姓名太長(上限 20 字)' :
+        r.reason === 'empty' ? '姓名不可空白' : '改名失敗';
+      this.sendError(sender, 'rename_failed', msg);
+      return;
+    }
+    this.broadcastAssistantRoster();
   }
 
   /**

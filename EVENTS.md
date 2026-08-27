@@ -215,6 +215,57 @@
 
 ---
 
+### Multi-assistant roles (server-authoritative)
+
+取代舊「所有助理平權共用 controlCode + 前端鎖分頁」模型。角色由 server 判定並廣播;
+`controlCode`(所有助理都有)只證明「是本房助理」,**每一條特權指令**再依送出者角色
+二次授權(server.ts 的 `ROLE_PERMS` 矩陣,在 `onMessage` 攔截;越權/未指派 → `forbidden`)。
+身分 = 助理端 `deviceId`(24h 內同裝置重連恢復原角色)。
+角色:`chief`(總助理,建房者,唯一) / `admin`(管理助理,每房至多一位) /
+`scorer`·`grouper`·`host`·`projector`(四種執行助理) / `unassigned`(未指派)。
+
+`ROLE_PERMS` 摘要:遊戲流程(game_start / start_rush / enter_category / reveal_answer /
+next_question / set_timer / game_restart / export_result / rush_mode_changed / …)= 只有 `chief`;
+`score_adjust`(+1/-1)= `chief`·`admin`·`scorer`;一般/分組設定 + 邀請 + resync = `chief`·`admin`;
+`notify_group` = `chief`·`admin`·`grouper`;`assign_assistant_role`/`rename_assistant` = `chief`·`admin`。
+前端另依角色收斂工作臺(每角色只顯示該看的分頁),但**畫面收斂只是輔助,真正的防線在 server**。
+
+身分生命週期相關指令/事件:
+- `set_own_name {name}`(privileged,所有角色):加入時「請輸入姓名」;非總助理新加入時 name='' 才可進工作臺;姓名不可與其他助理重複。
+- `remove_assistant {assistantId}`(privileged,所有角色送、handler 二次驗證):撤權/移除。chief 可移除任何非 chief;admin 只能移除四種執行助理/未指派;另允許「移除自己」(主動轉為參賽者、admin 退出使職位空缺)。被移除者若在線 → 私訊 `__role_revoked__ {by:'chief'|'admin'|'self'}`,前端提示後導向參賽者端(帶同房號/host/did)輸入姓名加入本場。
+- 各角色可見邀請入口:所有助理都看得到房號、助理端控制碼、助理端 QR、參賽者邀請 QR;`投影端控制碼` 只有 chief/admin/projector;房號重新生成/自訂只有 chief。
+
+分組助理巡檢(前綴分組):
+- `toggle_group_pin {team, pinned}`(privileged;chief/admin/grouper):人工勾選置頂,房間共用。「其他組」固定置頂不吃此指令。
+- `notify_group` 現額外記錄最近操作者姓名與時間。
+- `group_watch {pinned, notices}`(broadcast + snapshot):置頂清單 + 各組最近通知操作(kind→{by,at}),供助理端排序、只在置頂組顯示通知按鈕、並標示「最近由誰、多久前」。
+
+#### `__welcome__`(擴充)
+- 助理端額外帶 `assistantId`(本連線身分)、`assistantRole`(當前角色)。
+
+#### `__room_state__`(擴充)
+- 快照額外帶 `assistants: [{id,name,role,online}]` 與 `chiefId`;late-join/重連端據此還原
+  「助理管理」分頁與自身角色。
+
+#### `assign_assistant_role`(ClientCommand,privileged)
+- **Payload:** `{ assistantId: string, role: AssistantRole }`
+- **Auth:** 送出者須為 chief 或 admin。chief 可改任何非 chief;新角色可 admin/四種執行/unassigned。
+  admin 只能改「四種執行助理或未指派者」、新角色限四種執行/unassigned;不可動 chief/admin。
+  admin 每房至多一位;chief 身分固定不可變更。失敗回 `__error__`(forbidden/admin_exists/…)。
+- **Success:** 廣播 `assistant_roster`。
+
+#### `rename_assistant`(ClientCommand,privileged)
+- **Payload:** `{ assistantId: string, name: string }`
+- **Auth:** 同 `assign_assistant_role`;姓名 1–20 字、不可與其他助理重複(重複 → `rename_failed`)。
+- **Success:** 廣播 `assistant_roster`。
+
+#### `assistant_roster`(ServerEvent,broadcast)
+- **Payload:** `{ assistants: [{id,name,role,online}], chiefId: string|null }`
+- **Receivers:** assistant(「助理管理」分頁重畫;各助理比對自身 id 得知最新角色)。
+- **Authority:** AUTHORITATIVE — 助理連線/離線/被指派/改名時由 server 發出。
+
+---
+
 ### Events Emitted by PRESENTER
 
 #### `__ping__`

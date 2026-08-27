@@ -1583,7 +1583,12 @@ if (!PGG_ROOM_CODE) {
 }
 const PGG_JOIN_URL = window.location.origin + '/r/' + PGG_ROOM_CODE;
 // 部署環境:預設指向正式 PartyKit URL;本機開發可用 ?host=localhost:1999 覆寫。
-const PGG_PARTY_HOST = _PGG_QS.get('host') || 'policy-gogogo-party.aoc7328.workers.dev';
+// 後端主機:?host= 最優先(本機測試用);預覽(測試)站自動連測試後端,
+// 正式站(policy-gogogo.pages.dev)與其他一律連正式後端 —— 可安全合併回正式。
+const PGG_PARTY_HOST = _PGG_QS.get('host')
+  || (location.hostname.endsWith('.pages.dev') && location.hostname !== 'policy-gogogo.pages.dev'
+      ? 'policy-gogogo-party-beta.aoc7328.workers.dev'
+      : 'policy-gogogo-party.aoc7328.workers.dev');
 
 // 同 origin 跨 tab 同步:助理端 reload 換新房號時會 setItem('pgg_last_room',
 // 新碼),storage event 在「另一個 tab」會觸發。本分頁如果 URL 沒帶明確
@@ -1605,8 +1610,21 @@ window.addEventListener('storage', e => {
    會繼承同一個 (name, team) 走進同組。被踢的舊分頁會收到 __kicked__ 事件
    並停止重連,顯示提示要使用者改用新分頁。 */
 const PGG_DEVICE_KEY = 'pgg_device_id_v1';
-const PGG_PARTICIPANT_KEY = 'pgg_participant_v1';
+// 記住的參賽者身分(名字/隊伍)要跟著 deviceId 分開存 —— testbed 裡多個參賽者
+// 分頁同源、共用 localStorage,若共用同一把 key 會全部讀到同一筆(例:第二個
+// 新參賽者一連上就變成前一個的名字)。正式站沒有 ?did → key 維持原本的
+// 'pgg_participant_v1',行為與現在完全相同。
+const PGG_PARTICIPANT_KEY = (() => {
+  try { const d = new URLSearchParams(location.search).get('did'); if (d) return 'pgg_participant_v1:' + d; } catch { /* ignore */ }
+  return 'pgg_participant_v1';
+})();
 function getOrCreateDeviceId() {
+  // testbed 用 ?did= 給每個 iframe 獨立身分(例:助理轉為參賽者後沿用同 did,
+  // 才不會與其他分頁在同源 localStorage 撞同一個 deviceId 而互踢)。
+  try {
+    const ov = new URLSearchParams(location.search).get('did');
+    if (ov) return ov;
+  } catch { /* ignore */ }
   try {
     let id = localStorage.getItem(PGG_DEVICE_KEY);
     if (!id) {
@@ -1750,9 +1768,14 @@ PartyBus.on('__staff_route__', payload => {
   G._pendingPresenterCode = null;
   const room = encodeURIComponent(PGG_ROOM_CODE);
   const host = encodeURIComponent(PGG_PARTY_HOST);
+  // testbed:沿用同一個 deviceId(?did=)轉為助理,身分才不會與其他同源分頁
+  // 相撞而互踢;正式站沒有 ?did → 網址與原本完全相同(deviceId 由 localStorage
+  // 延續),不影響現場行為。
+  const _did = new URLSearchParams(location.search).get('did');
+  const didQ = _did ? `&did=${encodeURIComponent(_did)}` : '';
   if (payload?.dest === 'assistant') {
     // 助理介面(/ass):連上後自己會拿 controlCode(__welcome__),URL 不必帶碼
-    window.location.href = `/ass?room=${room}&host=${host}`;
+    window.location.href = `/ass?room=${room}&host=${host}${didQ}`;
   } else {
     // 投影端(/pj):帶 controlCode 供特權指令簽章
     const cc = encodeURIComponent(payload?.controlCode || typed || '');
