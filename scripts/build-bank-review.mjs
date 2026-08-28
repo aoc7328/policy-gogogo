@@ -19,7 +19,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { ROUND2_FINDINGS } from './data-review-round2.mjs';
+import { ROUND2_FINDINGS, ROUND2_RESOLUTION, ROUND2_RESOLVED_AT } from './data-review-round2.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => JSON.parse(readFileSync(resolve(ROOT, p), 'utf8'));
@@ -293,13 +293,13 @@ const DATA = {
     scrambleHell: scramble.filter((s) => s.bank === 'hell').length,
     scramblePurg: scramble.filter((s) => s.bank === 'purgatory').length,
   },
-  resolvedAt: RESOLVED_AT,
+  resolvedAt: ROUND === 2 ? ROUND2_RESOLVED_AT : RESOLVED_AT,
   findings: FINDINGS.map((f) => {
     const qid = f.refId || f.id;   // 重複類發現用 refId 指向實際題目
     return {
       ...f,
       displayId: qid,            // 卡片與提示詞顯示用的真實題號(內部 id 仍需唯一以便存狀態)
-      resolution: ROUND === 1 ? (RESOLUTION[f.id] || null) : null,
+      resolution: (ROUND === 1 ? RESOLUTION[f.id] : ROUND2_RESOLUTION[f.id]) || null,
       q: byId.has(qid) ? pick(byId.get(qid)) : null,
     };
   }),
@@ -310,7 +310,8 @@ const DATA = {
 // 檢查:題目不在題庫時,必須是「審閱判定刪除」才合理;否則是意外遺失。
 for (const f of FINDINGS) {
   const qid = f.refId || f.id;
-  if (!byId.has(qid) && (ROUND === 2 || RESOLUTION[f.id] !== 'delete')) {
+  const res = ROUND === 1 ? RESOLUTION[f.id] : ROUND2_RESOLUTION[f.id];
+  if (!byId.has(qid) && res !== 'delete') {
     throw new Error(`題目 ${qid} 不在題庫(finding ${f.id})`);
   }
 }

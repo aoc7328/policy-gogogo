@@ -8,6 +8,18 @@
  * sev: 高／中／低
  */
 
+/** 2026-08-28 外部專家審閱結果(已全部套用)。delete=刪除、modify=修改。 */
+export const ROUND2_RESOLVED_AT = '2026-08-28';
+export const ROUND2_RESOLUTION = {
+  'H-ES-012': 'modify', 'H-ES-014': 'modify', 'M-ES-017': 'delete',
+  'M-ES-022': 'modify', 'M-MC-017': 'delete',
+  'E-MC-003': 'modify', 'H-MC-013': 'modify',
+  'E-MC-002': 'modify', 'H-MC-016': 'modify', 'M-ES-019': 'modify', 'M-SA-003': 'modify',
+  'E-CA-008': 'modify', 'E-MC-002_dup': 'modify', 'E-MC-003_dup': 'modify',
+  'H-SA-002': 'modify', 'H-SA-007': 'modify', 'H-SA-013': 'modify',
+  'M-MC-004': 'modify', 'M-MC-015': 'modify',
+};
+
 export const ROUND2_FINDINGS = [
   // ══ A · 法規時效 ══════════════════════════════════════════════
   {
