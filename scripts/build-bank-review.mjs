@@ -45,6 +45,19 @@ const byId = new Map(ALL.map((q) => [q.id, q]));
 
 // ── 稽核結果(2026-08-27)─────────────────────────────────────────
 // cat: A=法規錯誤/過時  C=框架牽強  D=小毛病
+// ── 2026-08-28 外部專家審閱結果(已全部套用)────────────────────────
+// decision: delete=刪除  modify=修改。刪除的題目已不在題庫,頁面顯示為
+// 「已刪除」而不再展開原文。這張表讓本頁同時是「稽核發現」與「處理紀錄」。
+const RESOLVED_AT = '2026-08-28';
+const RESOLUTION = {
+  'X-CA-001': 'modify', 'X-CA-003': 'modify', 'X-CA-005': 'modify',
+  'X-CA-008': 'modify', 'X-CA-009': 'delete', 'X-CA-010': 'delete',
+  'X-CA-011': 'modify', 'X-CA-015': 'delete', 'X-CA-017': 'modify',
+  'X-ES-005': 'modify', 'X-ES-008': 'modify', 'X-ES-014': 'modify',
+  'X-ES-015': 'delete', 'X-ES-018': 'modify', 'X-MC-003': 'modify',
+  'X-MC-011': 'modify', 'X-MC-022': 'modify', 'X-SA-011': 'modify',
+};
+
 const FINDINGS = [
   {
     id: 'X-MC-003', cat: 'A', sev: '高',
@@ -236,14 +249,21 @@ const DATA = {
     scrambleHell: scramble.filter((s) => s.bank === 'hell').length,
     scramblePurg: scramble.filter((s) => s.bank === 'purgatory').length,
   },
-  findings: FINDINGS.map((f) => ({ ...f, q: pick(byId.get(f.id)) })),
+  resolvedAt: RESOLVED_AT,
+  findings: FINDINGS.map((f) => ({
+    ...f,
+    resolution: RESOLUTION[f.id] || null,
+    q: byId.has(f.id) ? pick(byId.get(f.id)) : null,
+  })),
   scramble: scramble.map((s) => ({ ...s, q: pick(byId.get(s.id)) })),
   all: ALL.map(pick),
 };
 
-// 檢查:每個 finding 都要找得到題目
+// 檢查:題目不在題庫時,必須是「審閱判定刪除」才合理;否則是意外遺失。
 for (const f of FINDINGS) {
-  if (!byId.has(f.id)) throw new Error(`找不到題目 ${f.id}`);
+  if (!byId.has(f.id) && RESOLUTION[f.id] !== 'delete') {
+    throw new Error(`題目 ${f.id} 不在題庫,但審閱結果不是刪除 —— 可能被誤刪`);
+  }
 }
 
 const json = JSON.stringify(DATA)
@@ -630,17 +650,30 @@ function findingCard(f){
   var h = '<article class="card'+(done?' done':'')+'" data-sev="'+esc(f.sev)+'" data-id="'+esc(f.id)+'">';
   h += '<div class="chd"><div class="tags">';
   h += '<span class="tag id">'+esc(f.id)+'</span>';
-  h += '<span class="tag">'+esc(f.q.bankLabel)+'級</span>';
-  h += '<span class="tag">'+esc(f.q.typeLabel)+'</span>';
-  if (f.q.topic) h += '<span class="tag">'+esc(f.q.topic)+'</span>';
+  if (f.q){
+    h += '<span class="tag">'+esc(f.q.bankLabel)+'級</span>';
+    h += '<span class="tag">'+esc(f.q.typeLabel)+'</span>';
+    if (f.q.topic) h += '<span class="tag">'+esc(f.q.topic)+'</span>';
+  }
   h += '<span class="tag '+sevCls+'">'+esc(catLabel)+' · '+esc(f.sev)+'</span>';
-  if (done) h += '<span class="tag done">已判定：'+esc(DECIS_LABEL[it.decision]||'已填備註')+'</span>';
+  if (f.resolution){
+    h += '<span class="tag" style="background:var(--ok-s);color:var(--ok);margin-left:auto">✓ '
+       + esc(D.resolvedAt) + ' 已' + (f.resolution==='delete'?'刪除':'修改') + '</span>';
+  } else if (done) {
+    h += '<span class="tag done">已判定：'+esc(DECIS_LABEL[it.decision]||'已填備註')+'</span>';
+  }
   h += '</div>';
   h += '<div class="finding"><h3>'+esc(f.title)+'</h3><p>'+esc(f.detail)+'</p>';
   if (f.ref) h += '<p><span class="lbl">依據</span>'+esc(f.ref)+'</p>';
   if (f.note) h += '<p><span class="lbl">備註</span>'+esc(f.note)+'</p>';
   h += '<p class="sug"><span class="lbl">系統建議</span>'+esc(f.suggest)+'</p></div></div>';
-  h += '<details class="qd"><summary>展開題目原文與答案</summary><div class="qbody">'+qDetail(f.q)+'</div></details>';
+  if (f.q){
+    h += '<details class="qd"><summary>展開題目原文與答案</summary><div class="qbody">'
+       + qDetail(f.q) + '</div></details>';
+  } else {
+    h += '<div style="padding:11px 18px;background:var(--surface-2);border-top:1px solid var(--line-2);'
+       + 'font-size:13px;color:var(--ink-2)">本題已依審閱結果自題庫刪除，原文不再顯示。</div>';
+  }
   h += decideBlock(f.id, '請寫下您的判斷與建議改法（例如：法規已改為 120 萬，選項與解析一併更新；或：此題我認為維持原樣即可，理由…）');
   h += '</article>';
   return h;
