@@ -19,12 +19,23 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { ROUND2_FINDINGS } from './data-review-round2.mjs';
+
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => JSON.parse(readFileSync(resolve(ROOT, p), 'utf8'));
 
-// ── 讀題庫 ────────────────────────────────────────────────────────
-const hellBank = read('public/data/insurance-quiz-bank-hell.json');
-const purgBank = read('public/data/insurance-quiz-bank-purgatory.json');
+// 哪一輪:1 = 地獄／煉獄(2026-08-27),2 = 簡單／普通／困難(2026-08-28)
+const ROUND = process.argv.includes('--round=2') ? 2 : 1;
+
+// ── 讀題庫(依輪次)────────────────────────────────────────────────
+const BANK_FILES = {
+  hell: 'public/data/insurance-quiz-bank-hell.json',
+  purgatory: 'public/data/insurance-quiz-bank-purgatory.json',
+  easy: 'public/data/insurance-quiz-bank-easy.json',
+  medium: 'public/data/insurance-quiz-bank-medium.json',
+  hard: 'public/data/insurance-quiz-bank-hard.json',
+};
+const BANK_LABEL = { hell: '地獄', purgatory: '煉獄', easy: '簡單', medium: '普通', hard: '困難' };
 
 const TYPE_LABEL = {
   short_answer: '簡答題',
@@ -34,13 +45,27 @@ const TYPE_LABEL = {
   word_game: '一字千金',
 };
 
-const hellQs = Object.entries(hellBank.questions.hell).flatMap(([type, arr]) =>
-  arr.map((q) => ({ ...q, type, bank: 'hell', bankLabel: '地獄' }))
-);
-const purgQs = Object.values(purgBank.questions).map((q) => ({
-  ...q, bank: 'purgatory', bankLabel: '煉獄',
-}));
-const ALL = [...hellQs, ...purgQs];
+/** 攤平題庫:各難度的 questions 結構不一致(有的分題型、有的一條陣列)。 */
+function loadBank(key) {
+  const j = read(BANK_FILES[key]);
+  const out = [];
+  const walk = (node, type) => {
+    if (Array.isArray(node)) {
+      node.forEach((q) => q && q.id && out.push({
+        ...q, type: q.type || type, bank: key, bankLabel: BANK_LABEL[key],
+      }));
+      return;
+    }
+    if (node && typeof node === 'object') {
+      for (const [k, v] of Object.entries(node)) walk(v, k);
+    }
+  };
+  walk(j.questions, null);
+  return out;
+}
+
+const ROUND_BANKS = ROUND === 2 ? ['easy', 'medium', 'hard'] : ['hell', 'purgatory'];
+const ALL = ROUND_BANKS.flatMap(loadBank);
 const byId = new Map(ALL.map((q) => [q.id, q]));
 
 // ── 稽核結果(2026-08-27)─────────────────────────────────────────
@@ -58,7 +83,7 @@ const RESOLUTION = {
   'X-MC-011': 'modify', 'X-MC-022': 'modify', 'X-SA-011': 'modify',
 };
 
-const FINDINGS = [
+const ROUND1_FINDINGS = [
   {
     id: 'X-MC-003', cat: 'A', sev: '高',
     title: '評議中心「100 萬」是舊制,現行為 120 萬／12 萬',
@@ -198,8 +223,12 @@ const FINDINGS = [
   },
 ];
 
-// ── 解析錯位:2026-08-27 已修正,這裡讀「修正紀錄」供抽查 ─────────────
-const fixRecord = read('scripts/data-scramble-fix-record.json');
+// 本輪要用的發現清單
+const FINDINGS = ROUND === 2 ? ROUND2_FINDINGS : ROUND1_FINDINGS;
+
+// ── 解析錯位:僅第一輪有(2026-08-27 已修正,讀修正紀錄供抽查)─────────
+const fixRecord = ROUND === 2 ? { fixedAt: null, items: [] }
+  : read('scripts/data-scramble-fix-record.json');
 const scramble = fixRecord.items.map((r) => {
   const q = byId.get(r.id);
   return { ...r, correct: q ? q.correct : '', ok: !!q && q.explanation.includes(`**${q.correct} 最優**`) };
@@ -238,31 +267,51 @@ const pick = (q) => ({
   meaning: q.meaning || '',
 });
 
+const ROUND_META = ROUND === 2
+  ? { round: 2, title: '簡單／普通／困難級題庫審閱',
+      sub: '第二輪稽核 · 涵蓋簡單、普通、困難三個題庫',
+      catLabel: { A: '法規時效', B: '題目瑕疵', C: '敘述不精確', D: '題目重複' },
+      catFull: { A: 'A · 法規已過時（建議優先處理）', B: 'B · 題目本身有瑕疵（答案有疑義）',
+                 C: 'C · 敘述不精確（不影響答案，但專業學員看得出來）', D: 'D · 題目重複（同一場可能連續抽到）' },
+      prefixNote: 'E- 開頭為簡單級、M- 普通級、H- 困難級' }
+  : { round: 1, title: '地獄／煉獄級題庫審閱',
+      sub: '第一輪稽核 · 涵蓋地獄、煉獄兩個題庫',
+      catLabel: { A: '法規錯誤／過時', C: '框架牽強', D: '細節瑕疵' },
+      catFull: { A: 'A · 法規錯誤或已過時（建議優先處理）', C: 'C · 題目框架牽強（建議改寫）',
+                 D: 'D · 細節瑕疵（影響較小）' },
+      prefixNote: 'X- 開頭為地獄級、P- 為煉獄級' };
+
 const DATA = {
   builtAt: new Date().toISOString().slice(0, 10),
+  meta: ROUND_META,
   fixedAt: fixRecord.fixedAt,
   counts: {
-    hell: hellQs.length,
-    purgatory: purgQs.length,
+    total: ALL.length,
+    byBank: ROUND_BANKS.map((k) => ({ key: k, label: BANK_LABEL[k], n: ALL.filter((q) => q.bank === k).length })),
     findings: FINDINGS.length,
     scramble: scramble.length,
     scrambleHell: scramble.filter((s) => s.bank === 'hell').length,
     scramblePurg: scramble.filter((s) => s.bank === 'purgatory').length,
   },
   resolvedAt: RESOLVED_AT,
-  findings: FINDINGS.map((f) => ({
-    ...f,
-    resolution: RESOLUTION[f.id] || null,
-    q: byId.has(f.id) ? pick(byId.get(f.id)) : null,
-  })),
+  findings: FINDINGS.map((f) => {
+    const qid = f.refId || f.id;   // 重複類發現用 refId 指向實際題目
+    return {
+      ...f,
+      displayId: qid,            // 卡片與提示詞顯示用的真實題號(內部 id 仍需唯一以便存狀態)
+      resolution: ROUND === 1 ? (RESOLUTION[f.id] || null) : null,
+      q: byId.has(qid) ? pick(byId.get(qid)) : null,
+    };
+  }),
   scramble: scramble.map((s) => ({ ...s, q: pick(byId.get(s.id)) })),
   all: ALL.map(pick),
 };
 
 // 檢查:題目不在題庫時,必須是「審閱判定刪除」才合理;否則是意外遺失。
 for (const f of FINDINGS) {
-  if (!byId.has(f.id) && RESOLUTION[f.id] !== 'delete') {
-    throw new Error(`題目 ${f.id} 不在題庫,但審閱結果不是刪除 —— 可能被誤刪`);
+  const qid = f.refId || f.id;
+  if (!byId.has(qid) && (ROUND === 2 || RESOLUTION[f.id] !== 'delete')) {
+    throw new Error(`題目 ${qid} 不在題庫(finding ${f.id})`);
   }
 }
 
@@ -468,8 +517,8 @@ button.btn.primary:hover{filter:brightness(1.08)}
 
 <header>
   <div class="wrap">
-    <h1>保險知識星攻略 · 題庫審閱</h1>
-    <p class="sub">地獄級 ＋ 煉獄級題庫稽核結果 · 請協助判定每一題要「刪除／修改／保留」</p>
+    <h1>保險知識星攻略 · <span id="m-title">題庫審閱</span></h1>
+    <p class="sub" id="m-sub">稽核結果 · 請協助判定每一題要「刪除／修改／保留」</p>
     <div class="meta">
       <span class="chip">建檔 <b id="m-date"></b></span>
       <span class="chip">待判定 <b id="m-find"></b> 題</span>
@@ -487,7 +536,7 @@ button.btn.primary:hover{filter:brightness(1.08)}
       <li>這是保險教育訓練搶答遊戲的題庫，最近實際使用後發現部分題目的<b>答案有疑慮或法規已過時</b>。</li>
       <li>系統已先做過一輪稽核，列出<b id="i-find">—</b>題有問題的題目（下方「待判定」分頁），每題附上疑慮說明與建議。</li>
       <li>請您逐題選擇處理方式並寫下建議；不同意稽核意見也請直接寫，這正是需要專業把關的地方。</li>
-      <li>另有一批<b id="i-scr">—</b>題的「解析與正解對不上」已經修好了，請到該分頁<b>抽查</b>確認修得對不對。</li>
+      <li id="i-scr-line">另有一批<b id="i-scr">—</b>題的「解析與正解對不上」已經修好了，請到該分頁<b>抽查</b>確認修得對不對。</li>
       <li>審完後切到最後的<b>「產生回覆」</b>分頁，按一下<b>「複製全部內容」</b>，直接貼到 LINE 傳回承辦人就完成了 —— <b>不需要下載任何檔案</b>。</li>
     </ol>
     <div class="who">
@@ -501,7 +550,7 @@ button.btn.primary:hover{filter:brightness(1.08)}
   <nav class="tabs">
     <div class="row">
       <button class="tab on" data-tab="find">待判定<span class="n" id="t-find"></span></button>
-      <button class="tab" data-tab="scr">已修正抽查<span class="n" id="t-scr"></span></button>
+      <button class="tab" data-tab="scr" id="tab-scr">已修正抽查<span class="n" id="t-scr"></span></button>
       <button class="tab" data-tab="all">全部題目<span class="n" id="t-all"></span></button>
       <button class="tab" data-tab="sum">整體建議</button>
       <button class="tab" data-tab="out">產生回覆 ✓</button>
@@ -646,10 +695,10 @@ function findingCard(f){
   var it = state.items[f.id] || {};
   var done = !!(it.decision || (it.note||'').trim());
   var sevCls = f.sev==='高'?'high':(f.sev==='中'?'mid':'');
-  var catLabel = {A:'法規錯誤／過時', C:'框架牽強', D:'細節瑕疵'}[f.cat] || f.cat;
+  var catLabel = (D.meta.catLabel||{})[f.cat] || f.cat;
   var h = '<article class="card'+(done?' done':'')+'" data-sev="'+esc(f.sev)+'" data-id="'+esc(f.id)+'">';
   h += '<div class="chd"><div class="tags">';
-  h += '<span class="tag id">'+esc(f.id)+'</span>';
+  h += '<span class="tag id">'+esc(f.displayId||f.id)+'</span>';
   if (f.q){
     h += '<span class="tag">'+esc(f.q.bankLabel)+'級</span>';
     h += '<span class="tag">'+esc(f.q.typeLabel)+'</span>';
@@ -701,7 +750,7 @@ var currentTab = 'find';
 function render(){
   var v = $('view');
   if (currentTab === 'find'){
-    var order = {'A':0,'C':1,'D':2};
+    var order = {'A':0,'B':1,'C':2,'D':3};
     var list = D.findings.slice().sort(function(a,b){
       return (order[a.cat]-order[b.cat]) || a.id.localeCompare(b.id);
     });
@@ -710,7 +759,7 @@ function render(){
     list.forEach(function(f){
       if (f.cat !== lastCat){
         lastCat = f.cat;
-        var t = {A:'A · 法規錯誤或已過時（建議優先處理）', C:'C · 題目框架牽強（建議改寫）', D:'D · 細節瑕疵（影響較小）'}[f.cat];
+        var t = (D.meta.catFull||{})[f.cat] || f.cat;
         h += '<h2 style="margin:26px 0 12px;font-size:15px;letter-spacing:.03em;color:var(--ink-2)">'+esc(t)+'</h2>';
       }
       h += findingCard(f);
@@ -867,15 +916,15 @@ function buildPrompt(){
   }).filter(Boolean);
   if (findRows.length){
     L.push('═══ ' + NUM() + '、稽核提出的問題題目 ═══');
-    var catName = {A:'A 法規錯誤／過時', C:'C 框架牽強', D:'D 細節瑕疵'};
+    var catName = D.meta.catFull || {};
     var lastCat = null;
     findRows.sort(function(a,b){
-      var o = {A:0,C:1,D:2};
+      var o = {A:0,B:1,C:2,D:3};
       return (o[a.f.cat]-o[b.f.cat]) || a.f.id.localeCompare(b.f.id);
     }).forEach(function(r){
       if (r.f.cat !== lastCat){ lastCat = r.f.cat; L.push(''); L.push('── ' + catName[r.f.cat] + ' ──'); }
       L.push('');
-      L.push('[' + r.f.id + '] ' + (DECIS_LABEL[r.it.decision] || '（未選處理方式）'));
+      L.push('[' + (r.f.displayId || r.f.id) + '] ' + (DECIS_LABEL[r.it.decision] || '（未選處理方式）'));
       L.push('  問題：' + r.f.title);
       if ((r.it.note||'').trim()) L.push('  審閱意見：' + r.it.note.trim().replace(/\\n/g, '\\n　　'));
     });
@@ -928,7 +977,7 @@ function buildPrompt(){
 
   L.push('───────────────');
   L.push('以上是外部專家對題庫的審閱結果，請依此修改題庫，並回報每一項的處理情況。');
-  L.push('（題號對應 public/data/ 底下的題庫檔；X- 開頭為地獄級、P- 為煉獄級、H- 困難、M- 普通、E- 簡單。）');
+  L.push('（題號對應 public/data/ 底下的題庫檔；' + D.meta.prefixNote + '。）');
   return L.join('\\n');
 }
 function copyText(text, okMsg){
@@ -1012,15 +1061,24 @@ $('btn-goout').addEventListener('click', function(){
 });
 
 /* ── 啟動 ── */
+if (D.meta){
+  var mt = $('m-title'); if (mt) mt.textContent = D.meta.title;
+  var ms = $('m-sub'); if (ms) ms.textContent = D.meta.sub + ' · 請協助判定每一題要「刪除／修改／保留」';
+  document.title = '保險知識星攻略 · ' + D.meta.title;
+}
+if (!D.scramble.length){
+  var ts = $('tab-scr'); if (ts) ts.style.display = 'none';
+  var il = $('i-scr-line'); if (il) il.style.display = 'none';
+}
 $('m-date').textContent = D.builtAt;
 $('m-find').textContent = D.counts.findings;
 $('m-scr').textContent = D.counts.scramble;
-$('m-all').textContent = D.counts.hell + D.counts.purgatory;
+$('m-all').textContent = D.counts.total;
 $('i-find').textContent = D.counts.findings;
 $('i-scr').textContent = D.counts.scramble;
 $('t-find').textContent = D.counts.findings;
 $('t-scr').textContent = D.counts.scramble;
-$('t-all').textContent = D.counts.hell + D.counts.purgatory;
+$('t-all').textContent = D.counts.total;
 $('reviewer').value = state.reviewer || '';
 render();
 save();
@@ -1030,7 +1088,7 @@ save();
 </html>
 `;
 
-const OUT = resolve(ROOT, 'bank-review.html');
+const OUT = resolve(ROOT, ROUND === 2 ? 'bank-review-r2.html' : 'bank-review.html');
 writeFileSync(OUT, html, 'utf8');
 const kb = (Buffer.byteLength(html, 'utf8') / 1024).toFixed(0);
 console.log(`✅ 已產生 ${OUT}`);
